@@ -1,3 +1,3 @@
-# `satterc.models.pmodel`
+# pmodel
 
 ::: satterc.models.pmodel

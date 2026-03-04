@@ -1,0 +1,8 @@
+modules = [
+  "splash",
+  "pmodel"
+]
+
+[config]
+max_soil_moisture = 3
+method_optchi = "simple"

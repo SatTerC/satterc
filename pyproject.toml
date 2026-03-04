@@ -15,10 +15,11 @@ dependencies = [
     "numpy>=2.4.2",
     "pyrealm>=2.0.0",
     "sf-hamilton[visualization]>=1.89.0",
+    "typer>=0.24.1",
 ]
 
 [project.scripts]
-viz = "satterc.viz:viz"
+satterc = "satterc.cli:main"
 
 [dependency-groups]
 dev = [
