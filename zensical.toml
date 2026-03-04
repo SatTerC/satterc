@@ -73,7 +73,7 @@ paths = ["src"]
 
 [project.plugins.mkdocstrings.handlers.python.options]
 annotations_path = "brief"
-docstring_style = "google"
+docstring_style = "numpy"
 docstring_section_style = "list"
 inherited_members = true
 line_length = 88

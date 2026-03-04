@@ -11,7 +11,14 @@ authors = [
     { name = "jmarshrossney", email = "17361029+jmarshrossney@users.noreply.github.com" }
 ]
 requires-python = ">=3.13"
-dependencies = []
+dependencies = [
+    "numpy>=2.4.2",
+    "pyrealm>=2.0.0",
+    "sf-hamilton[visualization]>=1.89.0",
+]
+
+[project.scripts]
+viz = "satterc.viz:viz"
 
 [dependency-groups]
 dev = [
