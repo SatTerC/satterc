@@ -5,6 +5,32 @@ from numpy.typing import NDArray
 from rothc_py import RothC, percent_modern_c
 
 
+def rothc_parameters(
+    clay: float,
+    soil_depth: float,
+    inert_organic_matter: float,
+    n_years_spinup: int,
+) -> tuple[float, float, float, int]:
+    """Static parameters for the Rothamsted Carbon model.
+
+    Parameters
+    ----------
+    clay
+        Clay content percentage.
+    soil_depth
+        Soil depth in cm.
+    inert_organic_matter
+        Inert organic matter in tC/ha.
+    n_years_spinup
+        Number of years to use for model spin-up.
+
+    Returns
+    -------
+    Tuple containing these parameters.
+    """
+    return (clay, soil_depth, inert_organic_matter, n_years_spinup)
+
+
 @extract_fields(
     [
         "decomposable_plant_material_monthly",
@@ -23,10 +49,7 @@ def rothc(
     carbon_input_monthly: NDArray[np.float64],
     farmyard_manure_input_monthly: NDArray[np.float64],
     dates_monthly: NDArray[np.datetime64],
-    clay: float,
-    soil_depth: float,
-    inert_organic_matter: float,
-    n_years_spinup: int,
+    rothc_parameters: tuple[float, float, float, int],
 ) -> dict[str, NDArray]:
     """
     Rothamsted Carbon model.
@@ -51,14 +74,8 @@ def rothc(
         Farmyard manure input in tC/ha/month.
     dates_monthly
         Monthly dates as numpy datetime64.
-    clay
-        Clay content percentage.
-    soil_depth
-        Soil depth in cm.
-    inert_organic_matter
-        Inert organic matter in tC/ha.
-    n_years_spinup
-        Number of years to use for model spin-up.
+    rothc_parameters
+        Tuple of parameters.
 
     Returns
     -------
@@ -75,6 +92,7 @@ def rothc(
     All outputs have units tC/ha (tonnes of Carbon per hectare).
     All outputs are at monthly resolution.
     """
+    clay, soil_depth, inert_organic_matter, n_years_spinup = rothc_parameters
     n_spinup_months = n_years_spinup * 12
 
     t_mod = percent_modern_c(start_date=dates_monthly[0], n_months=len(dates_monthly))
