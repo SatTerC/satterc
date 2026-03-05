@@ -14,6 +14,7 @@ requires-python = ">=3.13"
 dependencies = [
     "numpy>=2.4.2",
     "pyrealm>=2.0.0",
+    "rothc-py",
     "sf-hamilton[visualization]>=1.89.0",
     "typer>=0.24.1",
 ]
@@ -35,4 +36,7 @@ docs = [
 test = [
     "pytest>=9.0.2",
 ]
+
+[tool.uv.sources]
+rothc-py = { git = "https://github.com/satterc/rothc_py.git" }
 

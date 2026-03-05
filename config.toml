@@ -1,6 +1,7 @@
 modules = [
   "splash",
-  "pmodel"
+  "pmodel",
+  "rothc"
 ]
 
 [config]

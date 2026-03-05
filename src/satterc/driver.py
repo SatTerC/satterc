@@ -5,6 +5,7 @@ from hamilton import driver
 
 from .models import splash
 from .models import pmodel
+from .models import rothc
 
 # TODO:
 # * Create a module registry.
@@ -19,6 +20,7 @@ from .models import pmodel
 _MODULES = dict(
     splash=splash,
     pmodel=pmodel,
+    rothc=rothc,
 )
 
 

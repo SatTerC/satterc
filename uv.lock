@@ -583,6 +583,11 @@ wheels = [
 ]
 
 [[package]]
+name = "rothc-py"
+version = "1.9.0"
+source = { git = "https://github.com/satterc/rothc_py.git#2306f5907bccf0aa8574e31c7ba6410ce16a7ad0" }
+
+[[package]]
 name = "ruff"
 version = "0.15.4"
 source = { registry = "https://pypi.org/simple" }
@@ -636,6 +641,7 @@ source = { editable = "." }
 dependencies = [
     { name = "numpy" },
     { name = "pyrealm" },
+    { name = "rothc-py" },
     { name = "sf-hamilton", extra = ["visualization"] },
     { name = "typer" },
 ]
@@ -660,6 +666,7 @@ test = [
 requires-dist = [
     { name = "numpy", specifier = ">=2.4.2" },
     { name = "pyrealm", specifier = ">=2.0.0" },
+    { name = "rothc-py", git = "https://github.com/satterc/rothc_py.git" },
     { name = "sf-hamilton", extras = ["visualization"], specifier = ">=1.89.0" },
     { name = "typer", specifier = ">=0.24.1" },
 ]

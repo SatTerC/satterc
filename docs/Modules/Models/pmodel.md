@@ -1,3 +1,3 @@
-# pmodel
+# P-Model
 
 ::: satterc.models.pmodel
