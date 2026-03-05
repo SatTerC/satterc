@@ -6,6 +6,8 @@ from hamilton import driver
 from .models import splash
 from .models import pmodel
 from .models import rothc
+from . import inputs
+from .data import tmp as resample
 
 # TODO:
 # * Create a module registry.
@@ -21,6 +23,8 @@ _MODULES = dict(
     splash=splash,
     pmodel=pmodel,
     rothc=rothc,
+    inputs=inputs,
+    resample=resample,
 )
 
 
@@ -29,7 +33,7 @@ def get_modules(modules: list[str] | None = None) -> list[ModuleType]:
     # _load_module_from_path etc.
     # For now, just attempt to extract from dict
     if not modules:
-        modules = ["splash", "pmodel"]
+        modules = list(_MODULES.keys())
     return [_MODULES[key] for key in modules]
 
 
