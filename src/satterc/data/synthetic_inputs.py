@@ -2,25 +2,115 @@
 Synthetic input data for Hamilton DAG testing.
 
 This module provides daily resolution DataArray inputs for the pmodel, splash,
-and rothc models. All DataArrays share a 2x2 lat-lon grid with 2 years of daily
-data, representing reasonable UK conditions for integration testing.
+and rothc models. All DataArrays share a configurable lat-lon grid with
+configurable daily data, representing reasonable UK conditions for
+integration testing.
+
+Configuration Parameters (pass via driver config):
+    n_days: Number of days (default: 731)
+    n_lat: Number of latitude points (default: 2)
+    n_lon: Number of longitude points (default: 2)
+    lat_min: Minimum latitude (default: 50.0)
+    lat_max: Maximum latitude (default: 54.0)
+    lon_min: Minimum longitude (default: -4.0)
+    lon_max: Maximum longitude (default: 2.0)
+    random_seed: Random seed for reproducibility (default: 42)
 """
 
 import numpy as np
-import xarray as xr
 from xarray import DataArray
 
 
-def _create_time_coord(n_days: int = 731) -> np.ndarray:
-    """Create time coordinate for 2 years of daily data starting 2020-01-01."""
-    return np.arange("2020-01-01", "2022-01-01", dtype="datetime64[D]")
+def time_coord(
+    n_days: int | None = None,
+    start_date: str | None = None,
+) -> np.ndarray:
+    """Create time coordinate - configurable via n_days config.
+
+    Parameters
+    ----------
+    n_days
+        Number of days for the time series.
+    start_date
+        Start date for the time series (ISO format string).
+
+    Returns
+    -------
+    np.ndarray
+        Array of datetime64[D] values.
+    """
+    if n_days is None:
+        n_days = 731
+    if start_date is None:
+        start_date = "2020-01-01"
+    start = np.datetime64(start_date)
+    return start + np.arange(n_days)
 
 
-def _create_spatial_grid() -> tuple[np.ndarray, np.ndarray]:
-    """Create 2x2 lat-lon grid representing UK region."""
-    lat = np.array([50.0, 52.0])
-    lon = np.array([-2.0, 0.0])
+def spatial_grid(
+    n_lat: int | None = None,
+    n_lon: int | None = None,
+    lat_min: float | None = None,
+    lat_max: float | None = None,
+    lon_min: float | None = None,
+    lon_max: float | None = None,
+) -> tuple[np.ndarray, np.ndarray]:
+    """Create lat-lon grid - configurable via n_lat, n_lon, and bounds.
+
+    Parameters
+    ----------
+    n_lat
+        Number of latitude points.
+    n_lon
+        Number of longitude points.
+    lat_min
+        Minimum latitude (degrees north).
+    lat_max
+        Maximum latitude (degrees north).
+    lon_min
+        Minimum longitude (degrees east).
+    lon_max
+        Maximum longitude (degrees east).
+
+    Returns
+    -------
+    tuple[np.ndarray, np.ndarray]
+        Tuple of (lat, lon) coordinate arrays.
+    """
+    if n_lat is None:
+        n_lat = 2
+    if n_lon is None:
+        n_lon = 2
+    if lat_min is None:
+        lat_min = 50.0
+    if lat_max is None:
+        lat_max = 54.0
+    if lon_min is None:
+        lon_min = -4.0
+    if lon_max is None:
+        lon_max = 2.0
+    lat = np.linspace(lat_min, lat_max, n_lat)
+    lon = np.linspace(lon_min, lon_max, n_lon)
     return lat, lon
+
+
+def random_seed_config(random_seed: int | None = None) -> int:
+    """Random seed for reproducible synthetic data generation.
+
+    Parameters
+    ----------
+    random_seed
+        Integer seed for numpy random number generator.
+
+    Returns
+    -------
+    int
+        The random seed value.
+    """
+    if random_seed is None:
+        random_seed = 42
+    np.random.seed(random_seed)
+    return random_seed
 
 
 def _generate_seasonal_cycle(
@@ -31,20 +121,19 @@ def _generate_seasonal_cycle(
     return baseline + amplitude * np.sin(2 * np.pi * t / 365.25 + phase_shift)
 
 
-def dates() -> DataArray:
+def dates(time_coord: np.ndarray) -> DataArray:
     """Daily dates for the time series."""
-    time = _create_time_coord()
     return DataArray(
-        data=time,
+        data=time_coord,
         dims=["time"],
-        coords={"time": time},
+        coords={"time": time_coord},
         name="dates",
     )
 
 
-def latitude() -> DataArray:
+def latitude(spatial_grid: tuple[np.ndarray, np.ndarray]) -> DataArray:
     """Latitude coordinates of the grid cells (2D for consistency with elevation)."""
-    lat, lon = _create_spatial_grid()
+    lat, lon = spatial_grid
     lat_2d, lon_2d = np.meshgrid(lat, lon, indexing="ij")
     return DataArray(
         data=lat_2d,
@@ -54,9 +143,9 @@ def latitude() -> DataArray:
     )
 
 
-def longitude() -> DataArray:
+def longitude(spatial_grid: tuple[np.ndarray, np.ndarray]) -> DataArray:
     """Longitude coordinates of the grid cells (2D for consistency with elevation)."""
-    lat, lon = _create_spatial_grid()
+    lat, lon = spatial_grid
     lat_2d, lon_2d = np.meshgrid(lat, lon, indexing="ij")
     return DataArray(
         data=lon_2d,
@@ -66,15 +155,19 @@ def longitude() -> DataArray:
     )
 
 
-def elevation() -> DataArray:
+def elevation(spatial_grid: tuple[np.ndarray, np.ndarray]) -> DataArray:
     """Elevation of the grid cells in meters."""
-    lat, lon = _create_spatial_grid()
+    lat, lon = spatial_grid
     n_lat, n_lon = len(lat), len(lon)
     elevation_data = np.full((n_lat, n_lon), 150.0)
-    elevation_data[0, 0] = 100.0
-    elevation_data[0, 1] = 200.0
-    elevation_data[1, 0] = 250.0
-    elevation_data[1, 1] = 300.0
+    if n_lat > 1 and n_lon > 1:
+        elevation_data[0, 0] = 100.0
+    if n_lon > 1:
+        elevation_data[0, min(1, n_lon - 1)] = 200.0
+    if n_lat > 1:
+        elevation_data[min(1, n_lat - 1), 0] = 250.0
+    if n_lat > 1 and n_lon > 1:
+        elevation_data[min(1, n_lat - 1), min(1, n_lon - 1)] = 300.0
     return DataArray(
         data=elevation_data,
         dims=["lat", "lon"],
@@ -83,9 +176,9 @@ def elevation() -> DataArray:
     )
 
 
-def max_soil_moisture() -> DataArray:
+def max_soil_moisture(spatial_grid: tuple[np.ndarray, np.ndarray]) -> DataArray:
     """Maximum soil moisture capacity in mm."""
-    lat, lon = _create_spatial_grid()
+    lat, lon = spatial_grid
     n_lat, n_lon = len(lat), len(lon)
     data = np.full((n_lat, n_lon), 200.0)
     return DataArray(
@@ -96,11 +189,15 @@ def max_soil_moisture() -> DataArray:
     )
 
 
-def temperature_celcius_daily() -> DataArray:
+def temperature_celcius_daily(
+    time_coord: np.ndarray,
+    spatial_grid: tuple[np.ndarray, np.ndarray],
+    random_seed_config: int,
+) -> DataArray:
     """Daily air temperature in degrees Celsius for UK conditions."""
-    lat, lon = _create_spatial_grid()
+    lat, lon = spatial_grid
     n_lat, n_lon = len(lat), len(lon)
-    n_days = 731
+    n_days = len(time_coord)
 
     base_temp = 10.0
     seasonal_amp = 10.0
@@ -108,52 +205,57 @@ def temperature_celcius_daily() -> DataArray:
     data = np.zeros((n_days, n_lat, n_lon))
     for i in range(n_lat):
         for j in range(n_lon):
-            lat_effect = (lat[i] - 51.0) * 0.5
+            lat_effect = (lat[i] - 52.0) * 0.5
             lon_effect = (lon[j] + 1.0) * 0.3
             baseline = base_temp + lat_effect + lon_effect
             seasonal = _generate_seasonal_cycle(n_days, seasonal_amp, -np.pi / 2, 0)
             daily_variation = np.random.uniform(-3, 3, n_days)
             data[:, i, j] = baseline + seasonal + daily_variation
 
-    time = _create_time_coord()
     return DataArray(
         data=data,
         dims=["time", "lat", "lon"],
-        coords={"time": time, "lat": lat, "lon": lon},
+        coords={"time": time_coord, "lat": lat, "lon": lon},
         attrs={"units": "degrees_C", "long_name": "air temperature"},
     )
 
 
-def precipitation_mm_daily() -> DataArray:
+def precipitation_mm_daily(
+    time_coord: np.ndarray,
+    spatial_grid: tuple[np.ndarray, np.ndarray],
+    random_seed_config: int,
+) -> DataArray:
     """Daily precipitation in mm for UK conditions."""
-    lat, lon = _create_spatial_grid()
+    lat, lon = spatial_grid
     n_lat, n_lon = len(lat), len(lon)
-    n_days = 731
+    n_days = len(time_coord)
 
-    np.random.seed(42)
     data = np.zeros((n_days, n_lat, n_lon))
     for i in range(n_lat):
         for j in range(n_lon):
-            base_precip = 2.5 + (52 - lat[i]) * 0.3
+            base_precip = 2.5 + (54 - lat[i]) * 0.3
             seasonal = _generate_seasonal_cycle(n_days, 1.0, 0, 0)
             daily_precip = np.random.exponential(base_precip + seasonal, n_days)
             wet_days = np.random.random(n_days) < 0.6
             data[:, i, j] = np.where(wet_days, daily_precip, 0.0)
 
-    time = _create_time_coord()
     return DataArray(
         data=data,
         dims=["time", "lat", "lon"],
-        coords={"time": time, "lat": lat, "lon": lon},
+        coords={"time": time_coord, "lat": lat, "lon": lon},
         attrs={"units": "mm", "long_name": "precipitation"},
     )
 
 
-def sunshine_fraction_daily() -> DataArray:
+def sunshine_fraction_daily(
+    time_coord: np.ndarray,
+    spatial_grid: tuple[np.ndarray, np.ndarray],
+    random_seed_config: int,
+) -> DataArray:
     """Daily sunshine fraction (0-1) for UK conditions."""
-    lat, lon = _create_spatial_grid()
+    lat, lon = spatial_grid
     n_lat, n_lon = len(lat), len(lon)
-    n_days = 731
+    n_days = len(time_coord)
 
     data = np.zeros((n_days, n_lat, n_lon))
     for i in range(n_lat):
@@ -162,42 +264,48 @@ def sunshine_fraction_daily() -> DataArray:
             noise = np.random.uniform(-0.15, 0.15, n_days)
             data[:, i, j] = np.clip(seasonal + noise, 0.0, 1.0)
 
-    time = _create_time_coord()
     return DataArray(
         data=data,
         dims=["time", "lat", "lon"],
-        coords={"time": time, "lat": lat, "lon": lon},
+        coords={"time": time_coord, "lat": lat, "lon": lon},
         attrs={"units": "dimensionless", "long_name": "sunshine fraction"},
     )
 
 
-def pressure_pa_daily() -> DataArray:
+def pressure_pa_daily(
+    time_coord: np.ndarray,
+    spatial_grid: tuple[np.ndarray, np.ndarray],
+    elevation: DataArray,
+    random_seed_config: int,
+) -> DataArray:
     """Daily atmospheric pressure in Pascals."""
-    lat, lon = _create_spatial_grid()
+    lat, lon = spatial_grid
     n_lat, n_lon = len(lat), len(lon)
-    n_days = 731
+    n_days = len(time_coord)
 
     baseline_pressure = 101325.0
     data = np.zeros((n_days, n_lat, n_lon))
     for i in range(n_lat):
         for j in range(n_lon):
-            elevation_effect = -elevation().values[i, j] * 10.0
+            elevation_effect = -elevation.values[i, j] * 10.0
             seasonal = _generate_seasonal_cycle(n_days, 500, 0, 0)
             noise = np.random.normal(0, 300, n_days)
             data[:, i, j] = baseline_pressure + elevation_effect + seasonal + noise
 
-    time = _create_time_coord()
     return DataArray(
         data=data,
         dims=["time", "lat", "lon"],
-        coords={"time": time, "lat": lat, "lon": lon},
+        coords={"time": time_coord, "lat": lat, "lon": lon},
         attrs={"units": "Pa", "long_name": "atmospheric pressure"},
     )
 
 
-def vpd_pa_daily() -> DataArray:
+def vpd_pa_daily(
+    temperature_celcius_daily: DataArray,
+    random_seed_config: int,
+) -> DataArray:
     """Daily vapor pressure deficit in Pascals."""
-    temp_da = temperature_celcius_daily()
+    temp_da = temperature_celcius_daily
     data = np.zeros_like(temp_da.values)
 
     for i in range(temp_da.shape[1]):
@@ -220,10 +328,14 @@ def vpd_pa_daily() -> DataArray:
     )
 
 
-def co2_ppm_daily() -> DataArray:
+def co2_ppm_daily(
+    time_coord: np.ndarray,
+    spatial_grid: tuple[np.ndarray, np.ndarray],
+    random_seed_config: int,
+) -> DataArray:
     """Daily atmospheric CO2 concentration in ppm."""
-    lat, lon = _create_spatial_grid()
-    n_days = 731
+    lat, lon = spatial_grid
+    n_days = len(time_coord)
 
     baseline = 412.0
     trend = np.linspace(0, 5, n_days)
@@ -235,20 +347,23 @@ def co2_ppm_daily() -> DataArray:
         data_1d[:, np.newaxis, np.newaxis], (n_days, len(lat), len(lon))
     )
 
-    time = _create_time_coord()
     return DataArray(
         data=data,
         dims=["time", "lat", "lon"],
-        coords={"time": time, "lat": lat, "lon": lon},
+        coords={"time": time_coord, "lat": lat, "lon": lon},
         attrs={"units": "ppm", "long_name": "atmospheric CO2 concentration"},
     )
 
 
-def fapar_daily() -> DataArray:
+def fapar_daily(
+    time_coord: np.ndarray,
+    spatial_grid: tuple[np.ndarray, np.ndarray],
+    random_seed_config: int,
+) -> DataArray:
     """Daily fraction of absorbed photosynthetically active radiation (0-1)."""
-    lat, lon = _create_spatial_grid()
+    lat, lon = spatial_grid
     n_lat, n_lon = len(lat), len(lon)
-    n_days = 731
+    n_days = len(time_coord)
 
     data = np.zeros((n_days, n_lat, n_lon))
     for i in range(n_lat):
@@ -257,43 +372,48 @@ def fapar_daily() -> DataArray:
             noise = np.random.uniform(-0.1, 0.1, n_days)
             data[:, i, j] = np.clip(seasonal + noise, 0.05, 0.95)
 
-    time = _create_time_coord()
     return DataArray(
         data=data,
         dims=["time", "lat", "lon"],
-        coords={"time": time, "lat": lat, "lon": lon},
+        coords={"time": time_coord, "lat": lat, "lon": lon},
         attrs={"units": "dimensionless", "long_name": "fAPAR"},
     )
 
 
-def ppfd_umol_m2_s1_daily() -> DataArray:
+def ppfd_umol_m2_s1_daily(
+    time_coord: np.ndarray,
+    spatial_grid: tuple[np.ndarray, np.ndarray],
+    random_seed_config: int,
+) -> DataArray:
     """Daily photosynthetic photon flux density in µmol/m²/s."""
-    lat, lon = _create_spatial_grid()
+    lat, lon = spatial_grid
     n_lat, n_lon = len(lat), len(lon)
-    n_days = 731
+    n_days = len(time_coord)
 
     data = np.zeros((n_days, n_lat, n_lon))
     for i in range(n_lat):
         for j in range(n_lon):
             day_of_year = np.arange(n_days) % 365.25
-            lat_rad = np.deg2rad(lat[i])
             max_ppfd = 1200 * np.sin(np.pi * day_of_year / 182.6)
             cloud_effect = 0.4 + np.random.uniform(0.2, 0.6, n_days)
             data[:, i, j] = max_ppfd * cloud_effect
 
-    time = _create_time_coord()
     return DataArray(
         data=data,
         dims=["time", "lat", "lon"],
-        coords={"time": time, "lat": lat, "lon": lon},
+        coords={"time": time_coord, "lat": lat, "lon": lon},
         attrs={"units": "umol/m2/s", "long_name": "photosynthetic photon flux density"},
     )
 
 
-def evaporation_daily() -> DataArray:
+def evaporation_daily(
+    temperature_celcius_daily: DataArray,
+    sunshine_fraction_daily: DataArray,
+    random_seed_config: int,
+) -> DataArray:
     """Daily evaporation in mm."""
-    temp_da = temperature_celcius_daily()
-    sunshine_da = sunshine_fraction_daily()
+    temp_da = temperature_celcius_daily
+    sunshine_da = sunshine_fraction_daily
     data = np.zeros_like(temp_da.values)
 
     for i in range(temp_da.shape[1]):
@@ -317,9 +437,14 @@ def evaporation_daily() -> DataArray:
         attrs={"units": "mm", "long_name": "evaporation"},
     )
 
+
+def aridity_index_daily(
+    evaporation_daily: DataArray,
+    precipitation_mm_daily: DataArray,
+) -> DataArray:
     """Daily aridity index (AET/P ratio)."""
-    evap_da = evaporation_daily()
-    precip_da = precipitation_mm_daily()
+    evap_da = evaporation_daily
+    precip_da = precipitation_mm_daily
     precip_safe = np.where(precip_da.values < 0.1, 0.1, precip_da.values)
     data = evap_da.values / precip_safe
     data = np.clip(data, 0.01, 2.0)
@@ -336,9 +461,12 @@ def evaporation_daily() -> DataArray:
     )
 
 
-def mean_growth_temperature_daily() -> DataArray:
+def mean_growth_temperature_daily(
+    temperature_celcius_daily: DataArray,
+    random_seed_config: int,
+) -> DataArray:
     """Daily mean growth temperature in degrees Celsius."""
-    temp_da = temperature_celcius_daily()
+    temp_da = temperature_celcius_daily
     data = temp_da.values + np.random.uniform(-1, 1, temp_da.shape)
 
     return DataArray(
@@ -353,9 +481,9 @@ def mean_growth_temperature_daily() -> DataArray:
     )
 
 
-def plant_cover_daily() -> DataArray:
+def plant_cover_daily(temperature_celcius_daily: DataArray) -> DataArray:
     """Daily plant cover as boolean (True = covered)."""
-    temp_da = temperature_celcius_daily()
+    temp_da = temperature_celcius_daily
     data = temp_da.values > 3.0
 
     return DataArray(
@@ -370,11 +498,15 @@ def plant_cover_daily() -> DataArray:
     )
 
 
-def dpm_rpm_ratio_daily() -> DataArray:
+def dpm_rpm_ratio_daily(
+    temperature_celcius_daily: DataArray,
+    spatial_grid: tuple[np.ndarray, np.ndarray],
+    random_seed_config: int,
+) -> DataArray:
     """Daily ratio of decomposable to resistant plant material."""
-    temp_da = temperature_celcius_daily()
+    temp_da = temperature_celcius_daily
     n_days = temp_da.shape[0]
-    lat, lon = _create_spatial_grid()
+    lat, lon = spatial_grid
 
     data = np.zeros_like(temp_da.values)
     for i in range(temp_da.shape[1]):
@@ -396,11 +528,15 @@ def dpm_rpm_ratio_daily() -> DataArray:
     )
 
 
-def carbon_input_daily() -> DataArray:
+def carbon_input_daily(
+    temperature_celcius_daily: DataArray,
+    spatial_grid: tuple[np.ndarray, np.ndarray],
+    random_seed_config: int,
+) -> DataArray:
     """Daily carbon input in tC/ha/day."""
-    temp_da = temperature_celcius_daily()
+    temp_da = temperature_celcius_daily
     n_days = temp_da.shape[0]
-    lat, lon = _create_spatial_grid()
+    lat, lon = spatial_grid
 
     data = np.zeros((n_days, len(lat), len(lon)))
     for i in range(len(lat)):
@@ -418,13 +554,16 @@ def carbon_input_daily() -> DataArray:
     )
 
 
-def farmyard_manure_input_daily() -> DataArray:
+def farmyard_manure_input_daily(
+    temperature_celcius_daily: DataArray,
+    spatial_grid: tuple[np.ndarray, np.ndarray],
+    random_seed_config: int,
+) -> DataArray:
     """Daily farmyard manure input in tC/ha/day."""
-    temp_da = temperature_celcius_daily()
+    temp_da = temperature_celcius_daily
     n_days = temp_da.shape[0]
-    lat, lon = _create_spatial_grid()
+    lat, lon = spatial_grid
 
-    np.random.seed(123)
     data = np.random.exponential(0.005, (n_days, len(lat), len(lon)))
     data = np.where(data > 0.02, 0.0, data)
 
