@@ -41,4 +41,4 @@ MONTHLY_MAP = {f"{v}_monthly": {"weekly_da": f"{v}_weekly"} for v in VARIABLES}
 @parameterize_sources(**MONTHLY_MAP)
 def aggregate_weekly_to_monthly(weekly_da: xr.DataArray) -> xr.DataArray:
     """Aggregates weekly nodes into monthly nodes."""
-    return weekly_da.resample(time="1M").mean()
+    return weekly_da.resample(time="1ME").mean()

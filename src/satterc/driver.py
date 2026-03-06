@@ -8,6 +8,7 @@ from .models import pmodel
 from .models import rothc
 from . import inputs
 from .data import resample
+from .data import synthetic_inputs
 
 # TODO:
 # * Create a module registry.
@@ -25,6 +26,7 @@ _MODULES = dict(
     rothc=rothc,
     inputs=inputs,
     resample=resample,
+    synthetic_inputs=synthetic_inputs,
 )
 
 
