@@ -7,23 +7,64 @@ on climate inputs.
 """
 
 from hamilton.function_modifiers import unpack_fields
+import numpy as np
+from numpy.typing import NDArray
 from xarray import DataArray
 import pyrealm.splash.splash
 import pyrealm.core.calendar
 
+from ..utils import xarray_io
+
+
+@xarray_io(flatten_spatial=True, inject_time="dates")
+def _splash(
+    sunshine_fraction_daily: NDArray,
+    temperature_celcius_daily: NDArray,
+    precipitation_mm_daily: NDArray,
+    elevation: NDArray,
+    latitude: NDArray,
+    dates: NDArray[np.datetime64],
+    max_soil_moisture: NDArray[np.float64],
+    soil_moisture_init_max_iter: int,
+    soil_moisture_init_max_diff: float,
+) -> tuple[NDArray, NDArray, NDArray]:
+    calendar = pyrealm.core.calendar.Calendar(dates)
+
+    model = pyrealm.splash.splash.SplashModel(
+        lat=latitude,
+        elv=elevation,
+        sf=sunshine_fraction_daily,
+        tc=temperature_celcius_daily,
+        pn=precipitation_mm_daily,
+        dates=calendar,
+        kWm=max_soil_moisture,
+    )
+
+    init_moisture = model.estimate_initial_soil_moisture(
+        max_iter=soil_moisture_init_max_iter,
+        max_diff=soil_moisture_init_max_diff,
+        verbose=False,
+    )
+    aet, moisture, runoff = model.calculate_soil_moisture(init_moisture)
+
+    return aet, moisture, runoff
+
 
 def splash_parameters(
-    max_soil_moisture: float,
-) -> tuple[float]:
+    soil_moisture_init_max_iter: int = 10,
+    soil_moisture_init_max_diff: float = 1.0,
+) -> tuple[int, float]:
     """
     Parameters for the splash model.
 
     Parameters
     ----------
-    max_soil_moisture
-        Maximum soil moisture capacity (mm).
+    soil_moisture_init_max_iter
+        Maximum number of one year iterations used to estimate initial soil moisture.
+    soil_moisture_init_max_diff
+        Maximum acceptable difference between year start and year end soil moisture.
     """
-    return (max_soil_moisture,)
+    return (soil_moisture_init_max_iter, soil_moisture_init_max_diff)
 
 
 @unpack_fields(
@@ -36,7 +77,9 @@ def splash(
     temperature_celcius_daily: DataArray,
     precipitation_mm_daily: DataArray,
     elevation: DataArray,
-    splash_parameters: tuple[float],
+    latitude: DataArray,
+    max_soil_moisture: DataArray,
+    splash_parameters: tuple[int, float],
 ) -> tuple[DataArray, DataArray, DataArray]:
     """Run the SPLASH water balance model.
 
@@ -63,25 +106,15 @@ def splash(
         - soil_moisture_daily: soil moisture content (mm)
         - runoff_daily: runoff (mm per day)
     """
-    (max_soil_moisture,) = splash_parameters
+    soil_moisture_init_max_iter, soil_moisture_init_max_diff = splash_parameters
 
-    # NOTE: dates and latitude should probably be promoted to a node
-    dates_daily = sunshine_fraction_daily.time.values
-    latitude = sunshine_fraction_daily.coords["lat"].values
-
-    calendar = pyrealm.core.calendar.Calendar(dates_daily)
-
-    # TODO: check this actually runs with arrays extracted from DataArray
-    model = pyrealm.splash.splash.SplashModel(
-        lat=latitude,
-        elv=elevation.data,
-        dates=calendar,
-        sf=sunshine_fraction_daily.data,
-        tc=temperature_celcius_daily.data,
-        pn=precipitation_mm_daily.data,
+    return _splash(
+        sunshine_fraction_daily=sunshine_fraction_daily,
+        temperature_celcius_daily=temperature_celcius_daily,
+        precipitation_mm_daily=precipitation_mm_daily,
+        elevation=elevation,
+        latitude=latitude,
+        max_soil_moisture=max_soil_moisture,
+        soil_moisture_init_max_iter=soil_moisture_init_max_iter,
+        soil_moisture_init_max_diff=soil_moisture_init_max_diff,
     )
-
-    init_moisture = model.estimate_initial_soil_moisture(verbose=False)
-    aet, moisture, runoff = model.calculate_soil_moisture(init_moisture)
-
-    return aet.flatten(), moisture.flatten(), runoff.flatten()

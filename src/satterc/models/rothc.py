@@ -1,8 +1,79 @@
 from hamilton.function_modifiers import extract_fields
 import numpy as np
+from numpy.typing import NDArray
 from xarray import DataArray
 
 from rothc_py import RothC, percent_modern_c
+
+from ..utils import xarray_io
+
+
+@xarray_io(flatten_spatial=True, inject_time="dates_monthly")
+def _rothc(
+    temperature_celcius_monthly: NDArray[np.float64],
+    precipitation_mm_monthly: NDArray[np.float64],
+    evaporation_monthly: NDArray[np.float64],
+    plant_cover_monthly: NDArray[np.bool],
+    dpm_rpm_ratio_monthly: NDArray[np.float64],
+    carbon_input_monthly: NDArray[np.float64],
+    farmyard_manure_input_monthly: NDArray[np.float64],
+    dates_monthly,
+    clay: float,
+    soil_depth: float,
+    inert_organic_matter: float,
+    n_years_spinup: int,
+) -> dict[str, NDArray]:
+    n_months, n_pixels = temperature_celcius_monthly.shape
+    n_spinup_months = n_years_spinup * 12
+
+    t_mod = percent_modern_c(start_date=dates_monthly[0], n_months=n_months)
+
+    model = RothC(clay=clay, depth=soil_depth, iom=inert_organic_matter)
+
+    pixel_outputs = []
+    for i in range(n_pixels):
+        data = dict(
+            t_tmp=temperature_celcius_monthly[:, i].tolist(),
+            t_rain=precipitation_mm_monthly[:, i].tolist(),
+            t_evap=evaporation_monthly[:, i].tolist(),
+            t_PC=plant_cover_monthly[:, i].astype(int).tolist(),
+            t_DPM_RPM=dpm_rpm_ratio_monthly[:, i].tolist(),
+            t_C_Inp=carbon_input_monthly[:, i].tolist(),
+            t_FYM_Inp=farmyard_manure_input_monthly[:, i].tolist(),
+            t_mod=t_mod,
+        )
+
+        spinup_data = dict(
+            t_tmp=data["t_tmp"][:n_spinup_months],
+            t_rain=data["t_rain"][:n_spinup_months],
+            t_evap=data["t_evap"][:n_spinup_months],
+            t_PC=data["t_PC"][:n_spinup_months],
+            t_DPM_RPM=data["t_DPM_RPM"][:n_spinup_months],
+            t_C_Inp=data["t_C_Inp"][:n_spinup_months],
+            t_FYM_Inp=data["t_FYM_Inp"][:n_spinup_months],
+            t_mod=t_mod[:n_spinup_months],
+        )
+
+        _, outputs = model(data, spinup_data)
+        pixel_outputs.append(outputs)
+
+    return dict(
+        decomposable_plant_material_monthly=np.column_stack(
+            [out["DPM_t_C_ha"] for out in pixel_outputs]
+        ),
+        resistant_plant_material_monthly=np.column_stack(
+            [out["RPM_t_C_ha"] for out in pixel_outputs]
+        ),
+        microbial_biomass_monthly=np.column_stack(
+            [out["BIO_t_C_ha"] for out in pixel_outputs]
+        ),
+        humified_organic_matter_monthly=np.column_stack(
+            [out["HUM_t_C_ha"] for out in pixel_outputs]
+        ),
+        soil_organic_carbon_monthly=np.column_stack(
+            [out["SOC_t_C_ha"] for out in pixel_outputs]
+        ),
+    )
 
 
 def rothc_parameters(
@@ -93,40 +164,18 @@ def rothc(
     All outputs are at monthly resolution.
     """
     clay, soil_depth, inert_organic_matter, n_years_spinup = rothc_parameters
-    n_spinup_months = n_years_spinup * 12
 
-    t_mod = percent_modern_c(start_date=dates_monthly[0], n_months=len(dates_monthly))
-
-    data = dict(
-        t_tmp=temperature_celcius_monthly,
-        t_rain=precipitation_mm_monthly,
-        t_evap=evaporation_monthly,
-        t_PC=plant_cover_monthly,
-        t_DPM_RPM=dpm_rpm_ratio_monthly,
-        t_C_Inp=carbon_input_monthly,
-        t_FYM_Inp=farmyard_manure_input_monthly,
-        t_mod=t_mod,
-    )
-
-    spinup_data = dict(
-        t_tmp=temperature_celcius_monthly[:n_spinup_months],
-        t_rain=precipitation_mm_monthly[:n_spinup_months],
-        t_evap=evaporation_monthly[:n_spinup_months],
-        t_PC=plant_cover_monthly[:n_spinup_months],
-        t_DPM_RPM=dpm_rpm_ratio_monthly[:n_spinup_months],
-        t_C_Inp=carbon_input_monthly[:n_spinup_months],
-        t_FYM_Inp=farmyard_manure_input_monthly[:n_spinup_months],
-        t_mod=t_mod[:n_spinup_months],
-    )
-
-    model = RothC(clay=clay, depth=soil_depth, iom=inert_organic_matter)
-
-    _, outputs = model(data, spinup_data)
-
-    return dict(
-        decomposable_plant_material_monthly=np.array(outputs["DPM_t_C_ha"]),
-        resistant_plant_material_monthly=np.array(outputs["RPM_t_C_ha"]),
-        microbial_biomass_monthly=np.array(outputs["BIO_t_C_ha"]),
-        humified_organic_matter_monthly=np.array(outputs["HUM_t_C_ha"]),
-        soil_organic_carbon_monthly=np.array(outputs["SOC_t_C_ha"]),
+    return _rothc(
+        temperature_celcius_monthly=temperature_celcius_monthly,
+        precipitation_mm_monthly=precipitation_mm_monthly,
+        evaporation_monthly=evaporation_monthly,
+        plant_cover_monthly=plant_cover_monthly,
+        dpm_rpm_ratio_monthly=dpm_rpm_ratio_monthly,
+        carbon_input_monthly=carbon_input_monthly,
+        farmyard_manure_input_monthly=farmyard_manure_input_monthly,
+        dates_monthly=dates_monthly,
+        clay=clay,
+        soil_depth=soil_depth,
+        inert_organic_matter=inert_organic_matter,
+        n_years_spinup=n_years_spinup,
     )
