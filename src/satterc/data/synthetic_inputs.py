@@ -18,13 +18,14 @@ Configuration Parameters (pass via driver config):
 """
 
 import numpy as np
+from numpy.typing import NDArray
 from xarray import DataArray
 
 
 def time_coord(
     n_days: int | None = None,
     start_date: str | None = None,
-) -> np.ndarray:
+) -> NDArray[np.datetime64]:
     """Create time coordinate - configurable via n_days config.
 
     Parameters
@@ -36,7 +37,7 @@ def time_coord(
 
     Returns
     -------
-    np.ndarray
+    NDArray[np.datetime64]
         Array of datetime64[D] values.
     """
     if n_days is None:
@@ -54,7 +55,7 @@ def spatial_grid(
     lat_max: float | None = None,
     lon_min: float | None = None,
     lon_max: float | None = None,
-) -> tuple[np.ndarray, np.ndarray]:
+) -> tuple[NDArray[np.float64], NDArray[np.float64]]:
     """Create lat-lon grid - configurable via n_lat, n_lon, and bounds.
 
     Parameters
@@ -74,7 +75,7 @@ def spatial_grid(
 
     Returns
     -------
-    tuple[np.ndarray, np.ndarray]
+    tuple[NDArray[np.float64], NDArray[np.float64]]
         Tuple of (lat, lon) coordinate arrays.
     """
     if n_lat is None:
@@ -115,13 +116,13 @@ def random_seed_config(random_seed: int | None = None) -> int:
 
 def _generate_seasonal_cycle(
     n_days: int, amplitude: float, phase_shift: float, baseline: float
-) -> np.ndarray:
+) -> NDArray[np.float64]:
     """Generate a sinusoidal seasonal cycle."""
     t = np.arange(n_days)
     return baseline + amplitude * np.sin(2 * np.pi * t / 365.25 + phase_shift)
 
 
-def dates(time_coord: np.ndarray) -> DataArray:
+def dates(time_coord: NDArray[np.datetime64]) -> DataArray:
     """Daily dates for the time series."""
     return DataArray(
         data=time_coord,
@@ -131,7 +132,9 @@ def dates(time_coord: np.ndarray) -> DataArray:
     )
 
 
-def latitude(spatial_grid: tuple[np.ndarray, np.ndarray]) -> DataArray:
+def latitude(
+    spatial_grid: tuple[NDArray[np.float64], NDArray[np.float64]],
+) -> DataArray:
     """Latitude coordinates of the grid cells (2D for consistency with elevation)."""
     lat, lon = spatial_grid
     lat_2d, lon_2d = np.meshgrid(lat, lon, indexing="ij")
@@ -143,7 +146,9 @@ def latitude(spatial_grid: tuple[np.ndarray, np.ndarray]) -> DataArray:
     )
 
 
-def longitude(spatial_grid: tuple[np.ndarray, np.ndarray]) -> DataArray:
+def longitude(
+    spatial_grid: tuple[NDArray[np.float64], NDArray[np.float64]],
+) -> DataArray:
     """Longitude coordinates of the grid cells (2D for consistency with elevation)."""
     lat, lon = spatial_grid
     lat_2d, lon_2d = np.meshgrid(lat, lon, indexing="ij")
@@ -155,7 +160,9 @@ def longitude(spatial_grid: tuple[np.ndarray, np.ndarray]) -> DataArray:
     )
 
 
-def elevation(spatial_grid: tuple[np.ndarray, np.ndarray]) -> DataArray:
+def elevation(
+    spatial_grid: tuple[NDArray[np.float64], NDArray[np.float64]],
+) -> DataArray:
     """Elevation of the grid cells in meters."""
     lat, lon = spatial_grid
     n_lat, n_lon = len(lat), len(lon)
@@ -176,7 +183,9 @@ def elevation(spatial_grid: tuple[np.ndarray, np.ndarray]) -> DataArray:
     )
 
 
-def max_soil_moisture(spatial_grid: tuple[np.ndarray, np.ndarray]) -> DataArray:
+def max_soil_moisture(
+    spatial_grid: tuple[NDArray[np.float64], NDArray[np.float64]],
+) -> DataArray:
     """Maximum soil moisture capacity in mm."""
     lat, lon = spatial_grid
     n_lat, n_lon = len(lat), len(lon)
@@ -190,8 +199,8 @@ def max_soil_moisture(spatial_grid: tuple[np.ndarray, np.ndarray]) -> DataArray:
 
 
 def temperature_celcius_daily(
-    time_coord: np.ndarray,
-    spatial_grid: tuple[np.ndarray, np.ndarray],
+    time_coord: NDArray[np.datetime64],
+    spatial_grid: tuple[NDArray[np.float64], NDArray[np.float64]],
     random_seed_config: int,
 ) -> DataArray:
     """Daily air temperature in degrees Celsius for UK conditions."""
@@ -221,8 +230,8 @@ def temperature_celcius_daily(
 
 
 def precipitation_mm_daily(
-    time_coord: np.ndarray,
-    spatial_grid: tuple[np.ndarray, np.ndarray],
+    time_coord: NDArray[np.datetime64],
+    spatial_grid: tuple[NDArray[np.float64], NDArray[np.float64]],
     random_seed_config: int,
 ) -> DataArray:
     """Daily precipitation in mm for UK conditions."""
@@ -248,8 +257,8 @@ def precipitation_mm_daily(
 
 
 def sunshine_fraction_daily(
-    time_coord: np.ndarray,
-    spatial_grid: tuple[np.ndarray, np.ndarray],
+    time_coord: NDArray[np.datetime64],
+    spatial_grid: tuple[NDArray[np.float64], NDArray[np.float64]],
     random_seed_config: int,
 ) -> DataArray:
     """Daily sunshine fraction (0-1) for UK conditions."""
@@ -273,8 +282,8 @@ def sunshine_fraction_daily(
 
 
 def pressure_pa_daily(
-    time_coord: np.ndarray,
-    spatial_grid: tuple[np.ndarray, np.ndarray],
+    time_coord: NDArray[np.datetime64],
+    spatial_grid: tuple[NDArray[np.float64], NDArray[np.float64]],
     elevation: DataArray,
     random_seed_config: int,
 ) -> DataArray:
@@ -329,8 +338,8 @@ def vpd_pa_daily(
 
 
 def co2_ppm_daily(
-    time_coord: np.ndarray,
-    spatial_grid: tuple[np.ndarray, np.ndarray],
+    time_coord: NDArray[np.datetime64],
+    spatial_grid: tuple[NDArray[np.float64], NDArray[np.float64]],
     random_seed_config: int,
 ) -> DataArray:
     """Daily atmospheric CO2 concentration in ppm."""
@@ -356,8 +365,8 @@ def co2_ppm_daily(
 
 
 def fapar_daily(
-    time_coord: np.ndarray,
-    spatial_grid: tuple[np.ndarray, np.ndarray],
+    time_coord: NDArray[np.datetime64],
+    spatial_grid: tuple[NDArray[np.float64], NDArray[np.float64]],
     random_seed_config: int,
 ) -> DataArray:
     """Daily fraction of absorbed photosynthetically active radiation (0-1)."""
@@ -381,8 +390,8 @@ def fapar_daily(
 
 
 def ppfd_umol_m2_s1_daily(
-    time_coord: np.ndarray,
-    spatial_grid: tuple[np.ndarray, np.ndarray],
+    time_coord: NDArray[np.datetime64],
+    spatial_grid: tuple[NDArray[np.float64], NDArray[np.float64]],
     random_seed_config: int,
 ) -> DataArray:
     """Daily photosynthetic photon flux density in µmol/m²/s."""
@@ -500,7 +509,7 @@ def plant_cover_daily(temperature_celcius_daily: DataArray) -> DataArray:
 
 def dpm_rpm_ratio_daily(
     temperature_celcius_daily: DataArray,
-    spatial_grid: tuple[np.ndarray, np.ndarray],
+    spatial_grid: tuple[NDArray[np.float64], NDArray[np.float64]],
     random_seed_config: int,
 ) -> DataArray:
     """Daily ratio of decomposable to resistant plant material."""
@@ -530,7 +539,7 @@ def dpm_rpm_ratio_daily(
 
 def carbon_input_daily(
     temperature_celcius_daily: DataArray,
-    spatial_grid: tuple[np.ndarray, np.ndarray],
+    spatial_grid: tuple[NDArray[np.float64], NDArray[np.float64]],
     random_seed_config: int,
 ) -> DataArray:
     """Daily carbon input in tC/ha/day."""
@@ -556,7 +565,7 @@ def carbon_input_daily(
 
 def farmyard_manure_input_daily(
     temperature_celcius_daily: DataArray,
-    spatial_grid: tuple[np.ndarray, np.ndarray],
+    spatial_grid: tuple[NDArray[np.float64], NDArray[np.float64]],
     random_seed_config: int,
 ) -> DataArray:
     """Daily farmyard manure input in tC/ha/day."""
