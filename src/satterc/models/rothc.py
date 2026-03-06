@@ -1,6 +1,6 @@
 from hamilton.function_modifiers import extract_fields
 import numpy as np
-from numpy.typing import NDArray
+from xarray import DataArray
 
 from rothc_py import RothC, percent_modern_c
 
@@ -41,16 +41,16 @@ def rothc_parameters(
     ]
 )
 def rothc(
-    temperature_celcius_monthly: NDArray[np.float64],
-    precipitation_mm_monthly: NDArray[np.float64],
-    evaporation_monthly: NDArray[np.float64],
-    plant_cover_monthly: NDArray[np.bool],
-    dpm_rpm_ratio_monthly: NDArray[np.float64],
-    carbon_input_monthly: NDArray[np.float64],
-    farmyard_manure_input_monthly: NDArray[np.float64],
-    dates_monthly: NDArray[np.datetime64],
+    temperature_celcius_monthly: DataArray,
+    precipitation_mm_monthly: DataArray,
+    evaporation_monthly: DataArray,
+    plant_cover_monthly: DataArray,
+    dpm_rpm_ratio_monthly: DataArray,
+    carbon_input_monthly: DataArray,
+    farmyard_manure_input_monthly: DataArray,
+    dates_monthly: DataArray,
     rothc_parameters: tuple[float, float, float, int],
-) -> dict[str, NDArray]:
+) -> dict[str, DataArray]:
     """
     Rothamsted Carbon model.
 
@@ -73,13 +73,13 @@ def rothc(
     farmyard_manure_input_monthly
         Farmyard manure input in tC/ha/month.
     dates_monthly
-        Monthly dates as numpy datetime64.
+        Monthly dates.
     rothc_parameters
         Tuple of parameters.
 
     Returns
     -------
-    dict[str, NDArray[np.float64]]
+    dict
         Dictionary containing monthly model outputs:
         - decomposable_plant_material_monthly: DPM pool (tC/ha)
         - resistant_plant_material_monthly: RPM pool (tC/ha)

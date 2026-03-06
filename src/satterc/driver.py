@@ -7,7 +7,7 @@ from .models import splash
 from .models import pmodel
 from .models import rothc
 from . import inputs
-from .data import tmp as resample
+from .data import resample
 
 # TODO:
 # * Create a module registry.
