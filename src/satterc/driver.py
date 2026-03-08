@@ -7,6 +7,7 @@ from .models import splash
 from .models import pmodel
 from .models import rothc
 from . import inputs
+from .data import io
 from .data import resample
 from .data import synthetic_inputs
 
@@ -25,6 +26,7 @@ _MODULES = dict(
     pmodel=pmodel,
     rothc=rothc,
     inputs=inputs,
+    io=io,
     resample=resample,
     synthetic_inputs=synthetic_inputs,
 )

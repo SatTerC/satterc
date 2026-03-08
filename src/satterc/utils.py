@@ -38,7 +38,7 @@ def xarray_io() -> Callable[[Callable[..., Any]], Callable[..., Any]]:
     Note:
     -----
     Currently, the time dimension MUST be called "time" and the spatial coordinate dimension
-    MUST be called "coords".
+    MUST be called "pixel".
     """
 
     def decorator(func: Callable[..., Any]) -> Callable[..., Any]:
@@ -55,7 +55,6 @@ def xarray_io() -> Callable[[Callable[..., Any]], Callable[..., Any]]:
 
             def _is_valid_reference(da: xr.DataArray) -> bool:
                 """Checks if a DataArray can serve as a reference for reconstructing dimensions."""
-                # NOTE: for now, the time and coord dimensions must be called "time" and "coords"
                 return (
                     (da.ndim == 2)
                     and da.dims[0] == "time"
