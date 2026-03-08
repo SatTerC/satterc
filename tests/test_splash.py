@@ -195,10 +195,11 @@ class TestSplashInputs:
         n_days = synthetic_inputs_defaults["n_days"]
         n_lat = synthetic_inputs_defaults["n_lat"]
         n_lon = synthetic_inputs_defaults["n_lon"]
+        n_pixel = n_lat * n_lon
 
-        assert result["sunshine_fraction_daily"].shape == (n_days, n_lat, n_lon)
-        assert result["temperature_celcius_daily"].shape == (n_days, n_lat, n_lon)
-        assert result["precipitation_mm_daily"].shape == (n_days, n_lat, n_lon)
-        assert result["elevation"].shape == (n_lat, n_lon)
-        assert result["latitude"].shape == (n_lat, n_lon)
-        assert result["max_soil_moisture"].shape == (n_lat, n_lon)
+        assert result["sunshine_fraction_daily"].shape == (n_days, n_pixel)
+        assert result["temperature_celcius_daily"].shape == (n_days, n_pixel)
+        assert result["precipitation_mm_daily"].shape == (n_days, n_pixel)
+        assert result["elevation"].shape == (n_pixel,)
+        assert result["latitude"].shape == (n_pixel,)
+        assert result["max_soil_moisture"].shape == (n_pixel,)

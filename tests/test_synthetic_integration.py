@@ -22,7 +22,7 @@ def test_default_config(synthetic_inputs_defaults):
     )
 
     result = dr.execute(["temperature_celcius_daily"])
-    assert result["temperature_celcius_daily"].shape == (731, 2, 2)
+    assert result["temperature_celcius_daily"].shape == (731, 4)
 
 
 def test_custom_grid(synthetic_inputs_defaults):
@@ -37,7 +37,7 @@ def test_custom_grid(synthetic_inputs_defaults):
     )
 
     result = dr.execute(["temperature_celcius_daily"])
-    assert result["temperature_celcius_daily"].shape == (731, 4, 4)
+    assert result["temperature_celcius_daily"].shape == (731, 16)
 
 
 def test_reproducibility(synthetic_inputs_defaults):
@@ -103,7 +103,7 @@ def test_all_daily_functions(synthetic_driver_3x3):
 
     for name in daily_funcs:
         da = result[name]
-        assert da.shape == (731, 3, 3), f"{name} has wrong shape"
+        assert da.shape == (731, 9), f"{name} has wrong shape"
         assert not np.any(np.isnan(da.values)), f"{name} contains NaN"
         assert not np.any(np.isinf(da.values)), f"{name} contains Inf"
 
@@ -143,10 +143,8 @@ def test_grid_consistency(synthetic_driver_4x5):
     for name, da in result.items():
         if "time" in da.dims:
             assert da.coords["time"].equals(ref.coords["time"])
-        if "lat" in da.dims:
-            assert da.coords["lat"].equals(ref.coords["lat"])
-        if "lon" in da.dims:
-            assert da.coords["lon"].equals(ref.coords["lon"])
+        if "pixel" in da.dims:
+            assert da.coords["pixel"].equals(ref.coords["pixel"])
 
 
 def test_custom_bounds(synthetic_inputs_defaults):
@@ -169,10 +167,10 @@ def test_custom_bounds(synthetic_inputs_defaults):
     lat = result["latitude"].values
     lon = result["longitude"].values
 
-    assert lat[0, 0] == 48.0
-    assert lat[-1, -1] == 60.0
-    assert lon[0, 0] == -10.0
-    assert lon[-1, -1] == 5.0
+    assert lat[0] == 48.0
+    assert lat[-1] == 60.0
+    assert lon[0] == -10.0
+    assert lon[-1] == 5.0
 
 
 def test_time_coord(synthetic_driver_leap_year):
