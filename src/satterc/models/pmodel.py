@@ -14,7 +14,7 @@ import pyrealm.pmodel
 from ..utils import xarray_io
 
 
-@xarray_io(flatten_spatial=True)
+@xarray_io()
 def _pmodel(
     temperature_celcius_weekly: NDArray,
     vpd_pa_weekly: NDArray,

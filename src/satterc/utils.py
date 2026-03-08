@@ -2,10 +2,8 @@ import functools
 from typing import Any, Callable, Type, TypeVar, ParamSpec
 
 import numpy as np
+import pandas as pd
 import xarray as xr
-
-# T represents the wrapped function's return type
-T = TypeVar("T")
 
 # Define the supported backends explicitly
 SupportedArrayTypes: tuple[Type, ...] = (np.ndarray,)
@@ -19,14 +17,8 @@ try:
 except ImportError:
     HAS_JAX = False
 
-# A Type Alias for your own documentation/type hinting
-# InnerArray = Union[np.ndarray, "jax.Array"] if HAS_JAX else np.ndarray
 
-
-def xarray_io(
-    flatten_spatial: bool = False,
-    inject_time: str | bool = False,
-) -> Callable[[Callable[..., T]], Callable[..., Any]]:
+def xarray_io() -> Callable[[Callable[..., Any]], Callable[..., Any]]:
     """A decorator to bridge Xarray to NumPy/JAX functions.
 
     This is designed to decorate functions that take one of the `SupportedArrayTypes` (`numpy.ndarray`
@@ -38,78 +30,70 @@ def xarray_io(
 
     Parameters:
     -----------
-    flatten_spatial
-        If `True`, spatial dimensions (all but the first) are flattened to produce a 2D array with
-        dimensions (time, pixel) which is passed to the decorated function.
     inject_time
         If non-False, the datetime index of the first `xarray.DataArray` will be passed to the
         decorated function kwargs. If `True`, the kwarg will be called `time`. If instead a `str`
         is provided, this will be used instead.
+
+    Note:
+    -----
+    Currently, the time dimension MUST be called "time" and the spatial coordinate dimension
+    MUST be called "coords".
     """
 
-    def decorator(func: Callable[..., T]) -> Callable[..., Any]:
+    def decorator(func: Callable[..., Any]) -> Callable[..., Any]:
         @functools.wraps(func)
         def wrapper(*args: Any, **kwargs: Any) -> Any:
             # Check if one or more xarray.DataArrays were provided as input.
             # Pull out the first DataArray to use as a metadata template
             all_inputs = list(args) + list(kwargs.values())
-            reference_da = next(
-                (val for val in all_inputs if isinstance(val, xr.DataArray)), None
-            )
+            da_inputs = [v for v in all_inputs if isinstance(v, xr.DataArray)]
 
             # If no xarray.DataArray, pass the unmodified args through and return the result
-            if reference_da is None:
+            if not da_inputs:
                 return func(*args, **kwargs)
 
+            def _is_valid_reference(da: xr.DataArray) -> bool:
+                """Checks if a DataArray can serve as a reference for reconstructing dimensions."""
+                # NOTE: for now, the time and coord dimensions must be called "time" and "coords"
+                return (
+                    (da.ndim == 2)
+                    and da.dims[0] == "time"
+                    and isinstance(da.indexes.get("time", None), pd.DatetimeIndex)
+                )
+
+            valid_references = [v for v in da_inputs if _is_valid_reference(v)]
+            if not valid_references:
+                raise Exception(
+                    "None of the xarray.DataArray inputs satisfy the criteria for this decorator."
+                )
+            reference_da = valid_references[0]
+
             def _unpack_args(v: Any) -> Any:
-                """Return 'data' attribute for any xarray.DataArray arguments.
+                """Return 'data' attribute for any xarray.DataArray arguments."""
+                return v.data if isinstance(v, xr.DataArray) else v
 
-                Also, transform (time, *spatial_dims) -> (time, pixel) if requested.
-                """
-                # WARN: this will flatten all dims except time, which is not what we want
-                # if the DataArray is carrying around extra dims e.g. soil depth.
-                if isinstance(v, xr.DataArray):
-                    return (
-                        v.stack(pixel=["lat", "lon"]).data
-                        if flatten_spatial
-                        else v.data
-                    )
-                else:
-                    return v
-
-            # Process arguments while maintaining JAX/NumPy dispatching
+            # Convert xarray.DataArrays to np.ndrrays or jax.Arrays
             new_args = [_unpack_args(arg) for arg in args]
             new_kwargs = {name: _unpack_args(kwarg) for name, kwarg in kwargs.items()}
 
-            # Inject time index (Pandas/Xarray index) if requested by the pure function
-            if inject_time:
-                time_kwarg = "time" if inject_time is True else inject_time
-                new_kwargs[time_kwarg] = reference_da.indexes.get("time")
-
             # Execute the inner function (returns T, e.g., np.ndarray)
-            inner_returns: T = func(*new_args, **new_kwargs)
-
-            unpacked_reference_da = _unpack_args(reference_da)
+            inner_returns = func(*new_args, **new_kwargs)
 
             def _repack_returns(v: Any, name: str | None = None) -> Any:
                 """Recursively repack any SupportedArrayTypes into xarray.DataArrays."""
                 if isinstance(v, SupportedArrayTypes):
-                    if flatten_spatial:
-                        if v.ndim == 1:
-                            new_dims = ("pixel",)
-                        elif v.ndim == 2:
-                            new_dims = ("time", "pixel")
-                        else:
-                            raise Exception("no")
+                    if v.ndim == 0:
+                        return v
+                    elif v.ndim == 1:
+                        new_dims = ("pixel",)
+                    elif v.ndim == 2:
+                        new_dims = ("time", "pixel")
                     else:
-                        if v.ndim == 2:
-                            new_dims = ("lat", "lon")
-                        elif v.ndim == 3:
-                            new_dims = ("time", "lat", "lon")
-                        else:
-                            raise Exception("no no no")
+                        # TODO: bad
+                        raise Exception("no")
 
-                    v_da = xr.DataArray(
+                    return xr.DataArray(
                         v,
                         coords={
                             d: reference_da.coords[d]
@@ -119,13 +103,6 @@ def xarray_io(
                         dims=new_dims,
                         attrs=reference_da.attrs,
                         name=name,
-                    )
-                    if flatten_spatial:
-                        v_da = v_da.unstack()
-                    return (
-                        v_da.unstack()
-                        if flatten_spatial and "pixel" in v_da.dims
-                        else v_da
                     )
                 elif isinstance(v, dict):
                     return {kk: _repack_returns(vv, name=kk) for kk, vv in v.items()}

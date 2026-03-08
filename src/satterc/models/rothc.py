@@ -9,7 +9,7 @@ from rothc_py import RothC, percent_modern_c
 from ..utils import xarray_io
 
 
-@xarray_io(flatten_spatial=True, inject_time="dates_monthly")
+@xarray_io()
 def _rothc(
     temperature_celcius_monthly: NDArray[np.float64],
     precipitation_mm_monthly: NDArray[np.float64],
@@ -164,6 +164,8 @@ def rothc(
     """
     clay, soil_depth, inert_organic_matter, n_years_spinup = rothc_parameters
 
+    dates_monthly = temperature_celcius_monthly.get_index("time")
+
     return _rothc(
         temperature_celcius_monthly=temperature_celcius_monthly,
         precipitation_mm_monthly=precipitation_mm_monthly,
@@ -176,4 +178,5 @@ def rothc(
         soil_depth=soil_depth,
         inert_organic_matter=inert_organic_matter,
         n_years_spinup=n_years_spinup,
+        dates_monthly=dates_monthly,
     )

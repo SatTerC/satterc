@@ -17,7 +17,7 @@ import pyrealm.core.calendar
 from ..utils import xarray_io
 
 
-@xarray_io(flatten_spatial=True, inject_time="dates_daily")
+@xarray_io()
 def _splash(
     sunshine_fraction_daily: NDArray[np.float64],
     temperature_celcius_daily: NDArray[np.float64],
@@ -117,6 +117,7 @@ def splash(
         - runoff_daily: runoff (mm per day)
     """
     soil_moisture_init_max_iter, soil_moisture_init_max_diff = splash_parameters
+    dates_daily = sunshine_fraction_daily.get_index("time")
 
     return _splash(
         sunshine_fraction_daily=sunshine_fraction_daily,
@@ -127,4 +128,5 @@ def splash(
         max_soil_moisture=max_soil_moisture,
         soil_moisture_init_max_iter=soil_moisture_init_max_iter,
         soil_moisture_init_max_diff=soil_moisture_init_max_diff,
+        dates_daily=dates_daily,
     )
