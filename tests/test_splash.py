@@ -11,7 +11,6 @@ execute the splash model.
 """
 
 import numpy as np
-import pytest
 
 from satterc import driver
 
@@ -20,16 +19,9 @@ def pytest_configure(config):
     config.addinivalue_line("markers", "splash: tests that execute the splash model")
 
 
-# Mark tests that execute the splash model
-splash_executes = pytest.mark.skip(
-    reason="pyrealm/pandas compatibility issue: cannot cast DatetimeIndex to datetime64[Y]"
-)
-
-
 class TestSplashOutputs:
     """Tests for splash model output shapes and values."""
 
-    # @splash_executes
     def test_splash_executes_1x1(self, synthetic_driver_splash_1x1):
         """Test splash model runs successfully with 1x1 grid."""
         result = synthetic_driver_splash_1x1.execute(
@@ -43,7 +35,6 @@ class TestSplashOutputs:
         assert "soil_moisture_daily" in result
         assert "runoff_daily" in result
 
-    @splash_executes
     def test_splash_output_shape_1x1(
         self, synthetic_driver_splash_1x1, synthetic_inputs_defaults
     ):
@@ -58,11 +49,10 @@ class TestSplashOutputs:
             ]
         )
 
-        assert result["actual_evapotranspiration_daily"].shape == (n_days, 1, 1)
-        assert result["soil_moisture_daily"].shape == (n_days, 1, 1)
-        assert result["runoff_daily"].shape == (n_days, 1, 1)
+        assert result["actual_evapotranspiration_daily"].shape == (n_days, 1)
+        assert result["soil_moisture_daily"].shape == (n_days, 1)
+        assert result["runoff_daily"].shape == (n_days, 1)
 
-    @splash_executes
     def test_splash_output_shape_2x2(
         self, synthetic_driver_splash, synthetic_inputs_defaults
     ):
@@ -79,14 +69,14 @@ class TestSplashOutputs:
             ]
         )
 
-        assert result["actual_evapotranspiration_daily"].shape == (n_days, n_lat, n_lon)
-        assert result["soil_moisture_daily"].shape == (n_days, n_lat, n_lon)
-        assert result["runoff_daily"].shape == (n_days, n_lat, n_lon)
+        assert result["actual_evapotranspiration_daily"].shape == (
+            n_days,
+            n_lat * n_lon,
+        )
+        assert result["soil_moisture_daily"].shape == (n_days, n_lat * n_lon)
+        assert result["runoff_daily"].shape == (n_days, n_lat * n_lon)
 
-    @splash_executes
-    def test_splash_output_ranges_1x1(
-        self, synthetic_driver_splash_1x1, synthetic_inputs_defaults
-    ):
+    def test_splash_output_ranges_1x1(self, synthetic_driver_splash_1x1):
         """Test splash output values are physically reasonable for 1x1 grid."""
         result = synthetic_driver_splash_1x1.execute(
             [
@@ -104,12 +94,9 @@ class TestSplashOutputs:
         assert np.all(soil_moisture >= 0), "Soil moisture should be non-negative"
         assert np.all(runoff >= 0), "Runoff should be non-negative"
 
-        max_soil = (
-            synthetic_inputs_defaults["n_lat"] * synthetic_inputs_defaults["n_lon"]
-        )
+        # NOTE: this looks like a random value - come back and check this!
         assert np.all(soil_moisture <= 200), "Soil moisture should not exceed max"
 
-    @splash_executes
     def test_splash_output_ranges_2x2(self, synthetic_driver_splash):
         """Test splash output values are physically reasonable for 2x2 grid."""
         result = synthetic_driver_splash.execute(
@@ -128,7 +115,6 @@ class TestSplashOutputs:
         assert np.all(soil_moisture >= 0), "Soil moisture should be non-negative"
         assert np.all(runoff >= 0), "Runoff should be non-negative"
 
-    @splash_executes
     def test_splash_reproducibility(self, synthetic_inputs_defaults):
         """Test that same random seed produces identical splash results."""
         config = synthetic_inputs_defaults.copy()
@@ -150,7 +136,6 @@ class TestSplashOutputs:
             result2["soil_moisture_daily"].values,
         )
 
-    @splash_executes
     def test_splash_soil_moisture_bounded_by_max(
         self, synthetic_driver_splash, synthetic_inputs_defaults
     ):
@@ -164,10 +149,9 @@ class TestSplashOutputs:
 
         assert np.all(soil_moisture >= 0), "Soil moisture should be non-negative"
         for i in range(soil_moisture.shape[1]):
-            for j in range(soil_moisture.shape[2]):
-                assert np.all(soil_moisture[:, i, j] <= max_soil[i, j] * 1.01), (
-                    f"Soil moisture should not exceed max at ({i}, {j})"
-                )
+            assert np.all(soil_moisture[:, i] <= max_soil[i] * 1.01), (
+                f"Soil moisture should not exceed max at ({i})"
+            )
 
 
 class TestSplashInputs:
