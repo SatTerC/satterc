@@ -8,33 +8,14 @@ Or via pytest:
     pytest tests/test_synthetic_integration.py -v
 """
 
-import sys
-from pathlib import Path
-
-sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
-
 import numpy as np
 
 from satterc import driver
-from satterc.data import synthetic_inputs, resample
 
 
-SYNTHETIC_INPUTS_DEFAULTS = dict(
-    n_days=731,
-    n_lat=2,
-    n_lon=2,
-    lat_min=50.0,
-    lat_max=54.0,
-    lon_min=-4.0,
-    lon_max=2.0,
-    random_seed=42,
-    start_date="2020-01-01",
-)
-
-
-def test_default_config():
+def test_default_config(synthetic_inputs_defaults):
     """Test synthetic inputs with default configuration."""
-    config = SYNTHETIC_INPUTS_DEFAULTS.copy()
+    config = synthetic_inputs_defaults.copy()
     dr = driver.build_driver(
         modules=["synthetic_inputs", "resample"],
         config=config,
@@ -44,9 +25,9 @@ def test_default_config():
     assert result["temperature_celcius_daily"].shape == (731, 2, 2)
 
 
-def test_custom_grid():
+def test_custom_grid(synthetic_inputs_defaults):
     """Test synthetic inputs with custom grid dimensions."""
-    config = SYNTHETIC_INPUTS_DEFAULTS.copy()
+    config = synthetic_inputs_defaults.copy()
     config["n_lat"] = 4
     config["n_lon"] = 4
 
@@ -59,12 +40,12 @@ def test_custom_grid():
     assert result["temperature_celcius_daily"].shape == (731, 4, 4)
 
 
-def test_reproducibility():
+def test_reproducibility(synthetic_inputs_defaults):
     """Test that same random seed produces identical results."""
-    config1 = SYNTHETIC_INPUTS_DEFAULTS.copy()
+    config1 = synthetic_inputs_defaults.copy()
     config1["random_seed"] = 42
 
-    config2 = SYNTHETIC_INPUTS_DEFAULTS.copy()
+    config2 = synthetic_inputs_defaults.copy()
     config2["random_seed"] = 42
 
     dr1 = driver.build_driver(modules=["synthetic_inputs"], config=config1)
@@ -79,12 +60,11 @@ def test_reproducibility():
     )
 
 
-def test_different_seeds_differ():
+def test_different_seeds_differ(synthetic_inputs_defaults):
     """Test that different random seeds produce different results."""
-    config1 = SYNTHETIC_INPUTS_DEFAULTS.copy()
+    config1 = synthetic_inputs_defaults.copy()
     config1["random_seed"] = 42
-
-    config2 = SYNTHETIC_INPUTS_DEFAULTS.copy()
+    config2 = synthetic_inputs_defaults.copy()
     config2["random_seed"] = 123
 
     dr1 = driver.build_driver(modules=["synthetic_inputs"], config=config1)
@@ -99,17 +79,8 @@ def test_different_seeds_differ():
     )
 
 
-def test_all_daily_functions():
+def test_all_daily_functions(synthetic_driver_3x3):
     """Test that all daily synthetic input functions work."""
-    config = SYNTHETIC_INPUTS_DEFAULTS.copy()
-    config["n_lat"] = 3
-    config["n_lon"] = 3
-
-    dr = driver.build_driver(
-        modules=["synthetic_inputs", "resample"],
-        config=config,
-    )
-
     daily_funcs = [
         "temperature_celcius_daily",
         "precipitation_mm_daily",
@@ -128,7 +99,7 @@ def test_all_daily_functions():
         "farmyard_manure_input_daily",
     ]
 
-    result = dr.execute(daily_funcs)
+    result = synthetic_driver_3x3.execute(daily_funcs)
 
     for name in daily_funcs:
         da = result[name]
@@ -137,16 +108,9 @@ def test_all_daily_functions():
         assert not np.any(np.isinf(da.values)), f"{name} contains Inf"
 
 
-def test_aggregation():
+def test_aggregation(synthetic_driver):
     """Test that weekly and monthly aggregation works."""
-    config = SYNTHETIC_INPUTS_DEFAULTS.copy()
-
-    dr = driver.build_driver(
-        modules=["synthetic_inputs", "resample"],
-        config=config,
-    )
-
-    result = dr.execute(
+    result = synthetic_driver.execute(
         [
             "temperature_celcius_weekly",
             "temperature_celcius_monthly",
@@ -161,18 +125,9 @@ def test_aggregation():
     assert result["precipitation_mm_monthly"].shape[0] == 25
 
 
-def test_grid_consistency():
+def test_grid_consistency(synthetic_driver_4x5):
     """Test that all DataArrays share consistent grid."""
-    config = SYNTHETIC_INPUTS_DEFAULTS.copy()
-    config["n_lat"] = 4
-    config["n_lon"] = 5
-
-    dr = driver.build_driver(
-        modules=["synthetic_inputs"],
-        config=config,
-    )
-
-    result = dr.execute(
+    result = synthetic_driver_4x5.execute(
         [
             "temperature_celcius_daily",
             "precipitation_mm_daily",
@@ -194,9 +149,9 @@ def test_grid_consistency():
             assert da.coords["lon"].equals(ref.coords["lon"])
 
 
-def test_custom_bounds():
+def test_custom_bounds(synthetic_inputs_defaults):
     """Test custom lat/lon bounds."""
-    config = SYNTHETIC_INPUTS_DEFAULTS.copy()
+    config = synthetic_inputs_defaults.copy()
     config["n_lat"] = 3
     config["n_lon"] = 3
     config["lat_min"] = 48.0
@@ -220,18 +175,9 @@ def test_custom_bounds():
     assert lon[-1, -1] == 5.0
 
 
-def test_time_coord():
+def test_time_coord(synthetic_driver_leap_year):
     """Test custom time configuration."""
-    config = SYNTHETIC_INPUTS_DEFAULTS.copy()
-    config["n_days"] = 366  # One leap year
-    config["start_date"] = "2020-01-01"
-
-    dr = driver.build_driver(
-        modules=["synthetic_inputs"],
-        config=config,
-    )
-
-    result = dr.execute(["dates"])
+    result = synthetic_driver_leap_year.execute(["dates"])
 
     dates = result["dates"].values
     assert len(dates) == 366
@@ -240,31 +186,39 @@ def test_time_coord():
 if __name__ == "__main__":
     print("Running integration tests...")
 
-    test_default_config()
+    from tests.conftest import (
+        synthetic_driver,
+        synthetic_driver_3x3,
+        synthetic_driver_4x5,
+        synthetic_driver_leap_year,
+        synthetic_inputs_defaults,
+    )
+
+    test_default_config(synthetic_inputs_defaults)
     print("  test_default_config: PASSED")
 
-    test_custom_grid()
+    test_custom_grid(synthetic_inputs_defaults)
     print("  test_custom_grid: PASSED")
 
-    test_reproducibility()
+    test_reproducibility(synthetic_inputs_defaults)
     print("  test_reproducibility: PASSED")
 
-    test_different_seeds_differ()
+    test_different_seeds_differ(synthetic_inputs_defaults)
     print("  test_different_seeds_differ: PASSED")
 
-    test_all_daily_functions()
+    test_all_daily_functions(synthetic_driver_3x3)
     print("  test_all_daily_functions: PASSED")
 
-    test_aggregation()
+    test_aggregation(synthetic_driver)
     print("  test_aggregation: PASSED")
 
-    test_grid_consistency()
+    test_grid_consistency(synthetic_driver_4x5)
     print("  test_grid_consistency: PASSED")
 
-    test_custom_bounds()
+    test_custom_bounds(synthetic_inputs_defaults)
     print("  test_custom_bounds: PASSED")
 
-    test_time_coord()
+    test_time_coord(synthetic_driver_leap_year)
     print("  test_time_coord: PASSED")
 
     print("\nAll integration tests PASSED!")

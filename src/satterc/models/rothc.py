@@ -1,6 +1,7 @@
 from hamilton.function_modifiers import extract_fields
 import numpy as np
 from numpy.typing import NDArray
+from pandas import DatetimeIndex
 from xarray import DataArray
 
 from rothc_py import RothC, percent_modern_c
@@ -17,16 +18,17 @@ def _rothc(
     dpm_rpm_ratio_monthly: NDArray[np.float64],
     carbon_input_monthly: NDArray[np.float64],
     farmyard_manure_input_monthly: NDArray[np.float64],
-    dates_monthly,
     clay: float,
     soil_depth: float,
     inert_organic_matter: float,
     n_years_spinup: int,
+    dates_monthly: DatetimeIndex,
 ) -> dict[str, NDArray]:
     n_months, n_pixels = temperature_celcius_monthly.shape
     n_spinup_months = n_years_spinup * 12
+    start_date = dates_monthly.values[0]
 
-    t_mod = percent_modern_c(start_date=dates_monthly[0], n_months=n_months)
+    t_mod = percent_modern_c(start_date=start_date, n_months=n_months)
 
     model = RothC(clay=clay, depth=soil_depth, iom=inert_organic_matter)
 
@@ -119,7 +121,6 @@ def rothc(
     dpm_rpm_ratio_monthly: DataArray,
     carbon_input_monthly: DataArray,
     farmyard_manure_input_monthly: DataArray,
-    dates_monthly: DataArray,
     rothc_parameters: tuple[float, float, float, int],
 ) -> dict[str, DataArray]:
     """
@@ -143,8 +144,6 @@ def rothc(
         Carbon input in tC/ha/month.
     farmyard_manure_input_monthly
         Farmyard manure input in tC/ha/month.
-    dates_monthly
-        Monthly dates.
     rothc_parameters
         Tuple of parameters.
 
@@ -173,7 +172,6 @@ def rothc(
         dpm_rpm_ratio_monthly=dpm_rpm_ratio_monthly,
         carbon_input_monthly=carbon_input_monthly,
         farmyard_manure_input_monthly=farmyard_manure_input_monthly,
-        dates_monthly=dates_monthly,
         clay=clay,
         soil_depth=soil_depth,
         inert_organic_matter=inert_organic_matter,

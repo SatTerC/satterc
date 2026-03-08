@@ -68,11 +68,14 @@ def xarray_io(
                 """
                 # WARN: this will flatten all dims except time, which is not what we want
                 # if the DataArray is carrying around extra dims e.g. soil depth.
-                return (
-                    (v.stack(pixel=v.dims[1:]).data if flatten_spatial else v.data)
-                    if isinstance(v, xr.DataArray)
-                    else v
-                )
+                if isinstance(v, xr.DataArray):
+                    return (
+                        v.stack(pixel=["lat", "lon"]).data
+                        if flatten_spatial
+                        else v.data
+                    )
+                else:
+                    return v
 
             # Process arguments while maintaining JAX/NumPy dispatching
             new_args = [_unpack_args(arg) for arg in args]
@@ -91,12 +94,20 @@ def xarray_io(
             def _repack_returns(v: Any, name: str | None = None) -> Any:
                 """Recursively repack any SupportedArrayTypes into xarray.DataArrays."""
                 if isinstance(v, SupportedArrayTypes):
-                    # Compare rank to reference to handle case where func reduces over time dim
-                    new_dims = (
-                        unpacked_reference_da.dims
-                        if v.ndim == unpacked_reference_da.ndim
-                        else unpacked_reference_da.dims[1:]
-                    )
+                    if flatten_spatial:
+                        if v.ndim == 1:
+                            new_dims = ("pixel",)
+                        elif v.ndim == 2:
+                            new_dims = ("time", "pixel")
+                        else:
+                            raise Exception("no")
+                    else:
+                        if v.ndim == 2:
+                            new_dims = ("lat", "lon")
+                        elif v.ndim == 3:
+                            new_dims = ("time", "lat", "lon")
+                        else:
+                            raise Exception("no no no")
 
                     v_da = xr.DataArray(
                         v,
@@ -109,6 +120,8 @@ def xarray_io(
                         attrs=reference_da.attrs,
                         name=name,
                     )
+                    if flatten_spatial:
+                        v_da = v_da.unstack()
                     return (
                         v_da.unstack()
                         if flatten_spatial and "pixel" in v_da.dims

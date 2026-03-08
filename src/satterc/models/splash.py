@@ -9,6 +9,7 @@ on climate inputs.
 from hamilton.function_modifiers import unpack_fields
 import numpy as np
 from numpy.typing import NDArray
+from pandas import DatetimeIndex
 from xarray import DataArray
 import pyrealm.splash.splash
 import pyrealm.core.calendar
@@ -16,28 +17,33 @@ import pyrealm.core.calendar
 from ..utils import xarray_io
 
 
-@xarray_io(flatten_spatial=True, inject_time="dates")
+@xarray_io(flatten_spatial=True, inject_time="dates_daily")
 def _splash(
-    sunshine_fraction_daily: NDArray,
-    temperature_celcius_daily: NDArray,
-    precipitation_mm_daily: NDArray,
-    elevation: NDArray,
-    latitude: NDArray,
-    dates: NDArray[np.datetime64],
+    sunshine_fraction_daily: NDArray[np.float64],
+    temperature_celcius_daily: NDArray[np.float64],
+    precipitation_mm_daily: NDArray[np.float64],
+    elevation: NDArray[np.float64],
+    latitude: NDArray[np.float64],
     max_soil_moisture: NDArray[np.float64],
     soil_moisture_init_max_iter: int,
     soil_moisture_init_max_diff: float,
+    dates_daily: DatetimeIndex,
 ) -> tuple[NDArray, NDArray, NDArray]:
-    calendar = pyrealm.core.calendar.Calendar(dates)
+    calendar = pyrealm.core.calendar.Calendar(dates_daily.values)
+
+    print("HELLO WORLD")
+    print(sunshine_fraction_daily.shape)
+    print(latitude.shape)
+    print(elevation.shape)
 
     model = pyrealm.splash.splash.SplashModel(
-        lat=latitude,
-        elv=elevation,
+        lat=latitude[0],
+        elv=elevation[0],
         sf=sunshine_fraction_daily,
         tc=temperature_celcius_daily,
         pn=precipitation_mm_daily,
         dates=calendar,
-        kWm=max_soil_moisture,
+        kWm=max_soil_moisture[0],
     )
 
     init_moisture = model.estimate_initial_soil_moisture(
@@ -45,7 +51,11 @@ def _splash(
         max_diff=soil_moisture_init_max_diff,
         verbose=False,
     )
+    print("HELLO WORLD")
+    print(init_moisture.shape)
     aet, moisture, runoff = model.calculate_soil_moisture(init_moisture)
+
+    print(aet.shape)
 
     return aet, moisture, runoff
 
