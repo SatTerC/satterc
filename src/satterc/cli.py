@@ -29,7 +29,16 @@ def graph(
     config_file: Annotated[
         Path, typer.Argument(exists=True, file_okay=True, dir_okay=False, readable=True)
     ],
-    output: str = "pipeline",
+    output: Annotated[
+        str, typer.Option("-o", "--output", help="Name of output file")
+    ] = "pipeline",
+    allow_overrides: Annotated[
+        bool,
+        typer.Option(
+            "--allow-overrides",
+            help="Allow later modules to override earlier ones.",
+        ),
+    ] = False,
 ) -> None:
     """Visualise a pipeline defined in a configuration file.
 
@@ -44,7 +53,11 @@ def graph(
     driver_config = config.get("config", None)
     graphviz_kwargs = config.get("graphviz", None)
 
-    dr = build_driver(modules=modules, config=driver_config)
+    dr = build_driver(
+        modules=modules,
+        config=driver_config,
+        allow_module_overrides=allow_overrides,
+    )
 
     output_path = Path(output).with_suffix(".dot")
 

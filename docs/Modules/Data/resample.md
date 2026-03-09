@@ -1,0 +1,3 @@
+# Resample
+
+::: satterc.data.resample

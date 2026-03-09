@@ -1,11 +1,10 @@
-import numpy as np
-from numpy.typing import NDArray
+import xarray as xr
 
 
-def aridity_index(
-    actual_evapotranspiration: NDArray[np.float64],
-    precipitation_mm: NDArray[np.float64],
-) -> NDArray[np.float64]:
+def aridity_index_daily(
+    actual_evapotranspiration_daily: xr.DataArray,
+    precipitation_mm_daily: xr.DataArray,
+) -> xr.DataArray:
     """Calculate the aridity index.
 
     This is a dimensionless ratio of actual evapotranspiration to precipitation.
@@ -14,14 +13,14 @@ def aridity_index(
 
     Parameters
     ----------
-    actual_evapotranspiration
+    actual_evapotranspiration_daily
         Actual evapotranspiration (mm).
-    precipitation_mm
+    precipitation_mm_daily
         Precipitation (mm).
 
     Returns
     -------
-    NDArray[np.float64]
+    xr.DataArray
         Aridity index (dimensionless ratio of actual evapotranspiration to precipitation).
     """
-    return actual_evapotranspiration / precipitation_mm
+    return actual_evapotranspiration_daily / precipitation_mm_daily

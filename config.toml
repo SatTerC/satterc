@@ -1,7 +1,10 @@
 modules = [
   "splash",
   "pmodel",
-  "rothc"
+  "rothc",
+  "variables",
+  "resample",
+  "io",
 ]
 
 [config]

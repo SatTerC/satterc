@@ -3,9 +3,9 @@ from typing import Any
 
 from hamilton import driver
 
-from .models import splash
-from .models import pmodel
-from .models import rothc
+from .models import splash, pmodel, rothc
+from .data import io, resample, variables
+from .extras import synthetic_inputs
 
 # TODO:
 # * Create a module registry.
@@ -21,6 +21,10 @@ _MODULES = dict(
     splash=splash,
     pmodel=pmodel,
     rothc=rothc,
+    io=io,
+    resample=resample,
+    variables=variables,
+    synthetic_inputs=synthetic_inputs,
 )
 
 
@@ -29,12 +33,17 @@ def get_modules(modules: list[str] | None = None) -> list[ModuleType]:
     # _load_module_from_path etc.
     # For now, just attempt to extract from dict
     if not modules:
-        modules = ["splash", "pmodel"]
+        modules = list(_MODULES.keys())
     return [_MODULES[key] for key in modules]
 
 
 def build_driver(
-    modules: list[str] | None = None, config: dict[str, Any] | None = None
+    modules: list[str] | None = None,
+    config: dict[str, Any] | None = None,
+    allow_module_overrides: bool = False,
 ) -> driver.Driver:
     modules_ = get_modules(modules)
-    return driver.Builder().with_modules(*modules_).with_config(config or {}).build()
+    dr = driver.Builder().with_modules(*modules_).with_config(config or {})
+    if allow_module_overrides:
+        dr = dr.allow_module_overrides()
+    return dr.build()
