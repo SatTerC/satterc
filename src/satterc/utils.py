@@ -1,5 +1,5 @@
 import functools
-from typing import Any, Callable, Type, TypeVar, ParamSpec
+from typing import Any, Callable, Type
 
 import numpy as np
 import pandas as pd

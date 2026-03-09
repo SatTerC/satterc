@@ -3,13 +3,9 @@ from typing import Any
 
 from hamilton import driver
 
-from .models import splash
-from .models import pmodel
-from .models import rothc
-from . import inputs
-from .data import io
-from .data import resample
-from .data import synthetic_inputs
+from .models import splash, pmodel, rothc
+from .data import io, resample, variables
+from .extras import synthetic_inputs
 
 # TODO:
 # * Create a module registry.
@@ -25,9 +21,9 @@ _MODULES = dict(
     splash=splash,
     pmodel=pmodel,
     rothc=rothc,
-    inputs=inputs,
     io=io,
     resample=resample,
+    derived_variables=variables,
     synthetic_inputs=synthetic_inputs,
 )
 
