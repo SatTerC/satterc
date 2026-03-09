@@ -737,7 +737,7 @@ wheels = [
 [[package]]
 name = "rothc-py"
 version = "1.9.0"
-source = { git = "https://github.com/satterc/rothc_py.git#2306f5907bccf0aa8574e31c7ba6410ce16a7ad0" }
+source = { git = "https://github.com/SatTerC/rothc_py.git#2306f5907bccf0aa8574e31c7ba6410ce16a7ad0" }
 
 [[package]]
 name = "ruff"
@@ -797,6 +797,7 @@ dependencies = [
     { name = "rioxarray" },
     { name = "rothc-py" },
     { name = "sf-hamilton", extra = ["visualization"] },
+    { name = "sgam" },
     { name = "typer" },
     { name = "xarray" },
 ]
@@ -823,8 +824,9 @@ requires-dist = [
     { name = "pyproj", specifier = ">=3.7.2" },
     { name = "pyrealm", specifier = ">=2.0.0" },
     { name = "rioxarray", specifier = ">=0.22.0" },
-    { name = "rothc-py", git = "https://github.com/satterc/rothc_py.git" },
+    { name = "rothc-py", git = "https://github.com/SatTerC/rothc_py.git" },
     { name = "sf-hamilton", extras = ["visualization"], specifier = ">=1.89.0" },
+    { name = "sgam", git = "https://github.com/SatTerC/sgam.git" },
     { name = "typer", specifier = ">=0.24.1" },
     { name = "xarray", specifier = ">=2026.2.0" },
 ]
@@ -913,6 +915,14 @@ wheels = [
 visualization = [
     { name = "graphviz" },
     { name = "networkx" },
+]
+
+[[package]]
+name = "sgam"
+version = "0.1.0"
+source = { git = "https://github.com/SatTerC/sgam.git#d9835e3998a7c187feb2ecc7bde36a1d2cd6f09a" }
+dependencies = [
+    { name = "numpy" },
 ]
 
 [[package]]
