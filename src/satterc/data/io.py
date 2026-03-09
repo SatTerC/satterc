@@ -8,8 +8,9 @@ into a single "pixel" dimension.
 
 from pathlib import Path
 
-import xarray as xr
+from hamilton.function_modifiers import unpack_fields
 import numpy as np
+import xarray as xr
 
 import rioxarray as rioxarray  # only used indirectly via dataset.rio; suppress linter errors
 from pyproj import Transformer
@@ -43,7 +44,8 @@ def raw_dataset(path: str) -> xr.Dataset:
     return xr.open_dataset(path, engine=engine, decode_coords="all")
 
 
-def latlon_grid(raw_dataset: xr.Dataset) -> dict[str, xr.DataArray]:
+@unpack_fields("latitude", "longitude")
+def latitude_longitude(raw_dataset: xr.Dataset) -> tuple[xr.DataArray, xr.DataArray]:
     """
     Computes both latitude and longitude grids and unpacks them
     into individual nodes in the Hamilton DAG.
@@ -57,7 +59,7 @@ def latlon_grid(raw_dataset: xr.Dataset) -> dict[str, xr.DataArray]:
 
     Returns
     -------
-    dict[str, xr.DataArray]
+    tuple[xr.DataArray, xr.DataArray]
         Dictionary with "latitude" and "longitude" DataArrays,
         each with (pixel,) dimensions.
     """
@@ -91,7 +93,4 @@ def latlon_grid(raw_dataset: xr.Dataset) -> dict[str, xr.DataArray]:
         name="longitude",
     )
 
-    return {
-        "latitude": lat_da,
-        "longitude": lon_da,
-    }
+    return lat_da, lon_da

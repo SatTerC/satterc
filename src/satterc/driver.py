@@ -23,7 +23,7 @@ _MODULES = dict(
     rothc=rothc,
     io=io,
     resample=resample,
-    derived_variables=variables,
+    variables=variables,
     synthetic_inputs=synthetic_inputs,
 )
 
@@ -38,7 +38,12 @@ def get_modules(modules: list[str] | None = None) -> list[ModuleType]:
 
 
 def build_driver(
-    modules: list[str] | None = None, config: dict[str, Any] | None = None
+    modules: list[str] | None = None,
+    config: dict[str, Any] | None = None,
+    allow_module_overrides: bool = False,
 ) -> driver.Driver:
     modules_ = get_modules(modules)
-    return driver.Builder().with_modules(*modules_).with_config(config or {}).build()
+    dr = driver.Builder().with_modules(*modules_).with_config(config or {})
+    if allow_module_overrides:
+        dr = dr.allow_module_overrides()
+    return dr.build()
