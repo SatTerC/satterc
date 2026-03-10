@@ -4,7 +4,7 @@ from typing import Any
 from hamilton import driver
 
 from .models import splash, pmodel, sgam, rothc
-from .data import io, resample, variables
+from . import inputs  # import load, grid, daily, weekly, monthly
 from .extras import synthetic_inputs
 
 # TODO:
@@ -22,9 +22,7 @@ _MODULES = dict(
     pmodel=pmodel,
     sgam=sgam,
     rothc=rothc,
-    io=io,
-    resample=resample,
-    variables=variables,
+    inputs=inputs,
     synthetic_inputs=synthetic_inputs,
 )
 

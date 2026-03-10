@@ -115,27 +115,3 @@ def xarray_io() -> Callable[[Callable[..., Any]], Callable[..., Any]]:
         return wrapper
 
     return decorator
-
-
-def stack_spatial(da: xr.DataArray) -> xr.DataArray:
-    """Stack lat and lon dimensions into a single pixel dimension.
-
-    Transforms a DataArray with dimensions (..., lat, lon) into a DataArray
-    with dimensions (..., pixel) where pixel is a multi-index combining lat and lon.
-
-    Parameters:
-    -----------
-    da : xr.DataArray
-        Input DataArray with lat and lon dimensions
-
-    Returns:
-    --------
-    xr.DataArray
-        DataArray with lat and lon stacked into a single 'pixel' dimension
-    """
-    if "lat" not in da.dims or "lon" not in da.dims:
-        return da
-
-    da_stacked = da.stack(pixel=("lat", "lon"))
-    da_stacked = da_stacked.drop_vars(["lat", "lon"], errors="ignore")
-    return da_stacked

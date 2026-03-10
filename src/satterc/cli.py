@@ -39,6 +39,8 @@ def graph(
             help="Allow later modules to override earlier ones.",
         ),
     ] = False,
+    png: Annotated[bool, typer.Option(help="Convert to PNG format")] = False,
+    pdf: Annotated[bool, typer.Option(help="Convert to PDF format")] = False,
 ) -> None:
     """Visualise a pipeline defined in a configuration file.
 
@@ -64,11 +66,33 @@ def graph(
     dr.display_all_functions(
         output_file_path=str(output_path), graphviz_kwargs=graphviz_kwargs
     )
+    # dr.display_upstream_of(
+    #    "soil_organic_carbon_monthly",
+    #    output_file_path=str(output_path),
+    #    graphviz_kwargs=graphviz_kwargs,
+    # )
 
     # TODO: is there a better way than this?
-    subprocess.run(
-        ["dot", "-Tpng", str(output_path), "-o", str(output_path.with_suffix(".png"))]
-    )
+    if png:
+        subprocess.run(
+            [
+                "dot",
+                "-Tpng",
+                str(output_path),
+                "-o",
+                str(output_path.with_suffix(".png")),
+            ]
+        )
+    if pdf:
+        subprocess.run(
+            [
+                "dot",
+                "-Tpdf",
+                str(output_path),
+                "-o",
+                str(output_path.with_suffix(".pdf")),
+            ]
+        )
 
 
 @app.command()

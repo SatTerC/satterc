@@ -1,11 +1,9 @@
 modules = [
+  "inputs",
   "splash",
   "pmodel",
   "sgam",
   "rothc",
-  "variables",
-  "resample",
-  "io",
 ]
 
 [config]
