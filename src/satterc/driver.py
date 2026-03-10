@@ -4,7 +4,7 @@ from typing import Any
 from hamilton import driver
 
 from .models import splash, pmodel, sgam, rothc
-from . import inputs  # import load, grid, daily, weekly, monthly
+from .inputs import grid, daily, weekly, monthly, static
 from .extras import synthetic_inputs
 
 # TODO:
@@ -22,8 +22,7 @@ _MODULES = dict(
     pmodel=pmodel,
     sgam=sgam,
     rothc=rothc,
-    inputs=inputs,
-    synthetic_inputs=synthetic_inputs,
+    # synthetic_inputs=synthetic_inputs,
 )
 
 
@@ -41,7 +40,7 @@ def build_driver(
     config: dict[str, Any] | None = None,
     allow_module_overrides: bool = False,
 ) -> driver.Driver:
-    modules_ = get_modules(modules)
+    modules_ = [grid, daily, weekly, monthly, static] + get_modules(modules)
     dr = driver.Builder().with_modules(*modules_).with_config(config or {})
     if allow_module_overrides:
         dr = dr.allow_module_overrides()

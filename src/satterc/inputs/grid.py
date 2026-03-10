@@ -5,8 +5,8 @@ from pyproj import Transformer
 
 
 @unpack_fields("latitude", "longitude")
-def coordinate_grid(
-    daily_inputs_dataset: xr.Dataset,
+def compute_latlon(
+    daily_inputs_stacked: xr.Dataset,
 ) -> tuple[xr.DataArray, xr.DataArray]:
     """
     Computes both latitude and longitude grids and unpacks them into individual nodes.
@@ -21,20 +21,20 @@ def coordinate_grid(
     tuple[xr.DataArray, xr.DataArray]
         Tuple of "latitude" and "longitude" DataArrays.
     """
-    crs = daily_inputs_dataset.rio.crs
+    crs = daily_inputs_stacked.rio.crs
     if crs is None:
         raise ValueError("No CRS found.")
 
     transformer = Transformer.from_crs(crs, "EPSG:4326", always_xy=True)
 
     # 1. Get the names of the spatial dims (usually 'x' and 'y')
-    x_dim = daily_inputs_dataset.rio.x_dim
-    y_dim = daily_inputs_dataset.rio.y_dim
+    x_dim = daily_inputs_stacked.rio.x_dim
+    y_dim = daily_inputs_stacked.rio.y_dim
 
     # 2. Extract values. If stacked, these are already 1D arrays of length 'pixel'
     # No meshgrid required!
-    x_values = daily_inputs_dataset[x_dim].values
-    y_values = daily_inputs_dataset[y_dim].values
+    x_values = daily_inputs_stacked[x_dim].values
+    y_values = daily_inputs_stacked[y_dim].values
 
     # 3. Transform directly
     lons, lats = transformer.transform(x_values, y_values)
@@ -43,13 +43,13 @@ def coordinate_grid(
     # We reuse the existing 'pixel' coordinate from the input for perfect alignment
     lat_da = xr.DataArray(
         lats,
-        coords={"pixel": daily_inputs_dataset.pixel},
+        coords={"pixel": daily_inputs_stacked.pixel},
         dims=("pixel",),
         name="latitude",
     )
     lon_da = xr.DataArray(
         lons,
-        coords={"pixel": daily_inputs_dataset.pixel},
+        coords={"pixel": daily_inputs_stacked.pixel},
         dims=("pixel",),
         name="longitude",
     )

@@ -1,7 +1,6 @@
-from pathlib import Path
 from os import PathLike
+from pathlib import Path
 
-from hamilton.function_modifiers import unpack_fields
 import xarray as xr
 
 
@@ -37,17 +36,6 @@ def _load_dataset(path: str | PathLike) -> xr.Dataset:
     return xr.open_dataset(path, engine=engine, decode_coords="all")
 
 
-def _check_datasets_aligned(
-    daily_ds: xr.Dataset, weekly_ds: xr.Dataset, monthly_ds: xr.Dataset
-) -> None:
-    # TODO: improve this check, possibly using xindexes.
-    # Do we need to know what the x,y dims are called??
-    xr.testing.assert_allclose(daily_ds.coords[1], weekly_ds.coords[1])
-    xr.testing.assert_allclose(daily_ds.coords[2], weekly_ds.coords[2])
-    xr.testing.assert_allclose(daily_ds.coords[1], monthly_ds.coords[1])
-    xr.testing.assert_allclose(daily_ds.coords[2], monthly_ds.coords[2])
-
-
 def _stack_spatial_dims(ds: xr.Dataset) -> xr.Dataset:
     """Stack spatial dimensions into a single pixel dimension.
 
@@ -77,27 +65,12 @@ def _stack_spatial_dims(ds: xr.Dataset) -> xr.Dataset:
     return ds_stacked
 
 
-@unpack_fields(
-    "daily_inputs_dataset",
-    "weekly_inputs_dataset",
-    "monthly_inputs_dataset",
-    "static_inputs_dataset",
-)
-def input_datasets(
-    inputs_dir: str | PathLike,
-) -> tuple[xr.Dataset, xr.Dataset, xr.Dataset, xr.Dataset]:
-    inputs_path = Path(inputs_dir)
-
-    daily_ds = _load_dataset(inputs_path / "daily.nc")
-    weekly_ds = _load_dataset(inputs_path / "weekly.nc")
-    monthly_ds = _load_dataset(inputs_path / "monthly.nc")
-    static_ds = _load_dataset(inputs_path / "static.nc")
-
-    _check_datasets_aligned(daily_ds, weekly_ds, monthly_ds)
-
-    daily_ds_stacked = _stack_spatial_dims(daily_ds)
-    weekly_ds_stacked = _stack_spatial_dims(weekly_ds)
-    monthly_ds_stacked = _stack_spatial_dims(monthly_ds)
-    static_ds_stacked = _stack_spatial_dims(static_ds)
-
-    return daily_ds_stacked, weekly_ds_stacked, monthly_ds_stacked, static_ds_stacked
+def _check_datasets_aligned(
+    daily_ds: xr.Dataset, weekly_ds: xr.Dataset, monthly_ds: xr.Dataset
+) -> None:
+    # TODO: improve this check, possibly using xindexes.
+    # Do we need to know what the x,y dims are called??
+    xr.testing.assert_allclose(daily_ds.coords[1], weekly_ds.coords[1])
+    xr.testing.assert_allclose(daily_ds.coords[2], weekly_ds.coords[2])
+    xr.testing.assert_allclose(daily_ds.coords[1], monthly_ds.coords[1])
+    xr.testing.assert_allclose(daily_ds.coords[2], monthly_ds.coords[2])

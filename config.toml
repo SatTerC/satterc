@@ -1,5 +1,4 @@
 modules = [
-  "inputs",
   "splash",
   "pmodel",
   "sgam",

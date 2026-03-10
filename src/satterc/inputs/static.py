@@ -1,15 +1,30 @@
+from pathlib import Path
+
 from hamilton.function_modifiers import extract_fields
 import xarray as xr
 
-STATIC_INPUT_VARIABLES = [
+from ._utils import _load_dataset, _stack_spatial_dims
+
+STATIC_INPUTS = [
     "elevation",
     "plant_type",
     "max_soil_moisture",
+    "clay_content",
+    "soil_depth",
+    "organic_carbon_stocks",
 ]
 
 
-@extract_fields(STATIC_INPUT_VARIABLES)
-def static_inputs(static_inputs_dataset: xr.Dataset) -> dict[str, xr.DataArray]:
+def static_inputs(static_inputs_path: Path) -> xr.Dataset:
+    return _load_dataset(static_inputs_path)
+
+
+def static_inputs_stacked(static_inputs: xr.Dataset) -> xr.Dataset:
+    return _stack_spatial_dims(static_inputs)
+
+
+@extract_fields(STATIC_INPUTS)
+def unpack_static_inputs(static_inputs_stacked: xr.Dataset) -> dict[str, xr.DataArray]:
     return {
-        str(var): static_inputs_dataset[var] for var in static_inputs_dataset.data_vars
+        str(var): static_inputs_stacked[var] for var in static_inputs_stacked.data_vars
     }
