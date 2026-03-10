@@ -59,18 +59,20 @@ def common_grid(
 
     # Extract coordinates
     x_dim, y_dim = ds.rio.x_dim, ds.rio.y_dim
-    x, y = ds[x_dim].values, ds[y_dim].values
+    x = ds[x_dim].values
+    y = ds[y_dim].values
+
+    # Create meshgrid for transformation
+    x_grid, y_grid = np.meshgrid(x, y, indexing="ij")
 
     # Transform to lat/lon
     transformer = Transformer.from_crs(ds.rio.crs, "EPSG:4326", always_xy=True)
-    lon, lat = transformer.transform(x, y)
+    lon_grid, lat_grid = transformer.transform(x_grid, y_grid)
 
     return xr.Dataset(
         data_vars={
-            "x": (["x", "y"], x),
-            "y": (["x", "y"], y),
-            "latitude": (["x", "y"], lat),
-            "longitude": (["x", "y"], lon),
+            "latitude": (["x", "y"], lat_grid),
+            "longitude": (["x", "y"], lon_grid),
         },
         coords={"x": x, "y": y},
         attrs={"crs": ds.rio.crs},
@@ -81,14 +83,12 @@ def common_grid_stacked(common_grid: xr.Dataset) -> xr.Dataset:
     return stack_spatial_dims(common_grid)
 
 
-@unpack_fields("x", "y", "latitude", "longitude")
+@unpack_fields("latitude", "longitude")
 def unpack_common_grid(
     common_grid_stacked: xr.Dataset,
-) -> tuple[xr.DataArray, xr.DataArray, xr.DataArray, xr.DataArray]:
+) -> tuple[xr.DataArray, xr.DataArray]:
     # NOTE: not sure if there's any point in even including x, y as nodes.
     return (
-        common_grid_stacked.x,
-        common_grid_stacked.y,
         common_grid_stacked.latitude,
         common_grid_stacked.longitude,
     )
