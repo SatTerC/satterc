@@ -12,6 +12,9 @@ STATIC_INPUTS = [
     "clay_content",
     "soil_depth",
     "organic_carbon_stocks",
+    "root_pool_init",
+    "leaf_pool_init",
+    "stem_pool_init",
 ]
 
 

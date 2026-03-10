@@ -70,9 +70,9 @@ def _sgam(
     iwue_weekly: NDArray[np.float64],
     dates_weekly: pd.DatetimeIndex,
     disturbances_weekly: NDArray[np.float64],
-    leaf_pool_init: float,
-    stem_pool_init: float,
-    root_pool_init: float,
+    leaf_pool_init: NDArray[np.float64],
+    stem_pool_init: NDArray[np.float64],
+    root_pool_init: NDArray[np.float64],
 ) -> dict[str, NDArray]:
     # Week index, from 1-52
     week_of_year = dates_weekly.isocalendar().week
@@ -90,9 +90,9 @@ def _sgam(
             iwue=iwue_weekly[:, i],
             week_of_year=week_of_year,
             disturbances=disturbances_weekly[:, i],
-            leaf_pool_init=leaf_pool_init,
-            stem_pool_init=stem_pool_init,
-            root_pool_init=root_pool_init,
+            leaf_pool_init=leaf_pool_init[i],
+            stem_pool_init=stem_pool_init[i],
+            root_pool_init=root_pool_init[i],
         )
         results_all_pixels.append(results_i)
 
@@ -133,9 +133,9 @@ def sgam(
     iwue_weekly: xr.DataArray,
     disturbances_weekly: xr.DataArray,
     dates_weekly: pd.Index,
-    leaf_pool_init: float,
-    stem_pool_init: float,
-    root_pool_init: float,
+    leaf_pool_init: xr.DataArray,
+    stem_pool_init: xr.DataArray,
+    root_pool_init: xr.DataArray,
 ) -> dict[str, xr.DataArray]:
     """Run the Storage Gap Model (SGAM) vegetation model.
 
@@ -159,11 +159,11 @@ def sgam(
         Weekly disturbance indicators.
     dates_weekly : pd.Index
         Weekly datetime index.
-    leaf_pool_init : float
+    leaf_pool_init : xr.DataArray
         Initial leaf pool size.
-    stem_pool_init : float
+    stem_pool_init : xr.DataArray
         Initial stem pool size.
-    root_pool_init : float
+    root_pool_init : xr.DataArray
         Initial root pool size.
 
     Returns
