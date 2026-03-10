@@ -169,3 +169,15 @@ def aridity_index_daily(
         Aridity index (dimensionless ratio of actual evapotranspiration to precipitation).
     """
     return actual_evapotranspiration_daily / precipitation_mm_daily
+
+
+def mean_growth_temperature_weekly(
+    temperature_celcius_daily: xr.DataArray,
+) -> xr.DataArray:
+    """Calculate the mean temperature on 'growing degree days' where the temperature is > 0°C."""
+    # True on growing degree days (temp > 0.)
+    gdd_mask = temperature_celcius_daily > 0.0
+
+    # Compute weekly mean, masking non-growing degree days
+    # TODO: if the whole week is < 0, this will include NaN. Need to check pmodel can deal with this!
+    return temperature_celcius_daily.where(gdd_mask).resample(time="W").mean()

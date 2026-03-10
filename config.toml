@@ -6,5 +6,5 @@ modules = [
 ]
 
 [config]
-max_soil_moisture = 3
-method_optchi = "simple"
+method_kphio = "sandoval"
+method_optchi = "lavergne20c3"
