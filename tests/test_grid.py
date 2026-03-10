@@ -8,57 +8,8 @@ using the synthetic NetCDF data files.
 import numpy as np
 import pytest
 import xarray as xr
-from pathlib import Path
 
 from satterc.inputs import grid
-
-
-@pytest.fixture
-def daily_path():
-    return Path("src/satterc/extras/data/daily.nc")
-
-
-@pytest.fixture
-def weekly_path():
-    return Path("src/satterc/extras/data/weekly.nc")
-
-
-@pytest.fixture
-def monthly_path():
-    return Path("src/satterc/extras/data/monthly.nc")
-
-
-@pytest.fixture
-def static_path():
-    return Path("src/satterc/extras/data/static.nc")
-
-
-@pytest.fixture
-def daily_ds():
-    return xr.open_dataset(
-        "src/satterc/extras/data/daily.nc", engine="scipy", decode_coords="all"
-    )
-
-
-@pytest.fixture
-def weekly_ds():
-    return xr.open_dataset(
-        "src/satterc/extras/data/weekly.nc", engine="scipy", decode_coords="all"
-    )
-
-
-@pytest.fixture
-def monthly_ds():
-    return xr.open_dataset(
-        "src/satterc/extras/data/monthly.nc", engine="scipy", decode_coords="all"
-    )
-
-
-@pytest.fixture
-def static_ds():
-    return xr.open_dataset(
-        "src/satterc/extras/data/static.nc", engine="scipy", decode_coords="all"
-    )
 
 
 class TestCheckCommonGrid:
