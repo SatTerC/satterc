@@ -21,9 +21,41 @@ def run(
     config_file: Annotated[
         Path, typer.Argument(exists=True, file_okay=True, dir_okay=False, readable=True)
     ],
+    output: Annotated[
+        Path,
+        typer.Option(
+            "-o",
+            "--output",
+            file_okay=False,
+            dir_okay=True,
+            writable=True,
+            help="Path to output directory",
+        ),
+    ] = Path("./outputs"),
+    allow_overrides: Annotated[
+        bool,
+        typer.Option(
+            "--allow-overrides",
+            help="Allow later modules to override earlier ones.",
+        ),
+    ] = False,
 ) -> None:
     """Execute a pipeline defined in a configuration file."""
     typer.secho("Not yet implemented!", fg=typer.colors.YELLOW)
+
+    with config_file.open("rb") as file:
+        config = tomllib.load(file)
+
+    modules = config.get("modules", None)
+    driver_config = config.get("config", None)
+    outputs = config.get("outputs", None)
+
+    # TODO: dynamically create node that combines outputs into a dataset and saves to disk.
+    dr = build_driver(
+        modules=modules,
+        config=driver_config,
+        allow_module_overrides=allow_overrides,
+    )
 
 
 # TODO: refine this and move out of cli
