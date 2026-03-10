@@ -4,6 +4,7 @@ from numpy.typing import NDArray
 from pandas import DatetimeIndex
 import pandas as pd
 from xarray import DataArray
+import xarray as xr
 
 from rothc_py import RothC, percent_modern_c
 
@@ -158,8 +159,8 @@ def rothc(
         - humified_organic_matter_monthly: HUM pool (tC/ha)
         - soil_organic_carbon_monthly: Total SOC (tC/ha)
 
-    Note
-    ----
+    Notes
+    -----
     All outputs have units tC/ha (tonnes of Carbon per hectare).
     All outputs are at monthly resolution.
     """
@@ -201,9 +202,8 @@ def evaporation_monthly(
     # RothC expects monthly *open pan evaporation* NOT actual evapotranspiration.
 
 
-# Temporary bridge
 def soil_carbon_input_monthly(litter_to_soil_monthly: DataArray) -> DataArray:
-    """Bridge function to map litter input to soil carbon input.
+    """Temporary bridge to map litter input to soil carbon input.
 
     Parameters
     ----------
@@ -233,3 +233,35 @@ def inert_organic_matter(organic_carbon_stocks: DataArray) -> DataArray:
     """
     return 0.049 * organic_carbon_stocks**1.139
     # NOTE: taken from https://github.com/vmyrgiotis/coupled-ecosystem-carbon-model/blob/v0/notebooks/notebook_v4.ipynb
+
+
+def plant_cover_monthly(
+    plant_type: DataArray, dates_monthly: DatetimeIndex
+) -> DataArray:
+    """Temporary bridge to the boolean plant cover data required by RothC.
+
+    Just returns an array of ones with shape (n_months, n_pixels).
+    """
+    return xr.ones_like(plant_type.expand_dims(time=dates_monthly))
+
+
+def dpm_rpm_ratio_monthly(
+    plant_type: DataArray, dates_monthly: DatetimeIndex
+) -> DataArray:
+    # TODO: get pft-specific dpm/rpm ratio and return constant Array
+    value = 1.44  # crop and improved grassland
+    # value = 0.67  # unimproved grassland and scrub
+    # value = 0.25  # woodland
+    # See https://github.com/Rothamsted-Models/RothC_Py/blob/main/RothC_description.pdf
+
+    return xr.full_like(plant_type.expand_dims(time=dates_monthly), value)
+
+
+def farmyard_manure_input_monthly(
+    plant_type: DataArray, dates_monthly: DatetimeIndex
+) -> DataArray:
+    """For now, return array of zeros for farmyard manure input.
+
+    In future, could be determined by pft (non-zero if crop) and month of year.
+    """
+    return xr.zeros_like(plant_type.expand_dims(time=dates_monthly))

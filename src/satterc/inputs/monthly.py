@@ -11,7 +11,7 @@ import xarray as xr
 
 from ._utils import load_dataset, stack_spatial_dims, DatetimeIndexValidator
 
-MONTHLY_INPUTS = ["plant_cover", "dpm_rpm_ratio", "farmyard_manure_input"]
+MONTHLY_INPUTS = ["dummy_variable"]
 
 MONTHLY_FROM_DAILY = [
     # Input data
