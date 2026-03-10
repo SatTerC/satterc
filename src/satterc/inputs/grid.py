@@ -1,57 +1,94 @@
 from hamilton.function_modifiers import unpack_fields
+import numpy as np
 import xarray as xr
 import rioxarray as rioxarray  # only used indirectly via dataset.rio; suppress linter errors
 from pyproj import Transformer
 
+from ._utils import stack_spatial_dims
 
-@unpack_fields("latitude", "longitude")
-def compute_latlon(
-    daily_inputs_stacked: xr.Dataset,
-) -> tuple[xr.DataArray, xr.DataArray]:
+
+class MisalignedGridError(Exception):
+    pass
+
+
+def _check_common_grid(ds1: xr.Dataset, ds2: xr.Dataset, atol: float = 1e-6) -> None:
+    """Check that two Datasets share a common grid.
+
+    Raises
+    ------
+    MisalignedGridError:
+        If the grids are misaligned.
     """
-    Computes both latitude and longitude grids and unpacks them into individual nodes.
+    # Check CRS metadata
+    if not (ds1.rio.crs == ds2.rio.crs):
+        raise MisalignedGridError(f"Mismatched CRS! {ds1.rio.crs} ≠ {ds2.rio.crs}")
 
-    Parameters
-    ----------
-    daily_inputs_dataset : xr.Dataset
-        The loaded dataset with coordinate reference system information.
+    # Attempt to access dim names
+    try:
+        x1, y1 = ds1.rio.x_dim, ds1.rio.y_dim
+        x2, y2 = ds2.rio.x_dim, ds2.rio.y_dim
+    except AttributeError as e:
+        raise MisalignedGridError("Could not access (x, y) dims") from e
 
-    Returns
-    -------
-    tuple[xr.DataArray, xr.DataArray]
-        Tuple of "latitude" and "longitude" DataArrays.
-    """
-    crs = daily_inputs_stacked.rio.crs
-    if crs is None:
-        raise ValueError("No CRS found.")
+    # Check dim names agree
+    if not (x1 == x2 and y1 == y2):
+        raise MisalignedGridError(
+            f"Mismatched dimension names: ({x1}, {y1}) ≠ ({x2}, {y2})"
+        )
 
-    transformer = Transformer.from_crs(crs, "EPSG:4326", always_xy=True)
+    # Check coord values
+    try:
+        np.testing.assert_allclose(ds1[x1].values, ds2[x2].values, atol=atol)
+        np.testing.assert_allclose(ds1[y1].values, ds2[y2].values, atol=atol)
+    except AssertionError as e:
+        raise MisalignedGridError("Mismatched coordinate values!") from e
 
-    # 1. Get the names of the spatial dims (usually 'x' and 'y')
-    x_dim = daily_inputs_stacked.rio.x_dim
-    y_dim = daily_inputs_stacked.rio.y_dim
 
-    # 2. Extract values. If stacked, these are already 1D arrays of length 'pixel'
-    # No meshgrid required!
-    x_values = daily_inputs_stacked[x_dim].values
-    y_values = daily_inputs_stacked[y_dim].values
+def common_grid(
+    daily_inputs: xr.Dataset,
+    weekly_inputs: xr.Dataset,
+    monthly_inputs: xr.Dataset,
+    static_inputs: xr.Dataset,
+) -> xr.Dataset:
+    _check_common_grid(daily_inputs, static_inputs)
+    _check_common_grid(weekly_inputs, static_inputs)
+    _check_common_grid(monthly_inputs, static_inputs)
 
-    # 3. Transform directly
-    lons, lats = transformer.transform(x_values, y_values)
+    # Since all grids agree, just take static_inputs as the reference Dataset
+    ds = static_inputs
 
-    # 4. Wrap back into DataArrays
-    # We reuse the existing 'pixel' coordinate from the input for perfect alignment
-    lat_da = xr.DataArray(
-        lats,
-        coords={"pixel": daily_inputs_stacked.pixel},
-        dims=("pixel",),
-        name="latitude",
+    # Extract coordinates
+    x_dim, y_dim = ds.rio.x_dim, ds.rio.y_dim
+    x, y = ds[x_dim].values, ds[y_dim].values
+
+    # Transform to lat/lon
+    transformer = Transformer.from_crs(ds.rio.crs, "EPSG:4326", always_xy=True)
+    lon, lat = transformer.transform(x, y)
+
+    return xr.Dataset(
+        data_vars={
+            "x": (["x", "y"], x),
+            "y": (["x", "y"], y),
+            "latitude": (["x", "y"], lat),
+            "longitude": (["x", "y"], lon),
+        },
+        coords={"x": x, "y": y},
+        attrs={"crs": ds.rio.crs},
     )
-    lon_da = xr.DataArray(
-        lons,
-        coords={"pixel": daily_inputs_stacked.pixel},
-        dims=("pixel",),
-        name="longitude",
-    )
 
-    return lat_da, lon_da
+
+def common_grid_stacked(common_grid: xr.Dataset) -> xr.Dataset:
+    return stack_spatial_dims(common_grid)
+
+
+@unpack_fields("x", "y", "latitude", "longitude")
+def unpack_common_grid(
+    common_grid_stacked: xr.Dataset,
+) -> tuple[xr.DataArray, xr.DataArray, xr.DataArray, xr.DataArray]:
+    # NOTE: not sure if there's any point in even including x, y as nodes.
+    return (
+        common_grid_stacked.x,
+        common_grid_stacked.y,
+        common_grid_stacked.latitude,
+        common_grid_stacked.longitude,
+    )
