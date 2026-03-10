@@ -18,6 +18,7 @@ dependencies = [
     "rioxarray>=0.22.0",
     "rothc-py",
     "sf-hamilton[visualization]>=1.89.0",
+    "sgam",
     "typer>=0.24.1",
     "xarray>=2026.2.0",
 ]
@@ -41,5 +42,6 @@ test = [
 ]
 
 [tool.uv.sources]
-rothc-py = { git = "https://github.com/satterc/rothc_py.git" }
+rothc-py = { git = "https://github.com/SatTerC/rothc_py.git" }
+sgam = { git = "https://github.com/SatTerC/sgam.git" }
 

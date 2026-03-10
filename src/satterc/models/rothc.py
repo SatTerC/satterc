@@ -16,7 +16,7 @@ def _rothc(
     evaporation_monthly: NDArray[np.float64],
     plant_cover_monthly: NDArray[np.bool],
     dpm_rpm_ratio_monthly: NDArray[np.float64],
-    carbon_input_monthly: NDArray[np.float64],
+    soil_carbon_input_monthly: NDArray[np.float64],
     farmyard_manure_input_monthly: NDArray[np.float64],
     clay: float,
     soil_depth: float,
@@ -40,7 +40,7 @@ def _rothc(
             t_evap=evaporation_monthly[:, i].tolist(),
             t_PC=plant_cover_monthly[:, i].astype(int).tolist(),
             t_DPM_RPM=dpm_rpm_ratio_monthly[:, i].tolist(),
-            t_C_Inp=carbon_input_monthly[:, i].tolist(),
+            t_C_Inp=soil_carbon_input_monthly[:, i].tolist(),
             t_FYM_Inp=farmyard_manure_input_monthly[:, i].tolist(),
             t_mod=t_mod,
         )
@@ -119,7 +119,7 @@ def rothc(
     evaporation_monthly: DataArray,
     plant_cover_monthly: DataArray,
     dpm_rpm_ratio_monthly: DataArray,
-    carbon_input_monthly: DataArray,
+    soil_carbon_input_monthly: DataArray,
     farmyard_manure_input_monthly: DataArray,
     rothc_parameters: tuple[float, float, float, int],
 ) -> dict[str, DataArray]:
@@ -140,7 +140,7 @@ def rothc(
         Monthly plant cover as boolean (True = covered).
     dpm_rpm_ratio_monthly
         Ratio of decomposable to resistant plant material.
-    carbon_input_monthly
+    soil_carbon_input_monthly
         Carbon input in tC/ha/month.
     farmyard_manure_input_monthly
         Farmyard manure input in tC/ha/month.
@@ -172,7 +172,7 @@ def rothc(
         evaporation_monthly=evaporation_monthly,
         plant_cover_monthly=plant_cover_monthly,
         dpm_rpm_ratio_monthly=dpm_rpm_ratio_monthly,
-        carbon_input_monthly=carbon_input_monthly,
+        soil_carbon_input_monthly=soil_carbon_input_monthly,
         farmyard_manure_input_monthly=farmyard_manure_input_monthly,
         clay=clay,
         soil_depth=soil_depth,
@@ -180,3 +180,14 @@ def rothc(
         n_years_spinup=n_years_spinup,
         dates_monthly=dates_monthly,
     )
+
+
+# Temporary bridges between variables with different names elsewhere!
+def evaporation_monthly(
+    actual_evapotranspiration_monthly: DataArray,
+) -> DataArray:
+    return actual_evapotranspiration_monthly
+
+
+def soil_carbon_input_monthly(litter_to_soil_monthly: DataArray) -> DataArray:
+    return litter_to_soil_monthly

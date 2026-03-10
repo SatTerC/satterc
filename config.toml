@@ -1,6 +1,7 @@
 modules = [
   "splash",
   "pmodel",
+  "sgam",
   "rothc",
   "variables",
   "resample",
