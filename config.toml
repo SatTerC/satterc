@@ -7,7 +7,7 @@ modules = [
 
 [config]
 method_kphio = "sandoval"
-method_optchi = "lavergne20c3"
+method_optchi = "lavergne20_c3"
 
 daily_inputs_path = "src/satterc/extras/data/daily.nc"
 weekly_inputs_path = "src/satterc/extras/data/weekly.nc"

@@ -1,4 +1,4 @@
-from pathlib import Path
+from os import PathLike
 from typing import cast
 
 from hamilton.function_modifiers import (
@@ -29,7 +29,7 @@ WEEKLY_FROM_DAILY = [
 ]
 
 
-def weekly_inputs(weekly_inputs_path: Path) -> xr.Dataset:
+def weekly_inputs(weekly_inputs_path: str | PathLike) -> xr.Dataset:
     """Load weekly input dataset from file.
 
     Parameters
@@ -83,7 +83,7 @@ def unpack_weekly_inputs(weekly_inputs_stacked: xr.Dataset) -> dict[str, xr.Data
     }
 
 
-@check_output_custom(DatetimeIndexValidator("W"))
+@check_output_custom(DatetimeIndexValidator("W-SUN"))
 def dates_weekly(weekly_inputs: xr.Dataset) -> pd.DatetimeIndex:
     """Extract weekly datetime index from dataset.
 

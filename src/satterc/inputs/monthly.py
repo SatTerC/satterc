@@ -1,4 +1,4 @@
-from pathlib import Path
+from os import PathLike
 from typing import cast
 
 from hamilton.function_modifiers import (
@@ -27,7 +27,7 @@ MONTHLY_FROM_WEEKLY = [
 ]
 
 
-def monthly_inputs(monthly_inputs_path: Path) -> xr.Dataset:
+def monthly_inputs(monthly_inputs_path: str | PathLike) -> xr.Dataset:
     """Load monthly input dataset from file.
 
     Parameters

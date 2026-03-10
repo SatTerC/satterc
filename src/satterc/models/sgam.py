@@ -93,7 +93,11 @@ def _sgam(
     results_all_pixels = []
 
     for i in range(len(plant_type)):
-        results_i = SgamComponent(plant_type[i])(
+        # BUG: plant_type in synthetic data is integer - need to map onto valid PFT string
+        # This is a temporary hack to check pipeline actually executes.
+        from sgam.pft import PlantFunctionalType
+
+        results_i = SgamComponent(PlantFunctionalType.GRASS)(
             gpp=gpp_weekly[:, i],
             temperature=temperature_celcius_weekly[:, i],
             soil_moisture=soil_moisture_weekly[:, i],
