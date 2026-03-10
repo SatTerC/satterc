@@ -3,7 +3,7 @@ from typing import Any
 
 from hamilton import driver
 
-from .models import splash, pmodel, rothc
+from .models import splash, pmodel, sgam, rothc
 from .data import io, resample, variables
 from .extras import synthetic_inputs
 
@@ -20,6 +20,7 @@ from .extras import synthetic_inputs
 _MODULES = dict(
     splash=splash,
     pmodel=pmodel,
+    sgam=sgam,
     rothc=rothc,
     io=io,
     resample=resample,

@@ -31,11 +31,6 @@ def _splash(
 ) -> tuple[NDArray, NDArray, NDArray]:
     calendar = pyrealm.core.calendar.Calendar(dates_daily.values)
 
-    print("HELLO WORLD")
-    print(sunshine_fraction_daily.shape)
-    print(latitude.shape)
-    print(elevation.shape)
-
     model = pyrealm.splash.splash.SplashModel(
         lat=latitude[0],
         elv=elevation[0],
@@ -51,11 +46,7 @@ def _splash(
         max_diff=soil_moisture_init_max_diff,
         verbose=False,
     )
-    print("HELLO WORLD")
-    print(init_moisture.shape)
     aet, moisture, runoff = model.calculate_soil_moisture(init_moisture)
-
-    print(aet.shape)
 
     return aet, moisture, runoff
 

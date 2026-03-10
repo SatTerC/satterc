@@ -1,3 +1,4 @@
+from hamilton.function_modifiers import extract_fields
 import numpy as np
 import pandas as pd
 from numpy.typing import NDArray
@@ -73,9 +74,27 @@ def _sgam(
         key: np.vstack([d[key] for d in results_all_pixels]) for key in keys
     }
 
+    # Append "_weekly" suffix to all keys
+    results_stacked = {f"{key}_weekly": value for key, value in results_stacked.items()}
+
     return results_stacked
 
 
+@extract_fields(
+    [
+        "leaf_pool_size_weekly",
+        "stem_pool_size_weekly",
+        "root_pool_size_weekly",
+        "leaf_respiration_loss_weekly",
+        "stem_respiration_loss_weekly",
+        "root_respiration_loss_weekly",
+        "litter_to_soil_weekly",
+        "disturbance_loss_weekly",
+        "leaf_area_index_weekly",
+        "npp_weekly",
+        "cue_weekly",
+    ]
+)
 def sgam(
     plant_type: xr.DataArray,
     temperature_celcius_weekly: xr.DataArray,
