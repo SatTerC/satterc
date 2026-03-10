@@ -85,7 +85,17 @@ def xarray_io() -> Callable[[Callable[..., Any]], Callable[..., Any]]:
                     if v.ndim == 0:
                         return v
                     elif v.ndim == 1:
-                        new_dims = ("pixel",)
+                        # Determine if this is a time or pixel dimension
+                        # by checking against the reference DataArray
+                        ref_time_len = len(reference_da.coords["time"])
+                        ref_pixel_len = len(reference_da.coords["pixel"])
+                        if len(v) == ref_time_len:
+                            new_dims = ("time",)
+                        elif len(v) == ref_pixel_len:
+                            new_dims = ("pixel",)
+                        else:
+                            # Default fallback
+                            new_dims = ("pixel",)
                     elif v.ndim == 2:
                         new_dims = ("time", "pixel")
                     else:

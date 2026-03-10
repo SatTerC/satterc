@@ -87,7 +87,7 @@ def _sgam(
     root_pool_init: NDArray[np.float64],
 ) -> dict[str, NDArray]:
     # Week index, from 1-52
-    week_of_year = dates_weekly.isocalendar().week
+    week_of_year = dates_weekly.isocalendar().week.values
 
     # TODO: manual loop might benefit from an apply_ufunc or something.
     results_all_pixels = []
