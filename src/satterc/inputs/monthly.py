@@ -1,9 +1,15 @@
 from pathlib import Path
+from typing import cast
 
-from hamilton.function_modifiers import extract_fields, parameterize_sources
+from hamilton.function_modifiers import (
+    check_output_custom,
+    extract_fields,
+    parameterize_sources,
+)
+import pandas as pd
 import xarray as xr
 
-from ._utils import _load_dataset, _stack_spatial_dims
+from ._utils import load_dataset, stack_spatial_dims, DatetimeIndexValidator
 
 MONTHLY_INPUTS = ["plant_cover", "dpm_rpm_ratio", "farmyard_manure_input"]
 
@@ -22,11 +28,11 @@ MONTHLY_FROM_WEEKLY = [
 
 
 def monthly_inputs(monthly_inputs_path: Path) -> xr.Dataset:
-    return _load_dataset(monthly_inputs_path)
+    return load_dataset(monthly_inputs_path)
 
 
 def monthly_inputs_stacked(monthly_inputs: xr.Dataset) -> xr.Dataset:
-    return _stack_spatial_dims(monthly_inputs)
+    return stack_spatial_dims(monthly_inputs)
 
 
 @extract_fields([f"{var}_monthly" for var in MONTHLY_INPUTS])
@@ -51,6 +57,11 @@ def unpack_monthly_inputs(
         f"{var}_monthly": monthly_inputs_stacked[var]
         for var in monthly_inputs_stacked.data_vars
     }
+
+
+@check_output_custom(DatetimeIndexValidator("ME"))
+def dates_monthly(monthly_inputs: xr.Dataset) -> pd.DatetimeIndex:
+    return cast(pd.DatetimeIndex, monthly_inputs.get_index("time"))
 
 
 @parameterize_sources(

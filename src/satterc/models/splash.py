@@ -74,6 +74,7 @@ def splash_parameters(
     "runoff_daily",
 )
 def splash(
+    dates_daily: DatetimeIndex,
     sunshine_fraction_daily: DataArray,
     temperature_celcius_daily: DataArray,
     precipitation_mm_daily: DataArray,
@@ -108,7 +109,6 @@ def splash(
         - runoff_daily: runoff (mm per day)
     """
     soil_moisture_init_max_iter, soil_moisture_init_max_diff = splash_parameters
-    dates_daily = sunshine_fraction_daily.get_index("time")
 
     return _splash(
         sunshine_fraction_daily=sunshine_fraction_daily,

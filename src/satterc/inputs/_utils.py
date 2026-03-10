@@ -1,10 +1,13 @@
 from os import PathLike
 from pathlib import Path
+from typing import Any
 
+from hamilton.data_quality.base import DataValidator, ValidationResult
+import pandas as pd
 import xarray as xr
 
 
-def _load_dataset(path: str | PathLike) -> xr.Dataset:
+def load_dataset(path: str | PathLike) -> xr.Dataset:
     """
     Loads a dataset from a netcdf file or zarr store.
 
@@ -36,7 +39,7 @@ def _load_dataset(path: str | PathLike) -> xr.Dataset:
     return xr.open_dataset(path, engine=engine, decode_coords="all")
 
 
-def _stack_spatial_dims(ds: xr.Dataset) -> xr.Dataset:
+def stack_spatial_dims(ds: xr.Dataset) -> xr.Dataset:
     """Stack spatial dimensions into a single pixel dimension.
 
     Parameters:
@@ -65,7 +68,7 @@ def _stack_spatial_dims(ds: xr.Dataset) -> xr.Dataset:
     return ds_stacked
 
 
-def _check_datasets_aligned(
+def check_datasets_aligned(
     daily_ds: xr.Dataset, weekly_ds: xr.Dataset, monthly_ds: xr.Dataset
 ) -> None:
     # TODO: improve this check, possibly using xindexes.
@@ -74,3 +77,32 @@ def _check_datasets_aligned(
     xr.testing.assert_allclose(daily_ds.coords[2], weekly_ds.coords[2])
     xr.testing.assert_allclose(daily_ds.coords[1], monthly_ds.coords[1])
     xr.testing.assert_allclose(daily_ds.coords[2], monthly_ds.coords[2])
+
+
+class DatetimeIndexValidator(DataValidator):
+    def __init__(self, freq: str) -> None:
+        super().__init__(importance="fail")
+
+        if freq not in ("D", "W", "ME"):
+            raise ValueError("`freq` must be one of 'D', 'W', or 'ME'")
+
+        self.freq = freq
+
+    def applies_to(self, datatype) -> bool:
+        return issubclass(datatype, pd.Index)
+
+    def description(self) -> str:
+        return "Ensures the supplied index is a pandas DatetimeIndex with the expected frequency."
+
+    @classmethod
+    def name(cls) -> str:
+        return "datetimeindex_validator"
+
+    def validate(self, dataset: Any) -> ValidationResult:
+        index = dataset
+        passes = (
+            isinstance(index, pd.DatetimeIndex)
+            and (index.freqstr or pd.infer_freq(index)) == self.freq
+        )
+        message = "Passes" if passes else "Fails"
+        return ValidationResult(passes=passes, message=message)

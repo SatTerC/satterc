@@ -104,11 +104,11 @@ def sgam(
     lue_weekly: xr.DataArray,
     iwue_weekly: xr.DataArray,
     disturbances_weekly: xr.DataArray,
+    dates_weekly: pd.Index,
     leaf_pool_init: float,
     stem_pool_init: float,
     root_pool_init: float,
 ) -> dict[str, xr.DataArray]:
-    dates_weekly = temperature_celcius_weekly.get_index("time")
     return _sgam(
         plant_type=plant_type.values,
         temperature_celcius_weekly=temperature_celcius_weekly,

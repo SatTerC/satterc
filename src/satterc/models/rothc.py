@@ -2,6 +2,7 @@ from hamilton.function_modifiers import extract_fields
 import numpy as np
 from numpy.typing import NDArray
 from pandas import DatetimeIndex
+import pandas as pd
 from xarray import DataArray
 
 from rothc_py import RothC, percent_modern_c
@@ -114,6 +115,7 @@ def rothc(
     clay_content: DataArray,
     inert_organic_matter: DataArray,
     soil_depth: DataArray,
+    dates_monthly: pd.Index,
     rothc_parameters: tuple[int],
 ) -> dict[str, DataArray]:
     """
@@ -162,8 +164,6 @@ def rothc(
     All outputs are at monthly resolution.
     """
     (n_years_spinup,) = rothc_parameters
-
-    dates_monthly = temperature_celcius_monthly.get_index("time")
 
     return _rothc(
         temperature_celcius_monthly=temperature_celcius_monthly,

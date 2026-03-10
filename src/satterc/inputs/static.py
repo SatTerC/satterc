@@ -3,7 +3,7 @@ from pathlib import Path
 from hamilton.function_modifiers import extract_fields
 import xarray as xr
 
-from ._utils import _load_dataset, _stack_spatial_dims
+from ._utils import load_dataset, stack_spatial_dims
 
 STATIC_INPUTS = [
     "elevation",
@@ -16,11 +16,11 @@ STATIC_INPUTS = [
 
 
 def static_inputs(static_inputs_path: Path) -> xr.Dataset:
-    return _load_dataset(static_inputs_path)
+    return load_dataset(static_inputs_path)
 
 
 def static_inputs_stacked(static_inputs: xr.Dataset) -> xr.Dataset:
-    return _stack_spatial_dims(static_inputs)
+    return stack_spatial_dims(static_inputs)
 
 
 @extract_fields(STATIC_INPUTS)

@@ -1,9 +1,15 @@
 from pathlib import Path
+from typing import cast
 
-from hamilton.function_modifiers import extract_fields, parameterize_sources
+from hamilton.function_modifiers import (
+    check_output_custom,
+    extract_fields,
+    parameterize_sources,
+)
+import pandas as pd
 import xarray as xr
 
-from ._utils import _load_dataset, _stack_spatial_dims
+from ._utils import load_dataset, stack_spatial_dims, DatetimeIndexValidator
 
 WEEKLY_INPUTS = [
     "co2_ppm",
@@ -24,11 +30,11 @@ WEEKLY_FROM_DAILY = [
 
 
 def weekly_inputs(weekly_inputs_path: Path) -> xr.Dataset:
-    return _load_dataset(weekly_inputs_path)
+    return load_dataset(weekly_inputs_path)
 
 
 def weekly_inputs_stacked(weekly_inputs: xr.Dataset) -> xr.Dataset:
-    return _stack_spatial_dims(weekly_inputs)
+    return stack_spatial_dims(weekly_inputs)
 
 
 @extract_fields([f"{var}_weekly" for var in WEEKLY_INPUTS])
@@ -51,6 +57,11 @@ def unpack_weekly_inputs(weekly_inputs_stacked: xr.Dataset) -> dict[str, xr.Data
         f"{var}_weekly": weekly_inputs_stacked[var]
         for var in weekly_inputs_stacked.data_vars
     }
+
+
+@check_output_custom(DatetimeIndexValidator("W"))
+def dates_weekly(weekly_inputs: xr.Dataset) -> pd.DatetimeIndex:
+    return cast(pd.DatetimeIndex, weekly_inputs.get_index("time"))
 
 
 @parameterize_sources(
