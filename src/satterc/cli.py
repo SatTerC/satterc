@@ -4,6 +4,8 @@ import tomllib
 from typing import Annotated
 
 import typer
+from hamilton import graph_types
+import xarray as xr
 
 from .driver import build_driver
 from ._version import __version__
@@ -22,6 +24,29 @@ def run(
 ) -> None:
     """Execute a pipeline defined in a configuration file."""
     typer.secho("Not yet implemented!", fg=typer.colors.YELLOW)
+
+
+# TODO: refine this and move out of cli
+def custom_style(
+    *, node: graph_types.HamiltonNode, node_class: str
+) -> tuple[dict, str | None, str | None]:
+    """Custom style function for the visualization."""
+    if node.tags.get("module") == "satterc.inputs.static":
+        style = ({"fillcolor": "aquamarine"}, node_class, "static inputs")
+
+    elif node.type is xr.DataArray and "_daily" in node.name:
+        style = ({"fillcolor": "orange"}, node_class, "Daily")
+
+    elif node.type is xr.DataArray and "_weekly" in node.name:
+        style = ({"fillcolor": "yellow"}, node_class, "Weekly")
+
+    elif node.type is xr.DataArray and "_monthly" in node.name:
+        style = ({"fillcolor": "brown"}, node_class, "Monthly")
+
+    else:
+        style = ({}, node_class, None)
+
+    return style
 
 
 @app.command()
@@ -64,7 +89,9 @@ def graph(
     output_path = Path(output).with_suffix(".dot")
 
     dr.display_all_functions(
-        output_file_path=str(output_path), graphviz_kwargs=graphviz_kwargs
+        output_file_path=str(output_path),
+        graphviz_kwargs=graphviz_kwargs,
+        custom_style_function=custom_style,
     )
     # dr.display_upstream_of(
     #    "soil_organic_carbon_monthly",
