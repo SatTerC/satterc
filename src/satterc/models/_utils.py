@@ -97,7 +97,16 @@ def xarray_io() -> Callable[[Callable[..., Any]], Callable[..., Any]]:
                             # Default fallback
                             new_dims = ("pixel",)
                     elif v.ndim == 2:
-                        new_dims = ("time", "pixel")
+                        # Check if shape is (pixel, time) or (time, pixel)
+                        # and swap if needed to match reference
+                        ref_time_len = len(reference_da.coords["time"])
+                        ref_pixel_len = len(reference_da.coords["pixel"])
+                        if v.shape[0] == ref_pixel_len and v.shape[1] == ref_time_len:
+                            # Shape is (pixel, time) - transpose to (time, pixel)
+                            v = v.T
+                            new_dims = ("time", "pixel")
+                        else:
+                            new_dims = ("time", "pixel")
                     else:
                         # TODO: bad
                         raise Exception("no")

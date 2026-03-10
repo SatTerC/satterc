@@ -46,7 +46,7 @@ def run(
     )
 
     dr.execute(
-        ["sgam"]  # , "saved_weekly_outputs", "saved_monthly_outputs"],
+        ["rothc"]  # , "saved_weekly_outputs", "saved_monthly_outputs"],
     )
 
 

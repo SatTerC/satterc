@@ -31,6 +31,8 @@ def _pmodel(
     method_kphio: str,
     method_arrhenius: str,
 ) -> tuple[NDArray, NDArray, NDArray]:
+    import numpy as np
+
     # Environmental drivers computed upon instantiation of PModelEnvironment
     env = pyrealm.pmodel.PModelEnvironment(
         tc=temperature_celcius_weekly,
@@ -51,7 +53,15 @@ def _pmodel(
         method_arrhenius=method_arrhenius,
         method_jmaxlim=method_jmaxlim,
     )
-    return (model.gpp, model.lue, model.iwue)
+    gpp = model.gpp
+    lue = model.lue
+    iwue = model.iwue
+
+    gpp = np.nan_to_num(gpp, nan=0.0)
+    lue = np.nan_to_num(lue, nan=0.0)
+    iwue = np.nan_to_num(iwue, nan=0.0)
+
+    return (gpp, lue, iwue)
 
 
 def pmodel_parameters(

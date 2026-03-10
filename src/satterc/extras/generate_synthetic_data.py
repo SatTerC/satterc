@@ -244,7 +244,7 @@ def ppfd_weekly_func(
     for i in range(n_lat):
         for j in range(n_lon):
             day_of_year = np.arange(n_days) % 365.25
-            max_ppfd = 1200 * np.sin(np.pi * day_of_year / 182.6)
+            max_ppfd = 1200 * np.abs(np.sin(np.pi * day_of_year / 182.6))
             cloud_effect = 0.4 + np.random.uniform(0.2, 0.6, n_days)
             data[:, i, j] = max_ppfd * cloud_effect
 
@@ -563,13 +563,13 @@ def generate_all_synthetic_data(output_dir: str = "src/satterc/extras/data"):
     static_ds = add_crs_metadata(static_ds)
 
     print(f"Writing daily.nc ({len(daily_ds.time)} days)...")
-    daily_ds.to_netcdf(f"{output_dir}/daily.nc")
+    daily_ds.to_netcdf(f"{output_dir}/daily.nc", format="NETCDF3_CLASSIC")
     print(f"Writing weekly.nc ({len(weekly_ds.time)} weeks)...")
-    weekly_ds.to_netcdf(f"{output_dir}/weekly.nc")
+    weekly_ds.to_netcdf(f"{output_dir}/weekly.nc", format="NETCDF3_CLASSIC")
     print(f"Writing monthly.nc ({len(monthly_ds.time)} months)...")
-    monthly_ds.to_netcdf(f"{output_dir}/monthly.nc")
+    monthly_ds.to_netcdf(f"{output_dir}/monthly.nc", format="NETCDF3_CLASSIC")
     print(f"Writing static.nc...")
-    static_ds.to_netcdf(f"{output_dir}/static.nc")
+    static_ds.to_netcdf(f"{output_dir}/static.nc", format="NETCDF3_CLASSIC")
 
     print("Done!")
 

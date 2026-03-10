@@ -8,6 +8,7 @@ modules = [
 [config]
 method_kphio = "sandoval"
 method_optchi = "lavergne20_c3"
+n_years_spinup = 1
 
 daily_inputs_path = "src/satterc/extras/data/daily.nc"
 weekly_inputs_path = "src/satterc/extras/data/weekly.nc"
