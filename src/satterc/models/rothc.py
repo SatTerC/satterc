@@ -6,7 +6,7 @@ from xarray import DataArray
 
 from rothc_py import RothC, percent_modern_c
 
-from ..utils import xarray_io
+from ._utils import xarray_io
 
 
 @xarray_io()

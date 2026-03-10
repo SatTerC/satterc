@@ -5,7 +5,7 @@ from numpy.typing import NDArray
 import xarray as xr
 from sgam import Disturbances, SgamComponent
 
-from ..utils import xarray_io
+from ._utils import xarray_io
 
 
 @xarray_io()

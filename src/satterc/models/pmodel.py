@@ -12,7 +12,7 @@ import xarray as xr
 from xarray import DataArray
 import pyrealm.pmodel
 
-from ..utils import xarray_io
+from ._utils import xarray_io
 
 
 @xarray_io()

@@ -10,7 +10,7 @@ import pandas as pd
 import pytest
 import xarray as xr
 
-from satterc.utils import xarray_io
+from satterc.models._utils import xarray_io
 
 
 class TestPassthroughBehavior:

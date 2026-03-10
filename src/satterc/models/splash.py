@@ -14,7 +14,7 @@ from xarray import DataArray
 import pyrealm.splash.splash
 import pyrealm.core.calendar
 
-from ..utils import xarray_io
+from ._utils import xarray_io
 
 
 @xarray_io()
