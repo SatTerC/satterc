@@ -48,13 +48,23 @@ def run(
 
     modules = config.get("modules", None)
     driver_config = config.get("config", None)
-    outputs = config.get("outputs", None)
 
     # TODO: dynamically create node that combines outputs into a dataset and saves to disk.
     dr = build_driver(
         modules=modules,
         config=driver_config,
         allow_module_overrides=allow_overrides,
+    )
+
+    output_paths = {
+        "daily_outputs_path": output / "daily.nc",
+        "weekly_outputs_path": output / "weekly.nc",
+        "monthly_outputs_path": output / "monthly.nc",
+    }
+
+    dr.execute(
+        ["daily_outputs_file", "weekly_outputs_file", "monthly_outputs_file"],
+        inputs=output_paths,
     )
 
 

@@ -6,6 +6,7 @@ from hamilton import driver
 from .models import splash, pmodel, sgam, rothc
 from .inputs import grid, daily, weekly, monthly, static
 from .extras import synthetic_inputs
+from . import outputs
 
 # TODO:
 # * Create a module registry.
@@ -40,7 +41,7 @@ def build_driver(
     config: dict[str, Any] | None = None,
     allow_module_overrides: bool = False,
 ) -> driver.Driver:
-    modules_ = [grid, daily, weekly, monthly, static] + get_modules(modules)
+    modules_ = [grid, daily, weekly, monthly, static, outputs] + get_modules(modules)
     dr = driver.Builder().with_modules(*modules_).with_config(config or {})
     if allow_module_overrides:
         dr = dr.allow_module_overrides()

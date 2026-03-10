@@ -14,6 +14,7 @@ DAILY_INPUTS = [
     "sunshine_fraction",
     "temperature_celcius",
     "lai",
+    "gpp",
 ]
 
 
