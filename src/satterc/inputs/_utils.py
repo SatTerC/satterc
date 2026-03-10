@@ -71,6 +71,22 @@ def stack_spatial_dims(ds: xr.Dataset) -> xr.Dataset:
 def check_datasets_aligned(
     daily_ds: xr.Dataset, weekly_ds: xr.Dataset, monthly_ds: xr.Dataset
 ) -> None:
+    """Check that spatial coordinates are aligned across datasets.
+
+    Parameters
+    ----------
+    daily_ds : xr.Dataset
+        Daily inputs dataset.
+    weekly_ds : xr.Dataset
+        Weekly inputs dataset.
+    monthly_ds : xr.Dataset
+        Monthly inputs dataset.
+
+    Raises
+    ------
+    AssertionError
+        If spatial coordinates are not aligned.
+    """
     # TODO: improve this check, possibly using xindexes.
     # Do we need to know what the x,y dims are called??
     xr.testing.assert_allclose(daily_ds.coords[1], weekly_ds.coords[1])

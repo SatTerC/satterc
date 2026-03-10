@@ -24,10 +24,38 @@ def disturbances_daily(
     gpp_daily: xr.DataArray,
     lai_daily: xr.DataArray,
 ) -> xr.DataArray:
+    """Calculate daily disturbance events.
+
+    Parameters
+    ----------
+    temperature_celcius_daily : xr.DataArray
+        Daily air temperature (degrees Celsius).
+    gpp_daily : xr.DataArray
+        Daily gross primary productivity (gC/m²).
+    lai_daily : xr.DataArray
+        Daily leaf area index.
+
+    Returns
+    -------
+    xr.DataArray
+        Daily disturbance indicators.
+    """
     return _disturbances_daily(temperature_celcius_daily, gpp_daily, lai_daily)
 
 
 def disturbances_weekly(disturbances_daily: xr.DataArray) -> xr.DataArray:
+    """Aggregate daily disturbances to weekly maximum.
+
+    Parameters
+    ----------
+    disturbances_daily : xr.DataArray
+        Daily disturbance indicators.
+
+    Returns
+    -------
+    xr.DataArray
+        Weekly maximum disturbance indicators.
+    """
     return disturbances_daily.resample(time="W").max()  # or time="7D"
 
 
@@ -109,6 +137,40 @@ def sgam(
     stem_pool_init: float,
     root_pool_init: float,
 ) -> dict[str, xr.DataArray]:
+    """Run the Storage Gap Model (SGAM) vegetation model.
+
+    Parameters
+    ----------
+    plant_type : xr.DataArray
+        Plant functional type.
+    temperature_celcius_weekly : xr.DataArray
+        Weekly air temperature (degrees Celsius).
+    gpp_weekly : xr.DataArray
+        Weekly gross primary productivity (gC/m²).
+    soil_moisture_weekly : xr.DataArray
+        Weekly soil moisture (mm).
+    vpd_pa_weekly : xr.DataArray
+        Weekly vapor pressure deficit (Pa).
+    lue_weekly : xr.DataArray
+        Weekly light use efficiency (gC/MJ).
+    iwue_weekly : xr.DataArray
+        Weekly intrinsic water use efficiency (Pa).
+    disturbances_weekly : xr.DataArray
+        Weekly disturbance indicators.
+    dates_weekly : pd.Index
+        Weekly datetime index.
+    leaf_pool_init : float
+        Initial leaf pool size.
+    stem_pool_init : float
+        Initial stem pool size.
+    root_pool_init : float
+        Initial root pool size.
+
+    Returns
+    -------
+    dict[str, xr.DataArray]
+        Dictionary containing vegetation pool sizes and fluxes.
+    """
     return _sgam(
         plant_type=plant_type.values,
         temperature_celcius_weekly=temperature_celcius_weekly,

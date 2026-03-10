@@ -1,0 +1,3 @@
+# Daily
+
+::: satterc.inputs.daily

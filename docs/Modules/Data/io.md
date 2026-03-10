@@ -1,3 +1,0 @@
-# IO
-
-::: satterc.data.io
