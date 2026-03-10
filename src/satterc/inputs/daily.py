@@ -1,4 +1,4 @@
-from pathlib import Path
+from os import PathLike
 from typing import cast
 
 from hamilton.function_modifiers import check_output_custom, extract_fields
@@ -18,7 +18,7 @@ DAILY_INPUTS = [
 ]
 
 
-def daily_inputs(daily_inputs_path: Path) -> xr.Dataset:
+def daily_inputs(daily_inputs_path: str | PathLike) -> xr.Dataset:
     """Load daily input dataset from file.
 
     Parameters

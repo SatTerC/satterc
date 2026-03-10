@@ -21,17 +21,6 @@ def run(
     config_file: Annotated[
         Path, typer.Argument(exists=True, file_okay=True, dir_okay=False, readable=True)
     ],
-    output: Annotated[
-        Path,
-        typer.Option(
-            "-o",
-            "--output",
-            file_okay=False,
-            dir_okay=True,
-            writable=True,
-            help="Path to output directory",
-        ),
-    ] = Path("./outputs"),
     allow_overrides: Annotated[
         bool,
         typer.Option(
@@ -41,7 +30,7 @@ def run(
     ] = False,
 ) -> None:
     """Execute a pipeline defined in a configuration file."""
-    typer.secho("Not yet implemented!", fg=typer.colors.YELLOW)
+    # typer.secho("Not yet implemented!", fg=typer.colors.YELLOW)
 
     with config_file.open("rb") as file:
         config = tomllib.load(file)
@@ -56,15 +45,8 @@ def run(
         allow_module_overrides=allow_overrides,
     )
 
-    output_paths = {
-        "daily_outputs_path": output / "daily.nc",
-        "weekly_outputs_path": output / "weekly.nc",
-        "monthly_outputs_path": output / "monthly.nc",
-    }
-
     dr.execute(
-        ["daily_outputs_file", "weekly_outputs_file", "monthly_outputs_file"],
-        inputs=output_paths,
+        ["saved_daily_outputs"]  # , "saved_weekly_outputs", "saved_monthly_outputs"],
     )
 
 

@@ -45,7 +45,9 @@ def daily_outputs(daily_outputs_stacked: xr.Dataset) -> xr.Dataset:
     return daily_outputs_stacked.unstack("pixel")
 
 
-def saved_daily_outputs(daily_outputs: xr.Dataset, daily_outputs_path: Path) -> None:
+def saved_daily_outputs(
+    daily_outputs: xr.Dataset, daily_outputs_path: str | PathLike
+) -> None:
     _save_dataset(daily_outputs, daily_outputs_path)
 
 

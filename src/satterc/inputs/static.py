@@ -1,4 +1,4 @@
-from pathlib import Path
+from os import PathLike
 
 from hamilton.function_modifiers import extract_fields
 import xarray as xr
@@ -18,7 +18,7 @@ STATIC_INPUTS = [
 ]
 
 
-def static_inputs(static_inputs_path: Path) -> xr.Dataset:
+def static_inputs(static_inputs_path: str | PathLike) -> xr.Dataset:
     """Load static input dataset from file.
 
     Parameters

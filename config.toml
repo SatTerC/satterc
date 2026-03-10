@@ -8,3 +8,12 @@ modules = [
 [config]
 method_kphio = "sandoval"
 method_optchi = "lavergne20c3"
+
+daily_inputs_path = "src/satterc/extras/data/daily.nc"
+weekly_inputs_path = "src/satterc/extras/data/weekly.nc"
+monthly_inputs_path = "src/satterc/extras/data/monthly.nc"
+static_inputs_path = "src/satterc/extras/data/static.nc"
+
+daily_outputs_path = "outputs/daily.nc"
+weekly_outputs_path = "outputs/weekly.nc"
+monthly_outputs_path = "outputs/monthly.nc"
