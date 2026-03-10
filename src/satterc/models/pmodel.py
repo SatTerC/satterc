@@ -175,6 +175,10 @@ def mean_growth_temperature_weekly(
     temperature_celcius_daily: xr.DataArray,
 ) -> xr.DataArray:
     """Calculate the mean temperature on 'growing degree days' where the temperature is > 0°C."""
+
+    # NOTE: this may well be incorrect!! - see https://en.wikipedia.org/wiki/Growing_degree-day
+    # Perhaps this depends on growing_season_limit?
+
     # True on growing degree days (temp > 0.)
     gdd_mask = temperature_celcius_daily > 0.0
 

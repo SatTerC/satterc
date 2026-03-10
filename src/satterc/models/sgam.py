@@ -13,7 +13,11 @@ def _disturbances_daily(
     temperature_celcius_daily: NDArray,
     gpp_daily: NDArray,
     lai_daily: NDArray,
+    plant_type: NDArray,
+    latitude: NDArray,
 ) -> NDArray:
+    # TODO: upgrade growing_season_limit to a function of pft and latitude!
+    # TODO: upgrade disturbance_threshold to a function of pft!
     return Disturbances(growing_season_limit=10.0, disturbance_threshold=0.3)(
         temperature_celcius_daily, gpp_daily, lai_daily, aggregate=False
     )
@@ -23,6 +27,8 @@ def disturbances_daily(
     temperature_celcius_daily: xr.DataArray,
     gpp_daily: xr.DataArray,
     lai_daily: xr.DataArray,
+    plant_type: xr.DataArray,
+    latitude: xr.DataArray,
 ) -> xr.DataArray:
     """Calculate daily disturbance events.
 
@@ -34,13 +40,19 @@ def disturbances_daily(
         Daily gross primary productivity (gC/m²).
     lai_daily : xr.DataArray
         Daily leaf area index.
+    plant_type: xr.DataArray
+        Plant functional type.
+    latitude: xr.DataArray
+        Latitude.
 
     Returns
     -------
     xr.DataArray
         Daily disturbance indicators.
     """
-    return _disturbances_daily(temperature_celcius_daily, gpp_daily, lai_daily)
+    return _disturbances_daily(
+        temperature_celcius_daily, gpp_daily, lai_daily, plant_type.values, latitude
+    )
 
 
 def disturbances_weekly(disturbances_daily: xr.DataArray) -> xr.DataArray:
