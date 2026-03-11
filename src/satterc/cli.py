@@ -30,24 +30,21 @@ def run(
     ] = False,
 ) -> None:
     """Execute a pipeline defined in a configuration file."""
-    # typer.secho("Not yet implemented!", fg=typer.colors.YELLOW)
 
     with config_file.open("rb") as file:
         config = tomllib.load(file)
 
-    modules = config.get("modules", None)
+    modules = config["modules"]
+    targets = config["targets"]
     driver_config = config.get("config", None)
 
-    # TODO: dynamically create node that combines outputs into a dataset and saves to disk.
     dr = build_driver(
         modules=modules,
         config=driver_config,
         allow_module_overrides=allow_overrides,
     )
 
-    dr.execute(
-        ["saved_daily_outputs", "saved_weekly_outputs", "saved_monthly_outputs"],
-    )
+    dr.execute(targets)
 
 
 # TODO: refine this and move out of cli
