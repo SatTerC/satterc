@@ -91,7 +91,9 @@ def weekly_outputs(weekly_outputs_stacked: xr.Dataset) -> xr.Dataset:
     return weekly_outputs_stacked.unstack("pixel")
 
 
-def saved_weekly_outputs(weekly_outputs: xr.Dataset, weekly_outputs_path: Path) -> None:
+def saved_weekly_outputs(
+    weekly_outputs: xr.Dataset, weekly_outputs_path: str | PathLike
+) -> None:
     _save_dataset(weekly_outputs, weekly_outputs_path)
 
 
@@ -118,6 +120,6 @@ def monthly_outputs(monthly_outputs_stacked: xr.Dataset) -> xr.Dataset:
 
 
 def saved_monthly_outputs(
-    monthly_outputs: xr.Dataset, monthly_outputs_path: Path
+    monthly_outputs: xr.Dataset, monthly_outputs_path: str | PathLike
 ) -> None:
     _save_dataset(monthly_outputs, monthly_outputs_path)

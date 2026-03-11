@@ -6,7 +6,8 @@ to calculate gross primary productivity (GPP), light use efficiency (LUE),
 and intrinsic water use efficiency (IWUE) from environmental inputs.
 """
 
-from hamilton.function_modifiers import unpack_fields
+from hamilton.function_modifiers import extract_fields
+import numpy as np
 from numpy.typing import NDArray
 import xarray as xr
 from xarray import DataArray
@@ -30,9 +31,7 @@ def _pmodel(
     method_jmaxlim: str,
     method_kphio: str,
     method_arrhenius: str,
-) -> tuple[NDArray, NDArray, NDArray]:
-    import numpy as np
-
+) -> dict[str, NDArray]:
     # Environmental drivers computed upon instantiation of PModelEnvironment
     env = pyrealm.pmodel.PModelEnvironment(
         tc=temperature_celcius_weekly,
@@ -53,15 +52,13 @@ def _pmodel(
         method_arrhenius=method_arrhenius,
         method_jmaxlim=method_jmaxlim,
     )
-    gpp = model.gpp
-    lue = model.lue
-    iwue = model.iwue
 
-    gpp = np.nan_to_num(gpp, nan=0.0)
-    lue = np.nan_to_num(lue, nan=0.0)
-    iwue = np.nan_to_num(iwue, nan=0.0)
+    # TODO: justify (a) the need for this and (b) why it's reasonable
+    gpp = np.nan_to_num(model.gpp, nan=0.0)
+    lue = np.nan_to_num(model.lue, nan=0.0)
+    iwue = np.nan_to_num(model.iwue, nan=0.0)
 
-    return (gpp, lue, iwue)
+    return dict(gpp_weekly=gpp, lue_weekly=lue, iwue_weekly=iwue)
 
 
 def pmodel_parameters(
@@ -91,7 +88,7 @@ def pmodel_parameters(
     return (method_optchi, method_jmaxlim, method_kphio, method_arrhenius)
 
 
-@unpack_fields("gpp_weekly", "lue_weekly", "iwue_weekly")
+@extract_fields("gpp_weekly", "lue_weekly", "iwue_weekly")
 def pmodel(
     temperature_celcius_weekly: DataArray,
     vpd_pa_weekly: DataArray,
@@ -103,7 +100,7 @@ def pmodel(
     aridity_index_weekly: DataArray,
     soil_moisture_weekly: DataArray,
     pmodel_parameters: tuple[str, str, str, str],
-) -> tuple[DataArray, DataArray, DataArray]:
+) -> dict[str, DataArray]:
     """Run the P-Model to calculate GPP, LUE, and IWUE.
 
     Parameters
