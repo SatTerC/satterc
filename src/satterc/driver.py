@@ -4,8 +4,9 @@ from typing import Any
 from hamilton import driver
 
 from .models import splash, pmodel, sgam, rothc
-from .data import io, resample, variables
-from .extras import synthetic_inputs
+from .inputs import grid, daily, weekly, monthly, static
+from . import outputs
+# from .extras import synthetic_inputs
 
 # TODO:
 # * Create a module registry.
@@ -22,10 +23,7 @@ _MODULES = dict(
     pmodel=pmodel,
     sgam=sgam,
     rothc=rothc,
-    io=io,
-    resample=resample,
-    variables=variables,
-    synthetic_inputs=synthetic_inputs,
+    # synthetic_inputs=synthetic_inputs,
 )
 
 
@@ -43,7 +41,7 @@ def build_driver(
     config: dict[str, Any] | None = None,
     allow_module_overrides: bool = False,
 ) -> driver.Driver:
-    modules_ = get_modules(modules)
+    modules_ = [grid, daily, weekly, monthly, static, outputs] + get_modules(modules)
     dr = driver.Builder().with_modules(*modules_).with_config(config or {})
     if allow_module_overrides:
         dr = dr.allow_module_overrides()

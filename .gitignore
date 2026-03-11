@@ -6,5 +6,7 @@ site/
 
 *.dot
 *.png
+*.pdf
 
 notes/
+outputs/

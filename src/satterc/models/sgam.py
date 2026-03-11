@@ -5,7 +5,7 @@ from numpy.typing import NDArray
 import xarray as xr
 from sgam import Disturbances, SgamComponent
 
-from ..utils import xarray_io
+from ._utils import xarray_io
 
 
 @xarray_io()
@@ -13,7 +13,11 @@ def _disturbances_daily(
     temperature_celcius_daily: NDArray,
     gpp_daily: NDArray,
     lai_daily: NDArray,
+    plant_type: NDArray,
+    latitude: NDArray,
 ) -> NDArray:
+    # TODO: upgrade growing_season_limit to a function of pft and latitude!
+    # TODO: upgrade disturbance_threshold to a function of pft!
     return Disturbances(growing_season_limit=10.0, disturbance_threshold=0.3)(
         temperature_celcius_daily, gpp_daily, lai_daily, aggregate=False
     )
@@ -23,11 +27,47 @@ def disturbances_daily(
     temperature_celcius_daily: xr.DataArray,
     gpp_daily: xr.DataArray,
     lai_daily: xr.DataArray,
+    plant_type: xr.DataArray,
+    latitude: xr.DataArray,
 ) -> xr.DataArray:
-    return _disturbances_daily(temperature_celcius_daily, gpp_daily, lai_daily)
+    """Calculate daily disturbance events.
+
+    Parameters
+    ----------
+    temperature_celcius_daily : xr.DataArray
+        Daily air temperature (degrees Celsius).
+    gpp_daily : xr.DataArray
+        Daily gross primary productivity (gC/m²).
+    lai_daily : xr.DataArray
+        Daily leaf area index.
+    plant_type: xr.DataArray
+        Plant functional type.
+    latitude: xr.DataArray
+        Latitude.
+
+    Returns
+    -------
+    xr.DataArray
+        Daily disturbance indicators.
+    """
+    return _disturbances_daily(
+        temperature_celcius_daily, gpp_daily, lai_daily, plant_type.values, latitude
+    )
 
 
 def disturbances_weekly(disturbances_daily: xr.DataArray) -> xr.DataArray:
+    """Aggregate daily disturbances to weekly maximum.
+
+    Parameters
+    ----------
+    disturbances_daily : xr.DataArray
+        Daily disturbance indicators.
+
+    Returns
+    -------
+    xr.DataArray
+        Weekly maximum disturbance indicators.
+    """
     return disturbances_daily.resample(time="W").max()  # or time="7D"
 
 
@@ -42,18 +82,22 @@ def _sgam(
     iwue_weekly: NDArray[np.float64],
     dates_weekly: pd.DatetimeIndex,
     disturbances_weekly: NDArray[np.float64],
-    leaf_pool_init: float,
-    stem_pool_init: float,
-    root_pool_init: float,
+    leaf_pool_init: NDArray[np.float64],
+    stem_pool_init: NDArray[np.float64],
+    root_pool_init: NDArray[np.float64],
 ) -> dict[str, NDArray]:
     # Week index, from 1-52
-    week_of_year = dates_weekly.isocalendar().week
+    week_of_year = dates_weekly.isocalendar().week.values
 
     # TODO: manual loop might benefit from an apply_ufunc or something.
     results_all_pixels = []
 
     for i in range(len(plant_type)):
-        results_i = SgamComponent(plant_type[i])(
+        # BUG: plant_type in synthetic data is integer - need to map onto valid PFT string
+        # This is a temporary hack to check pipeline actually executes.
+        from sgam.pft import PlantFunctionalType
+
+        results_i = SgamComponent(PlantFunctionalType.GRASS)(
             gpp=gpp_weekly[:, i],
             temperature=temperature_celcius_weekly[:, i],
             soil_moisture=soil_moisture_weekly[:, i],
@@ -62,9 +106,9 @@ def _sgam(
             iwue=iwue_weekly[:, i],
             week_of_year=week_of_year,
             disturbances=disturbances_weekly[:, i],
-            leaf_pool_init=leaf_pool_init,
-            stem_pool_init=stem_pool_init,
-            root_pool_init=root_pool_init,
+            leaf_pool_init=leaf_pool_init[i],
+            stem_pool_init=stem_pool_init[i],
+            root_pool_init=root_pool_init[i],
         )
         results_all_pixels.append(results_i)
 
@@ -104,11 +148,45 @@ def sgam(
     lue_weekly: xr.DataArray,
     iwue_weekly: xr.DataArray,
     disturbances_weekly: xr.DataArray,
-    leaf_pool_init: float,
-    stem_pool_init: float,
-    root_pool_init: float,
+    dates_weekly: pd.Index,
+    leaf_pool_init: xr.DataArray,
+    stem_pool_init: xr.DataArray,
+    root_pool_init: xr.DataArray,
 ) -> dict[str, xr.DataArray]:
-    dates_weekly = temperature_celcius_weekly.get_index("time")
+    """Run the Storage Gap Model (SGAM) vegetation model.
+
+    Parameters
+    ----------
+    plant_type : xr.DataArray
+        Plant functional type.
+    temperature_celcius_weekly : xr.DataArray
+        Weekly air temperature (degrees Celsius).
+    gpp_weekly : xr.DataArray
+        Weekly gross primary productivity (gC/m²).
+    soil_moisture_weekly : xr.DataArray
+        Weekly soil moisture (mm).
+    vpd_pa_weekly : xr.DataArray
+        Weekly vapor pressure deficit (Pa).
+    lue_weekly : xr.DataArray
+        Weekly light use efficiency (gC/MJ).
+    iwue_weekly : xr.DataArray
+        Weekly intrinsic water use efficiency (Pa).
+    disturbances_weekly : xr.DataArray
+        Weekly disturbance indicators.
+    dates_weekly : pd.Index
+        Weekly datetime index.
+    leaf_pool_init : xr.DataArray
+        Initial leaf pool size.
+    stem_pool_init : xr.DataArray
+        Initial stem pool size.
+    root_pool_init : xr.DataArray
+        Initial root pool size.
+
+    Returns
+    -------
+    dict[str, xr.DataArray]
+        Dictionary containing vegetation pool sizes and fluxes.
+    """
     return _sgam(
         plant_type=plant_type.values,
         temperature_celcius_weekly=temperature_celcius_weekly,

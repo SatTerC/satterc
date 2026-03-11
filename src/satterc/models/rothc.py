@@ -2,11 +2,13 @@ from hamilton.function_modifiers import extract_fields
 import numpy as np
 from numpy.typing import NDArray
 from pandas import DatetimeIndex
+import pandas as pd
 from xarray import DataArray
+import xarray as xr
 
 from rothc_py import RothC, percent_modern_c
 
-from ..utils import xarray_io
+from ._utils import xarray_io
 
 
 @xarray_io()
@@ -18,22 +20,26 @@ def _rothc(
     dpm_rpm_ratio_monthly: NDArray[np.float64],
     soil_carbon_input_monthly: NDArray[np.float64],
     farmyard_manure_input_monthly: NDArray[np.float64],
-    clay: float,
-    soil_depth: float,
-    inert_organic_matter: float,
+    clay_content: NDArray[np.float64],
+    soil_depth: NDArray[np.float64],
+    inert_organic_matter: NDArray[np.float64],
     n_years_spinup: int,
     dates_monthly: DatetimeIndex,
 ) -> dict[str, NDArray]:
     n_months, n_pixels = temperature_celcius_monthly.shape
     n_spinup_months = n_years_spinup * 12
-    start_date = dates_monthly.values[0]
+
+    # NOTE: need to pass a datetime.datetime object (not a numpy.datetime64)
+    # NOTE: I'm not sure why pyright is complaining here!
+    start_date = dates_monthly.to_pydatetime()[0]
 
     t_mod = percent_modern_c(start_date=start_date, n_months=n_months)
 
-    model = RothC(clay=clay, depth=soil_depth, iom=inert_organic_matter)
-
     pixel_outputs = []
     for i in range(n_pixels):
+        model = RothC(
+            clay=clay_content[i], depth=soil_depth[i], iom=inert_organic_matter[i]
+        )
         data = dict(
             t_tmp=temperature_celcius_monthly[:, i].tolist(),
             t_rain=precipitation_mm_monthly[:, i].tolist(),
@@ -78,22 +84,11 @@ def _rothc(
     )
 
 
-def rothc_parameters(
-    clay: float,
-    soil_depth: float,
-    inert_organic_matter: float,
-    n_years_spinup: int,
-) -> tuple[float, float, float, int]:
+def rothc_parameters(n_years_spinup: int) -> tuple[int]:
     """Static parameters for the Rothamsted Carbon model.
 
     Parameters
     ----------
-    clay
-        Clay content percentage.
-    soil_depth
-        Soil depth in cm.
-    inert_organic_matter
-        Inert organic matter in tC/ha.
     n_years_spinup
         Number of years to use for model spin-up.
 
@@ -101,7 +96,7 @@ def rothc_parameters(
     -------
     Tuple containing these parameters.
     """
-    return (clay, soil_depth, inert_organic_matter, n_years_spinup)
+    return (n_years_spinup,)
 
 
 @extract_fields(
@@ -121,7 +116,11 @@ def rothc(
     dpm_rpm_ratio_monthly: DataArray,
     soil_carbon_input_monthly: DataArray,
     farmyard_manure_input_monthly: DataArray,
-    rothc_parameters: tuple[float, float, float, int],
+    clay_content: DataArray,
+    inert_organic_matter: DataArray,
+    soil_depth: DataArray,
+    dates_monthly: pd.Index,
+    rothc_parameters: tuple[int],
 ) -> dict[str, DataArray]:
     """
     Rothamsted Carbon model.
@@ -144,6 +143,12 @@ def rothc(
         Carbon input in tC/ha/month.
     farmyard_manure_input_monthly
         Farmyard manure input in tC/ha/month.
+    clay_content
+        Clay content percentage.
+    soil_depth
+        Soil depth in cm.
+    inert_organic_matter
+        Inert organic matter in tC/ha.
     rothc_parameters
         Tuple of parameters.
 
@@ -157,14 +162,12 @@ def rothc(
         - humified_organic_matter_monthly: HUM pool (tC/ha)
         - soil_organic_carbon_monthly: Total SOC (tC/ha)
 
-    Note
-    ----
+    Notes
+    -----
     All outputs have units tC/ha (tonnes of Carbon per hectare).
     All outputs are at monthly resolution.
     """
-    clay, soil_depth, inert_organic_matter, n_years_spinup = rothc_parameters
-
-    dates_monthly = temperature_celcius_monthly.get_index("time")
+    (n_years_spinup,) = rothc_parameters
 
     return _rothc(
         temperature_celcius_monthly=temperature_celcius_monthly,
@@ -174,7 +177,7 @@ def rothc(
         dpm_rpm_ratio_monthly=dpm_rpm_ratio_monthly,
         soil_carbon_input_monthly=soil_carbon_input_monthly,
         farmyard_manure_input_monthly=farmyard_manure_input_monthly,
-        clay=clay,
+        clay_content=clay_content,
         soil_depth=soil_depth,
         inert_organic_matter=inert_organic_matter,
         n_years_spinup=n_years_spinup,
@@ -182,12 +185,86 @@ def rothc(
     )
 
 
-# Temporary bridges between variables with different names elsewhere!
 def evaporation_monthly(
     actual_evapotranspiration_monthly: DataArray,
 ) -> DataArray:
+    """Extract evaporation data for RothC model.
+
+    Parameters
+    ----------
+    actual_evapotranspiration_monthly : DataArray
+        Monthly actual evapotranspiration (mm).
+
+    Returns
+    -------
+    DataArray
+        Monthly evaporation data.
+    """
     return actual_evapotranspiration_monthly
+    # BUG: this is not quite correct!!
+    # RothC expects monthly *open pan evaporation* NOT actual evapotranspiration.
 
 
 def soil_carbon_input_monthly(litter_to_soil_monthly: DataArray) -> DataArray:
+    """Temporary bridge to map litter input to soil carbon input.
+
+    Parameters
+    ----------
+    litter_to_soil_monthly : DataArray
+        Monthly litter input (tC/ha).
+
+    Returns
+    -------
+    DataArray
+        Monthly soil carbon input (tC/ha).
+    """
     return litter_to_soil_monthly
+
+
+def inert_organic_matter(organic_carbon_stocks: DataArray) -> DataArray:
+    """Calculate inert organic matter from organic carbon stocks.
+
+    Parameters
+    ----------
+    organic_carbon_stocks : DataArray
+        Organic carbon stocks (tC/ha).
+
+    Returns
+    -------
+    DataArray
+        Inert organic matter (tC/ha).
+    """
+    return 0.049 * organic_carbon_stocks**1.139
+    # NOTE: taken from https://github.com/vmyrgiotis/coupled-ecosystem-carbon-model/blob/v0/notebooks/notebook_v4.ipynb
+
+
+def plant_cover_monthly(
+    plant_type: DataArray, dates_monthly: DatetimeIndex
+) -> DataArray:
+    """Temporary bridge to the boolean plant cover data required by RothC.
+
+    Just returns an array of ones with shape (n_months, n_pixels).
+    """
+    return xr.ones_like(plant_type.expand_dims(time=dates_monthly))
+
+
+def dpm_rpm_ratio_monthly(
+    plant_type: DataArray, dates_monthly: DatetimeIndex
+) -> DataArray:
+    # TODO: get pft-specific dpm/rpm ratio and return constant Array
+    value = 1.44  # crop and improved grassland
+    # value = 0.67  # unimproved grassland and scrub
+    # value = 0.25  # woodland
+    # See https://github.com/Rothamsted-Models/RothC_Py/blob/main/RothC_description.pdf
+
+    return xr.full_like(plant_type.expand_dims(time=dates_monthly), value)
+
+
+def farmyard_manure_input_monthly(
+    plant_type: DataArray, dates_monthly: DatetimeIndex
+) -> DataArray:
+    """For now, return array of zeros for farmyard manure input.
+
+    In future, could be determined by pft (non-zero if crop) and month of year.
+    """
+    return xr.zeros_like(plant_type.expand_dims(time=dates_monthly))

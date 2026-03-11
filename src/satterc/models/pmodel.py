@@ -6,12 +6,14 @@ to calculate gross primary productivity (GPP), light use efficiency (LUE),
 and intrinsic water use efficiency (IWUE) from environmental inputs.
 """
 
-from hamilton.function_modifiers import unpack_fields
+from hamilton.function_modifiers import extract_fields
+import numpy as np
 from numpy.typing import NDArray
+import xarray as xr
 from xarray import DataArray
 import pyrealm.pmodel
 
-from ..utils import xarray_io
+from ._utils import xarray_io
 
 
 @xarray_io()
@@ -29,7 +31,7 @@ def _pmodel(
     method_jmaxlim: str,
     method_kphio: str,
     method_arrhenius: str,
-) -> tuple[NDArray, NDArray, NDArray]:
+) -> dict[str, NDArray]:
     # Environmental drivers computed upon instantiation of PModelEnvironment
     env = pyrealm.pmodel.PModelEnvironment(
         tc=temperature_celcius_weekly,
@@ -50,7 +52,13 @@ def _pmodel(
         method_arrhenius=method_arrhenius,
         method_jmaxlim=method_jmaxlim,
     )
-    return (model.gpp, model.lue, model.iwue)
+
+    # TODO: justify (a) the need for this and (b) why it's reasonable
+    gpp = np.nan_to_num(model.gpp, nan=0.0)
+    lue = np.nan_to_num(model.lue, nan=0.0)
+    iwue = np.nan_to_num(model.iwue, nan=0.0)
+
+    return dict(gpp_weekly=gpp, lue_weekly=lue, iwue_weekly=iwue)
 
 
 def pmodel_parameters(
@@ -80,7 +88,7 @@ def pmodel_parameters(
     return (method_optchi, method_jmaxlim, method_kphio, method_arrhenius)
 
 
-@unpack_fields("gpp_weekly", "lue_weekly", "iwue_weekly")
+@extract_fields("gpp_weekly", "lue_weekly", "iwue_weekly")
 def pmodel(
     temperature_celcius_weekly: DataArray,
     vpd_pa_weekly: DataArray,
@@ -92,7 +100,7 @@ def pmodel(
     aridity_index_weekly: DataArray,
     soil_moisture_weekly: DataArray,
     pmodel_parameters: tuple[str, str, str, str],
-) -> tuple[DataArray, DataArray, DataArray]:
+) -> dict[str, DataArray]:
     """Run the P-Model to calculate GPP, LUE, and IWUE.
 
     Parameters
@@ -143,3 +151,45 @@ def pmodel(
         method_kphio=method_kphio,
         method_arrhenius=method_arrhenius,
     )
+
+
+def aridity_index_daily(
+    actual_evapotranspiration_daily: xr.DataArray,
+    precipitation_mm_daily: xr.DataArray,
+) -> xr.DataArray:
+    """Calculate a dimensionless aridity index AET/precipitation.
+
+    Parameters
+    ----------
+    actual_evapotranspiration_daily
+        Actual evapotranspiration (mm).
+    precipitation_mm_daily
+        Precipitation (mm).
+
+    Returns
+    -------
+    xr.DataArray
+        Aridity index.
+
+    Notes
+    -----
+    The standard aritidy index in the literature seems to use
+    *potential* evapotranspiration (PET) instead of AET.
+    """
+    return precipitation_mm_daily / actual_evapotranspiration_daily
+
+
+def mean_growth_temperature_weekly(
+    temperature_celcius_daily: xr.DataArray,
+) -> xr.DataArray:
+    """Calculate the mean temperature on 'growing degree days' where the temperature is > 0°C."""
+
+    # NOTE: this may well be incorrect!! - see https://en.wikipedia.org/wiki/Growing_degree-day
+    # Perhaps this depends on growing_season_limit?
+
+    # True on growing degree days (temp > 0.)
+    gdd_mask = temperature_celcius_daily > 0.0
+
+    # Compute weekly mean, masking non-growing degree days
+    # TODO: if the whole week is < 0, this will include NaN. Need to check pmodel can deal with this!
+    return temperature_celcius_daily.where(gdd_mask).resample(time="W").mean()

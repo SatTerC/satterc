@@ -9,6 +9,8 @@ lint:
   ruff check src/
 
 viz:
-  satterc graph config.toml
-  eog pipeline.png
+  satterc graph config.toml --pdf
+  zathura pipeline.pdf
 
+run:
+  satterc run config.toml

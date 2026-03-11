@@ -1,0 +1,3 @@
+# SGAM
+
+::: satterc.models.sgam

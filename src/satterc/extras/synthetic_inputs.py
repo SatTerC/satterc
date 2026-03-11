@@ -431,7 +431,7 @@ def ppfd_umol_m2_s1_daily(
     data = np.zeros((n_days, n_pixel))
     for i in range(n_pixel):
         day_of_year = np.arange(n_days) % 365.25
-        max_ppfd = 1200 * np.sin(np.pi * day_of_year / 182.6)
+        max_ppfd = 1200 * np.abs(np.sin(np.pi * day_of_year / 182.6))
         cloud_effect = 0.4 + np.random.uniform(0.2, 0.6, n_days)
         data[:, i] = max_ppfd * cloud_effect
 

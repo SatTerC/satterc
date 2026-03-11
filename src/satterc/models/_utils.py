@@ -85,9 +85,28 @@ def xarray_io() -> Callable[[Callable[..., Any]], Callable[..., Any]]:
                     if v.ndim == 0:
                         return v
                     elif v.ndim == 1:
-                        new_dims = ("pixel",)
+                        # Determine if this is a time or pixel dimension
+                        # by checking against the reference DataArray
+                        ref_time_len = len(reference_da.coords["time"])
+                        ref_pixel_len = len(reference_da.coords["pixel"])
+                        if len(v) == ref_time_len:
+                            new_dims = ("time",)
+                        elif len(v) == ref_pixel_len:
+                            new_dims = ("pixel",)
+                        else:
+                            # Default fallback
+                            new_dims = ("pixel",)
                     elif v.ndim == 2:
-                        new_dims = ("time", "pixel")
+                        # Check if shape is (pixel, time) or (time, pixel)
+                        # and swap if needed to match reference
+                        ref_time_len = len(reference_da.coords["time"])
+                        ref_pixel_len = len(reference_da.coords["pixel"])
+                        if v.shape[0] == ref_pixel_len and v.shape[1] == ref_time_len:
+                            # Shape is (pixel, time) - transpose to (time, pixel)
+                            v = v.T
+                            new_dims = ("time", "pixel")
+                        else:
+                            new_dims = ("time", "pixel")
                     else:
                         # TODO: bad
                         raise Exception("no")
@@ -115,27 +134,3 @@ def xarray_io() -> Callable[[Callable[..., Any]], Callable[..., Any]]:
         return wrapper
 
     return decorator
-
-
-def stack_spatial(da: xr.DataArray) -> xr.DataArray:
-    """Stack lat and lon dimensions into a single pixel dimension.
-
-    Transforms a DataArray with dimensions (..., lat, lon) into a DataArray
-    with dimensions (..., pixel) where pixel is a multi-index combining lat and lon.
-
-    Parameters:
-    -----------
-    da : xr.DataArray
-        Input DataArray with lat and lon dimensions
-
-    Returns:
-    --------
-    xr.DataArray
-        DataArray with lat and lon stacked into a single 'pixel' dimension
-    """
-    if "lat" not in da.dims or "lon" not in da.dims:
-        return da
-
-    da_stacked = da.stack(pixel=("lat", "lon"))
-    da_stacked = da_stacked.drop_vars(["lat", "lon"], errors="ignore")
-    return da_stacked

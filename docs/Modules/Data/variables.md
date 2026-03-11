@@ -1,3 +1,0 @@
-# Variables
-
-::: satterc.data.variables
