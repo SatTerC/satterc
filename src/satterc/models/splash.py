@@ -6,7 +6,7 @@ to calculate soil moisture, actual evapotranspiration (AET), and runoff based
 on climate inputs.
 """
 
-from hamilton.function_modifiers import unpack_fields
+from hamilton.function_modifiers import extract_fields
 import numpy as np
 from numpy.typing import NDArray
 from pandas import DatetimeIndex
@@ -28,7 +28,7 @@ def _splash(
     soil_moisture_init_max_iter: int,
     soil_moisture_init_max_diff: float,
     dates_daily: DatetimeIndex,
-) -> tuple[NDArray, NDArray, NDArray]:
+) -> dict[str, NDArray]:
     calendar = pyrealm.core.calendar.Calendar(dates_daily.values)
 
     model = pyrealm.splash.splash.SplashModel(
@@ -48,7 +48,11 @@ def _splash(
     )
     aet, moisture, runoff = model.calculate_soil_moisture(init_moisture)
 
-    return aet, moisture, runoff
+    return dict(
+        actual_evapotranspiration_daily=aet,
+        soil_moisture_daily=moisture,
+        runoff_daily=runoff,
+    )
 
 
 def splash_parameters(
@@ -68,7 +72,7 @@ def splash_parameters(
     return (soil_moisture_init_max_iter, soil_moisture_init_max_diff)
 
 
-@unpack_fields(
+@extract_fields(
     "actual_evapotranspiration_daily",
     "soil_moisture_daily",
     "runoff_daily",
@@ -82,7 +86,7 @@ def splash(
     latitude: DataArray,
     max_soil_moisture: DataArray,
     splash_parameters: tuple[int, float],
-) -> tuple[DataArray, DataArray, DataArray]:
+) -> dict[str, DataArray]:
     """Run the SPLASH water balance model.
 
     This function is intended to act as a node in a Hamilton DAG.

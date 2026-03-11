@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from hamilton.function_modifiers import extract_fields
 import numpy as np
 from numpy.typing import NDArray
@@ -28,7 +30,10 @@ def _rothc(
 ) -> dict[str, NDArray]:
     n_months, n_pixels = temperature_celcius_monthly.shape
     n_spinup_months = n_years_spinup * 12
-    start_date = dates_monthly.values[0]
+
+    # NOTE: need to pass a datetime.datetime object (not a numpy.datetime64)
+    # NOTE: I'm not sure why pyright is complaining here!
+    start_date = dates_monthly.to_pydatetime()[0]
 
     t_mod = percent_modern_c(start_date=start_date, n_months=n_months)
 
