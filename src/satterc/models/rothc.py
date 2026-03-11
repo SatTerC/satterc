@@ -1,5 +1,3 @@
-from datetime import datetime
-
 from hamilton.function_modifiers import extract_fields
 import numpy as np
 from numpy.typing import NDArray

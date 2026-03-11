@@ -568,7 +568,7 @@ def generate_all_synthetic_data(output_dir: str = "src/satterc/extras/data"):
     weekly_ds.to_netcdf(f"{output_dir}/weekly.nc", format="NETCDF3_CLASSIC")
     print(f"Writing monthly.nc ({len(monthly_ds.time)} months)...")
     monthly_ds.to_netcdf(f"{output_dir}/monthly.nc", format="NETCDF3_CLASSIC")
-    print(f"Writing static.nc...")
+    print("Writing static.nc...")
     static_ds.to_netcdf(f"{output_dir}/static.nc", format="NETCDF3_CLASSIC")
 
     print("Done!")

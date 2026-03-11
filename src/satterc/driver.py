@@ -5,8 +5,8 @@ from hamilton import driver
 
 from .models import splash, pmodel, sgam, rothc
 from .inputs import grid, daily, weekly, monthly, static
-from .extras import synthetic_inputs
 from . import outputs
+# from .extras import synthetic_inputs
 
 # TODO:
 # * Create a module registry.
