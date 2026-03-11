@@ -157,11 +157,7 @@ def aridity_index_daily(
     actual_evapotranspiration_daily: xr.DataArray,
     precipitation_mm_daily: xr.DataArray,
 ) -> xr.DataArray:
-    """Calculate the aridity index.
-
-    This is a dimensionless ratio of actual evapotranspiration to precipitation.
-
-    This function is intended to act as a node in a Hamilton DAG.
+    """Calculate a dimensionless aridity index AET/precipitation.
 
     Parameters
     ----------
@@ -173,9 +169,14 @@ def aridity_index_daily(
     Returns
     -------
     xr.DataArray
-        Aridity index (dimensionless ratio of actual evapotranspiration to precipitation).
+        Aridity index.
+
+    Notes
+    -----
+    The standard aritidy index in the literature seems to use
+    *potential* evapotranspiration (PET) instead of AET.
     """
-    return actual_evapotranspiration_daily / precipitation_mm_daily
+    return precipitation_mm_daily / actual_evapotranspiration_daily
 
 
 def mean_growth_temperature_weekly(
