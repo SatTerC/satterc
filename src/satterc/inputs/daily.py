@@ -1,21 +1,15 @@
 from os import PathLike
-from typing import cast
+from typing import List, cast
 
-from hamilton.function_modifiers import check_output_custom, extract_fields
+from hamilton.function_modifiers import check_output_custom
 import pandas as pd
 import xarray as xr
 
 from ._utils import load_dataset, stack_spatial_dims, DatetimeIndexValidator
-
-# TODO: figure out how to make this more flexible.
-# Not sure if user-provided list is actually a good idea.
-DAILY_INPUTS = [
-    "precipitation_mm",
-    "sunshine_fraction",
-    "temperature_celcius",
-    "lai",
-    "gpp",
-]
+from .._hamilton_utils import (
+    make_extract_fields_resolver,
+    make_parameterize_sources_resolver,
+)
 
 
 def daily_inputs(daily_inputs_path: str | PathLike) -> xr.Dataset:
@@ -50,14 +44,19 @@ def daily_inputs_stacked(daily_inputs: xr.Dataset) -> xr.Dataset:
     return stack_spatial_dims(daily_inputs)
 
 
-@extract_fields([f"{var}_daily" for var in DAILY_INPUTS])
-def unpack_daily_inputs(daily_inputs_stacked: xr.Dataset) -> dict[str, xr.DataArray]:
+@make_extract_fields_resolver("daily", "_daily")
+def unpack_daily_inputs(
+    daily_inputs_stacked: xr.Dataset,
+    daily: List[str],
+) -> dict[str, xr.DataArray]:
     """Unpacks the stacked daily inputs dataset into individual arrays of input variables.
 
     Parameters
     ----------
     daily_inputs_stacked : xr.Dataset
         The loaded dataset with coordinate reference system information.
+    daily : List[str]
+        List of variable names to extract (resolved from config).
 
     Returns
     -------

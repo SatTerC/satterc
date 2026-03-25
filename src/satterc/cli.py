@@ -36,7 +36,8 @@ def run(
 
     modules = config["modules"]
     targets = config["targets"]
-    driver_config = config.get("config", None)
+    inputs = config.get("inputs", {})
+    driver_config = {**config.get("config", {}), **inputs}
 
     dr = build_driver(
         modules=modules,
@@ -97,8 +98,9 @@ def graph(
     with config_file.open("rb") as file:
         config = tomllib.load(file)
 
-    modules = config.get("modules", None)
-    driver_config = config.get("config", None)
+    modules = config.get("modules", [])
+    inputs = config.get("inputs", {})
+    driver_config = {**config.get("config", {}), **inputs}
     graphviz_kwargs = config.get("graphviz", None)
 
     dr = build_driver(

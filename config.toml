@@ -11,11 +11,60 @@ targets = [
   "saved_monthly_outputs",
 ]
 
+[inputs]
+daily = [
+  "precipitation_mm",
+  "sunshine_fraction",
+  "temperature_celcius",
+  "lai",
+  "gpp",
+]
+
+weekly = [
+  "co2_ppm",
+  "fapar",
+  "ppfd_umol_m2_s1",
+  "pressure_pa",
+  "vpd_pa",
+]
+
+weekly_from_daily = [
+  "temperature_celcius",
+  "precipitation_mm",
+  "soil_moisture",
+  "aridity_index",
+]
+
+monthly = [
+  "dummy_variable",
+]
+
+monthly_from_daily = [
+  "temperature_celcius",
+  "precipitation_mm",
+  "actual_evapotranspiration",
+]
+
+monthly_from_weekly = [
+  "litter_to_soil",
+]
+
+static = [
+  "elevation",
+  "plant_type",
+  "max_soil_moisture",
+  "clay_content",
+  "soil_depth",
+  "organic_carbon_stocks",
+  "root_pool_init",
+  "leaf_pool_init",
+  "stem_pool_init",
+]
+
 [config]
 method_kphio = "sandoval"
 method_optchi = "lavergne20_c3"
 n_years_spinup = 1
-
 daily_inputs_path = "src/satterc/extras/data/daily.nc"
 weekly_inputs_path = "src/satterc/extras/data/weekly.nc"
 monthly_inputs_path = "src/satterc/extras/data/monthly.nc"

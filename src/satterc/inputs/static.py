@@ -1,21 +1,11 @@
 from os import PathLike
+from typing import List
 
-from hamilton.function_modifiers import extract_fields
+from hamilton.function_modifiers import resolve, ResolveAt
 import xarray as xr
 
 from ._utils import load_dataset, stack_spatial_dims
-
-STATIC_INPUTS = [
-    "elevation",
-    "plant_type",
-    "max_soil_moisture",
-    "clay_content",
-    "soil_depth",
-    "organic_carbon_stocks",
-    "root_pool_init",
-    "leaf_pool_init",
-    "stem_pool_init",
-]
+from .._hamilton_utils import LazyExtractFields
 
 
 def static_inputs(static_inputs_path: str | PathLike) -> xr.Dataset:
@@ -50,8 +40,16 @@ def static_inputs_stacked(static_inputs: xr.Dataset) -> xr.Dataset:
     return stack_spatial_dims(static_inputs)
 
 
-@extract_fields(STATIC_INPUTS)
-def unpack_static_inputs(static_inputs_stacked: xr.Dataset) -> dict[str, xr.DataArray]:
+@resolve(
+    when=ResolveAt.CONFIG_AVAILABLE,
+    decorate_with=lambda static: LazyExtractFields(
+        {var: xr.DataArray for var in static}
+    ),
+)
+def unpack_static_inputs(
+    static_inputs_stacked: xr.Dataset,
+    static: List[str],
+) -> dict[str, xr.DataArray]:
     """Unpacks the static dataset into individual arrays of input variables.
 
     Spatial coordinates are stacked into a single "pixel" dimension.
@@ -59,7 +57,9 @@ def unpack_static_inputs(static_inputs_stacked: xr.Dataset) -> dict[str, xr.Data
     Parameters
     ----------
     static_inputs_stacked : xr.Dataset
-        The loaded dataset with coordinate reference system information.
+        The loaded static inputs dataset.
+    static : List[str]
+        List of variable names to extract (resolved from config).
 
     Returns
     -------
