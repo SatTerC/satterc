@@ -10,8 +10,9 @@ method_kphio = "sandoval"
 method_optchi = "lavergne20_c3"
 n_years_spinup = 1
 
-[inputs]
-daily = [
+[inputs.daily]
+path = "src/satterc/extras/data/daily.nc"
+vars = [
   "precipitation_mm",
   "sunshine_fraction",
   "temperature_celcius",
@@ -19,7 +20,9 @@ daily = [
   "gpp",
 ]
 
-weekly = [
+[inputs.weekly]
+path = "src/satterc/extras/data/weekly.nc"
+vars = [
   "co2_ppm",
   "fapar",
   "ppfd_umol_m2_s1",
@@ -27,28 +30,15 @@ weekly = [
   "vpd_pa",
 ]
 
-weekly_from_daily = [
-  "temperature_celcius",
-  "precipitation_mm",
-  "soil_moisture",
-  "aridity_index",
-]
-
-monthly = [
+[inputs.monthly]
+path = "src/satterc/extras/data/monthly.nc"
+vars = [
   "dummy_variable",
 ]
 
-monthly_from_daily = [
-  "temperature_celcius",
-  "precipitation_mm",
-  "actual_evapotranspiration",
-]
-
-monthly_from_weekly = [
-  "litter_to_soil",
-]
-
-static = [
+[inputs.static]
+path = "src/satterc/extras/data/static.nc"
+vars = [
   "elevation",
   "plant_type",
   "max_soil_moisture",
@@ -60,19 +50,35 @@ static = [
   "stem_pool_init",
 ]
 
-daily_inputs_path = "src/satterc/extras/data/daily.nc"
-weekly_inputs_path = "src/satterc/extras/data/weekly.nc"
-monthly_inputs_path = "src/satterc/extras/data/monthly.nc"
-static_inputs_path = "src/satterc/extras/data/static.nc"
+[aggregation]
+daily_to_weekly = [
+  "temperature_celcius",
+  "precipitation_mm",
+  "soil_moisture",
+  "aridity_index",
+]
 
-[outputs]
-daily_outputs_vars = [
+daily_to_monthly = [
+  "temperature_celcius",
+  "precipitation_mm",
+  "actual_evapotranspiration",
+]
+
+weekly_to_monthly = [
+  "litter_to_soil",
+]
+
+[outputs.daily]
+path = "results/daily.nc"
+vars = [
   "actual_evapotranspiration",
   "soil_moisture",
   "runoff",
 ]
 
-weekly_outputs_vars = [
+[outputs.weekly]
+path = "results/weekly.nc"
+vars = [
   "gpp",
   "lue",
   "iwue",
@@ -89,14 +95,12 @@ weekly_outputs_vars = [
   "cue",
 ]
 
-monthly_outputs_vars = [
+[outputs.monthly]
+path = "results/monthly.nc"
+vars = [
   "decomposable_plant_material",
   "resistant_plant_material",
   "microbial_biomass",
   "humified_organic_matter",
   "soil_organic_carbon",
 ]
-
-daily_outputs_path = "results/daily.nc"
-weekly_outputs_path = "results/weekly.nc"
-monthly_outputs_path = "results/monthly.nc"

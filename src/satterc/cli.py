@@ -16,6 +16,28 @@ app = typer.Typer(
 )
 
 
+def _flatten_inputs(config_inputs):
+    """Flatten nested [inputs] section to flat keys for driver config."""
+    flat = {}
+    for freq in ["daily", "weekly", "monthly", "static"]:
+        if freq in config_inputs:
+            section = config_inputs[freq]
+            flat[f"{freq}_inputs_path"] = section.get("path")
+            flat[freq] = section.get("vars", [])
+    return flat
+
+
+def _flatten_outputs(config_outputs):
+    """Flatten nested [outputs] section to flat keys for driver config."""
+    flat = {}
+    for freq in ["daily", "weekly", "monthly"]:
+        if freq in config_outputs:
+            section = config_outputs[freq]
+            flat[f"{freq}_outputs_path"] = section.get("path")
+            flat[f"{freq}_outputs_vars"] = section.get("vars", [])
+    return flat
+
+
 @app.command()
 def run(
     config_file: Annotated[
@@ -35,9 +57,10 @@ def run(
         config = tomllib.load(file)
 
     modules = config["modules"]
-    inputs = config.get("inputs", {})
-    outputs = config.get("outputs", {})
-    driver_config = {**config.get("config", {}), **inputs, **outputs}
+    inputs = _flatten_inputs(config.get("inputs", {}))
+    outputs = _flatten_outputs(config.get("outputs", {}))
+    aggregation = config.get("aggregation", {})
+    driver_config = {**config.get("config", {}), **inputs, **aggregation, **outputs}
 
     dr = build_driver(
         modules=modules,
@@ -107,9 +130,10 @@ def graph(
         config = tomllib.load(file)
 
     modules = config.get("modules", [])
-    inputs = config.get("inputs", {})
-    outputs = config.get("outputs", {})
-    driver_config = {**config.get("config", {}), **inputs, **outputs}
+    inputs = _flatten_inputs(config.get("inputs", {}))
+    outputs = _flatten_outputs(config.get("outputs", {}))
+    aggregation = config.get("aggregation", {})
+    driver_config = {**config.get("config", {}), **inputs, **aggregation, **outputs}
     graphviz_kwargs = config.get("graphviz", None)
 
     dr = build_driver(

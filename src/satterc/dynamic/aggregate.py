@@ -6,14 +6,14 @@ from ._hamilton_fixes import FixedResolve, NoOpDecorator
 
 @FixedResolve(
     when=ResolveAt.CONFIG_AVAILABLE,
-    decorate_with=lambda weekly_from_daily: (
+    decorate_with=lambda daily_to_weekly: (
         parameterize_sources(
             **{
                 f"{var}_weekly": {"var_daily": f"{var}_daily"}
-                for var in weekly_from_daily
+                for var in daily_to_weekly
             }
         )
-        if weekly_from_daily
+        if daily_to_weekly
         else NoOpDecorator()
     ),
 )
@@ -24,14 +24,14 @@ def aggregate_daily_to_weekly(var_daily: xr.DataArray) -> xr.DataArray:
 
 @FixedResolve(
     when=ResolveAt.CONFIG_AVAILABLE,
-    decorate_with=lambda monthly_from_daily: (
+    decorate_with=lambda daily_to_monthly: (
         parameterize_sources(
             **{
                 f"{var}_monthly": {"var_daily": f"{var}_daily"}
-                for var in monthly_from_daily
+                for var in daily_to_monthly
             }
         )
-        if monthly_from_daily
+        if daily_to_monthly
         else NoOpDecorator()
     ),
 )
@@ -53,14 +53,14 @@ def aggregate_daily_to_monthly(var_daily: xr.DataArray) -> xr.DataArray:
 
 @FixedResolve(
     when=ResolveAt.CONFIG_AVAILABLE,
-    decorate_with=lambda monthly_from_weekly: (
+    decorate_with=lambda weekly_to_monthly: (
         parameterize_sources(
             **{
                 f"{var}_monthly": {"var_weekly": f"{var}_weekly"}
-                for var in monthly_from_weekly
+                for var in weekly_to_monthly
             }
         )
-        if monthly_from_weekly
+        if weekly_to_monthly
         else NoOpDecorator()
     ),
 )
