@@ -1,8 +1,7 @@
+from hamilton.function_modifiers import extract_fields, ResolveAt
 import xarray as xr
 
-from hamilton.function_modifiers import extract_fields, ResolveAt
-
-from .._hamilton_utils import FixedResolve
+from ._hamilton_fixes import FixedResolve
 
 
 @FixedResolve(

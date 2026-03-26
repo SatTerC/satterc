@@ -1,10 +1,5 @@
-"""Utilities for working with Hamilton decorators.
-
-This module provides workarounds for issues with Hamilton's @resolve decorator.
-"""
-
 from hamilton.function_modifiers.base import NodeTransformer
-from hamilton.function_modifiers.delayed import resolve, ResolveAt
+from hamilton.function_modifiers.delayed import resolve
 
 
 class FixedResolve(resolve):
@@ -12,6 +7,8 @@ class FixedResolve(resolve):
 
     Hamilton's @resolve decorator doesn't call validate() on decorators
     returned from decorate_with. This subclass fixes that.
+
+    Should be fixed upstream at some point - see https://github.com/apache/hamilton/pull/1524
     """
 
     def resolve(self, config, fn):

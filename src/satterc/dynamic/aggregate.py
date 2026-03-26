@@ -1,7 +1,7 @@
 import xarray as xr
 from hamilton.function_modifiers import parameterize_sources, ResolveAt
 
-from .._hamilton_utils import FixedResolve, NoOpDecorator
+from ._hamilton_fixes import FixedResolve, NoOpDecorator
 
 
 @FixedResolve(
