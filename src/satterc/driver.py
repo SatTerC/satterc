@@ -4,6 +4,7 @@ from hamilton import driver
 from hamilton.settings import ENABLE_POWER_USER_MODE
 
 from .inputs import grid, daily, weekly, monthly, static
+from .dynamic import unpack, aggregate
 from . import outputs
 from .models import splash, pmodel, sgam, rothc
 
@@ -28,9 +29,16 @@ def build_driver(
     config = dict(config) if config else {}
     config[ENABLE_POWER_USER_MODE] = True
 
-    modules_ = [grid, daily, weekly, monthly, static, outputs] + get_model_modules(
-        modules
-    )
+    modules_ = [
+        grid,
+        daily,
+        weekly,
+        monthly,
+        static,
+        unpack,
+        aggregate,
+        outputs,
+    ] + get_model_modules(modules)
 
     dr = driver.Builder().with_modules(*modules_).with_config(config)
     if allow_module_overrides:
