@@ -7,6 +7,7 @@ import typer
 from hamilton import graph_types
 import xarray as xr
 
+from .config import load_config
 from .driver import build_driver
 from ._version import __version__
 
@@ -14,28 +15,6 @@ app = typer.Typer(
     help="Command-line interface for the SatTerC framework.",
     context_settings={"help_option_names": ["-h", "--help"]},
 )
-
-
-def _flatten_inputs(config_inputs):
-    """Flatten nested [inputs] section to flat keys for driver config."""
-    flat = {}
-    for freq in ["daily", "weekly", "monthly", "static"]:
-        if freq in config_inputs:
-            section = config_inputs[freq]
-            flat[f"{freq}_inputs_path"] = section.get("path")
-            flat[freq] = section.get("vars", [])
-    return flat
-
-
-def _flatten_outputs(config_outputs):
-    """Flatten nested [outputs] section to flat keys for driver config."""
-    flat = {}
-    for freq in ["daily", "weekly", "monthly"]:
-        if freq in config_outputs:
-            section = config_outputs[freq]
-            flat[f"{freq}_outputs_path"] = section.get("path")
-            flat[f"{freq}_outputs_vars"] = section.get("vars", [])
-    return flat
 
 
 @app.command()
@@ -52,31 +31,15 @@ def run(
     ] = False,
 ) -> None:
     """Execute a pipeline defined in a configuration file."""
-
-    with config_file.open("rb") as file:
-        config = tomllib.load(file)
-
-    modules = config["modules"]
-    inputs = _flatten_inputs(config.get("inputs", {}))
-    outputs = _flatten_outputs(config.get("outputs", {}))
-    aggregation = config.get("aggregation", {})
-    driver_config = {**config.get("config", {}), **inputs, **aggregation, **outputs}
+    parsed = load_config(config_file)
 
     dr = build_driver(
-        modules=modules,
-        config=driver_config,
+        modules=parsed["modules"],
+        config=parsed["driver_config"],
         allow_module_overrides=allow_overrides,
     )
 
-    targets = []
-    if "daily_outputs_vars" in outputs:
-        targets.append("saved_daily_outputs")
-    if "weekly_outputs_vars" in outputs:
-        targets.append("saved_weekly_outputs")
-    if "monthly_outputs_vars" in outputs:
-        targets.append("saved_monthly_outputs")
-
-    dr.execute(targets)
+    dr.execute(parsed["targets"])
 
 
 # TODO: refine this and move out of cli
@@ -129,16 +92,12 @@ def graph(
     with config_file.open("rb") as file:
         config = tomllib.load(file)
 
-    modules = config.get("modules", [])
-    inputs = _flatten_inputs(config.get("inputs", {}))
-    outputs = _flatten_outputs(config.get("outputs", {}))
-    aggregation = config.get("aggregation", {})
-    driver_config = {**config.get("config", {}), **inputs, **aggregation, **outputs}
+    parsed = load_config(config_file)
     graphviz_kwargs = config.get("graphviz", None)
 
     dr = build_driver(
-        modules=modules,
-        config=driver_config,
+        modules=parsed["modules"],
+        config=parsed["driver_config"],
         allow_module_overrides=allow_overrides,
     )
 
