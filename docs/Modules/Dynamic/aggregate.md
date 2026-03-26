@@ -1,0 +1,3 @@
+# Aggregate
+
+::: satterc.dynamic.aggregate
