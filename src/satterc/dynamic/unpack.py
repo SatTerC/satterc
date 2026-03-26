@@ -1,15 +1,16 @@
 import xarray as xr
 
-from hamilton.function_modifiers import (
-    resolve,
-    ResolveAt,
+from hamilton.function_modifiers import extract_fields, ResolveAt
+
+from .._hamilton_utils import FixedResolve
+
+
+@FixedResolve(
+    when=ResolveAt.CONFIG_AVAILABLE,
+    decorate_with=lambda daily: extract_fields(
+        {f"{var}_daily": xr.DataArray for var in daily}
+    ),
 )
-
-from .._hamilton_utils import make_extract_fields_resolver
-from .._hamilton_utils import LazyExtractFields, NoOpDecorator
-
-
-@make_extract_fields_resolver("daily", "_daily")
 def unpack_daily_inputs(
     daily_inputs_stacked: xr.Dataset,
     daily: list[str],
@@ -34,9 +35,9 @@ def unpack_daily_inputs(
     }
 
 
-@resolve(
+@FixedResolve(
     when=ResolveAt.CONFIG_AVAILABLE,
-    decorate_with=lambda weekly: LazyExtractFields(
+    decorate_with=lambda weekly: extract_fields(
         {f"{var}_weekly": xr.DataArray for var in weekly}
     ),
 )
@@ -63,4 +64,65 @@ def unpack_weekly_inputs(
     return {
         f"{var}_weekly": weekly_inputs_stacked[var]
         for var in weekly_inputs_stacked.data_vars
+    }
+
+
+@FixedResolve(
+    when=ResolveAt.CONFIG_AVAILABLE,
+    decorate_with=lambda monthly: extract_fields(
+        {f"{var}_monthly": xr.DataArray for var in monthly}
+    ),
+)
+def unpack_monthly_inputs(
+    monthly_inputs_stacked: xr.Dataset,
+    monthly: list[str],
+) -> dict[str, xr.DataArray]:
+    """Unpacks the raw dataset into individual arrays of input variables.
+
+    Spatial coordinates are stacked into a single "pixel" dimension.
+
+    Parameters
+    ----------
+    monthly_inputs_stacked : xr.Dataset
+        The loaded dataset with coordinate reference system information.
+    monthly : list[str]
+        List of variable names to extract (resolved from config).
+
+    Returns
+    -------
+    dict[str, xr.DataArray]
+            The data arrays.
+    """
+    return {
+        f"{var}_monthly": monthly_inputs_stacked[var]
+        for var in monthly_inputs_stacked.data_vars
+    }
+
+
+@FixedResolve(
+    when=ResolveAt.CONFIG_AVAILABLE,
+    decorate_with=lambda static: extract_fields({var: xr.DataArray for var in static}),
+)
+def unpack_static_inputs(
+    static_inputs_stacked: xr.Dataset,
+    static: list[str],
+) -> dict[str, xr.DataArray]:
+    """Unpacks the static dataset into individual arrays of input variables.
+
+    Spatial coordinates are stacked into a single "pixel" dimension.
+
+    Parameters
+    ----------
+    static_inputs_stacked : xr.Dataset
+        The loaded static inputs dataset.
+    static : List[str]
+        List of variable names to extract (resolved from config).
+
+    Returns
+    -------
+    dict[str, xr.DataArray]
+        The data arrays.
+    """
+    return {
+        str(var): static_inputs_stacked[var] for var in static_inputs_stacked.data_vars
     }

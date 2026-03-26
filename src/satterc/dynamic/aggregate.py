@@ -1,18 +1,14 @@
-from hamilton.function_modifiers import (
-    parameterize_sources,
-    resolve,
-    ResolveAt,
-)
 import xarray as xr
+from hamilton.function_modifiers import parameterize_sources, ResolveAt
 
-from .._hamilton_utils import NoOpDecorator
+from .._hamilton_utils import FixedResolve, NoOpDecorator
 
 
-@resolve(
+@FixedResolve(
     when=ResolveAt.CONFIG_AVAILABLE,
     decorate_with=lambda weekly_from_daily: (
-        _make_parameterize_sources(
-            {
+        parameterize_sources(
+            **{
                 f"{var}_weekly": {"var_daily": f"{var}_daily"}
                 for var in weekly_from_daily
             }
@@ -26,14 +22,7 @@ def aggregate_daily_to_weekly(var_daily: xr.DataArray) -> xr.DataArray:
     return var_daily.resample(time="1W").mean()
 
 
-def _make_parameterize_sources(parameterization: dict):
-    """Create a parameterize_sources decorator with dynamic parameterization."""
-    from hamilton.function_modifiers import parameterize_sources
-
-    return parameterize_sources(**parameterization)
-
-
-@resolve(
+@FixedResolve(
     when=ResolveAt.CONFIG_AVAILABLE,
     decorate_with=lambda monthly_from_daily: (
         parameterize_sources(
@@ -62,7 +51,7 @@ def aggregate_daily_to_monthly(var_daily: xr.DataArray) -> xr.DataArray:
     return var_daily.resample(time="1ME").mean()
 
 
-@resolve(
+@FixedResolve(
     when=ResolveAt.CONFIG_AVAILABLE,
     decorate_with=lambda monthly_from_weekly: (
         parameterize_sources(
