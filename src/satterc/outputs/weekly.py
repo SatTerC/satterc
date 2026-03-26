@@ -1,80 +1,38 @@
 import xarray as xr
+from hamilton.function_modifiers import group, inject, source
+from hamilton.function_modifiers.delayed import ResolveAt
 
+from ..dynamic._hamilton_fixes import FixedResolve
 from ._utils import _save_dataset
 
 
+@FixedResolve(
+    when=ResolveAt.CONFIG_AVAILABLE,
+    decorate_with=lambda weekly_outputs_vars: inject(
+        weekly_outputs_list=group(
+            *[source(f"{var}_weekly") for var in weekly_outputs_vars]
+        )
+    ),
+)
 def weekly_outputs_stacked(
-    gpp_weekly: xr.DataArray,
-    lue_weekly: xr.DataArray,
-    iwue_weekly: xr.DataArray,
-    leaf_pool_size_weekly: xr.DataArray,
-    stem_pool_size_weekly: xr.DataArray,
-    root_pool_size_weekly: xr.DataArray,
-    leaf_respiration_loss_weekly: xr.DataArray,
-    stem_respiration_loss_weekly: xr.DataArray,
-    root_respiration_loss_weekly: xr.DataArray,
-    litter_to_soil_weekly: xr.DataArray,
-    disturbance_loss_weekly: xr.DataArray,
-    leaf_area_index_weekly: xr.DataArray,
-    npp_weekly: xr.DataArray,
-    cue_weekly: xr.DataArray,
+    weekly_outputs_list: list[xr.DataArray],
+    weekly_outputs_vars: list[str],
 ) -> xr.Dataset:
     """Merge weekly output data arrays into a single dataset.
 
     Parameters
     ----------
-    gpp_weekly : xr.DataArray
-        Weekly gross primary productivity.
-    lue_weekly : xr.DataArray
-        Weekly light use efficiency.
-    iwue_weekly : xr.DataArray
-        Weekly intrinsic water use efficiency.
-    leaf_pool_size_weekly : xr.DataArray
-        Weekly leaf pool size.
-    stem_pool_size_weekly : xr.DataArray
-        Weekly stem pool size.
-    root_pool_size_weekly : xr.DataArray
-        Weekly root pool size.
-    leaf_respiration_loss_weekly : xr.DataArray
-        Weekly leaf respiration loss.
-    stem_respiration_loss_weekly : xr.DataArray
-        Weekly stem respiration loss.
-    root_respiration_loss_weekly : xr.DataArray
-        Weekly root respiration loss.
-    litter_to_soil_weekly : xr.DataArray
-        Weekly litter to soil flux.
-    disturbance_loss_weekly : xr.DataArray
-        Weekly disturbance loss.
-    leaf_area_index_weekly : xr.DataArray
-        Weekly leaf area index.
-    npp_weekly : xr.DataArray
-        Weekly net primary productivity.
-    cue_weekly : xr.DataArray
-        Weekly carbon use efficiency.
+    weekly_outputs_list : list[xr.DataArray]
+        List of weekly output data arrays.
+    weekly_outputs : list[str]
+        List of variable names to merge (resolved from config).
 
     Returns
     -------
     xr.Dataset
         Merged dataset with stacked spatial dimensions.
     """
-    return xr.merge(
-        [
-            gpp_weekly,
-            lue_weekly,
-            iwue_weekly,
-            leaf_pool_size_weekly,
-            stem_pool_size_weekly,
-            root_pool_size_weekly,
-            leaf_respiration_loss_weekly,
-            stem_respiration_loss_weekly,
-            root_respiration_loss_weekly,
-            litter_to_soil_weekly,
-            disturbance_loss_weekly,
-            leaf_area_index_weekly,
-            npp_weekly,
-            cue_weekly,
-        ]
-    )
+    return xr.merge(weekly_outputs_list)
 
 
 def weekly_outputs(weekly_outputs_stacked: xr.Dataset) -> xr.Dataset:

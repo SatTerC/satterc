@@ -37,7 +37,8 @@ def run(
     modules = config["modules"]
     targets = config["targets"]
     inputs = config.get("inputs", {})
-    driver_config = {**config.get("config", {}), **inputs}
+    outputs = config.get("outputs", {})
+    driver_config = {**config.get("config", {}), **inputs, **outputs}
 
     dr = build_driver(
         modules=modules,
@@ -100,7 +101,8 @@ def graph(
 
     modules = config.get("modules", [])
     inputs = config.get("inputs", {})
-    driver_config = {**config.get("config", {}), **inputs}
+    outputs = config.get("outputs", {})
+    driver_config = {**config.get("config", {}), **inputs, **outputs}
     graphviz_kwargs = config.get("graphviz", None)
 
     dr = build_driver(

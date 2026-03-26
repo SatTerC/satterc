@@ -1,32 +1,38 @@
 import xarray as xr
+from hamilton.function_modifiers import group, inject, source
+from hamilton.function_modifiers.delayed import ResolveAt
 
+from ..dynamic._hamilton_fixes import FixedResolve
 from ._utils import _save_dataset
 
 
+@FixedResolve(
+    when=ResolveAt.CONFIG_AVAILABLE,
+    decorate_with=lambda daily_outputs_vars: inject(
+        daily_outputs_list=group(
+            *[source(f"{var}_daily") for var in daily_outputs_vars]
+        )
+    ),
+)
 def daily_outputs_stacked(
-    actual_evapotranspiration_daily: xr.DataArray,
-    soil_moisture_daily: xr.DataArray,
-    runoff_daily: xr.DataArray,
+    daily_outputs_list: list[xr.DataArray],
+    daily_outputs_vars: list[str],
 ) -> xr.Dataset:
     """Merge daily output data arrays into a single dataset.
 
     Parameters
     ----------
-    actual_evapotranspiration_daily : xr.DataArray
-        Daily actual evapotranspiration.
-    soil_moisture_daily : xr.DataArray
-        Daily soil moisture.
-    runoff_daily : xr.DataArray
-        Daily runoff.
+    daily_outputs_list : list[xr.DataArray]
+        List of daily output data arrays.
+    daily_outputs : list[str]
+        List of variable names to merge (resolved from config).
 
     Returns
     -------
     xr.Dataset
         Merged dataset with stacked spatial dimensions.
     """
-    return xr.merge(
-        [actual_evapotranspiration_daily, soil_moisture_daily, runoff_daily]
-    )
+    return xr.merge(daily_outputs_list)
 
 
 def daily_outputs(daily_outputs_stacked: xr.Dataset) -> xr.Dataset:

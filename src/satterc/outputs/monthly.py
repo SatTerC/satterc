@@ -1,44 +1,38 @@
 import xarray as xr
+from hamilton.function_modifiers import group, inject, source
+from hamilton.function_modifiers.delayed import ResolveAt
 
+from ..dynamic._hamilton_fixes import FixedResolve
 from ._utils import _save_dataset
 
 
+@FixedResolve(
+    when=ResolveAt.CONFIG_AVAILABLE,
+    decorate_with=lambda monthly_outputs_vars: inject(
+        monthly_outputs_list=group(
+            *[source(f"{var}_monthly") for var in monthly_outputs_vars]
+        )
+    ),
+)
 def monthly_outputs_stacked(
-    decomposable_plant_material_monthly: xr.DataArray,
-    resistant_plant_material_monthly: xr.DataArray,
-    microbial_biomass_monthly: xr.DataArray,
-    humified_organic_matter_monthly: xr.DataArray,
-    soil_organic_carbon_monthly: xr.DataArray,
+    monthly_outputs_list: list[xr.DataArray],
+    monthly_outputs_vars: list[str],
 ) -> xr.Dataset:
     """Merge monthly output data arrays into a single dataset.
 
     Parameters
     ----------
-    decomposable_plant_material_monthly : xr.DataArray
-        Monthly decomposable plant material (DPM).
-    resistant_plant_material_monthly : xr.DataArray
-        Monthly resistant plant material (RPM).
-    microbial_biomass_monthly : xr.DataArray
-        Monthly microbial biomass (BIO).
-    humified_organic_matter_monthly : xr.DataArray
-        Monthly humified organic matter (HUM).
-    soil_organic_carbon_monthly : xr.DataArray
-        Monthly soil organic carbon (SOC).
+    monthly_outputs_list : list[xr.DataArray]
+        List of monthly output data arrays.
+    monthly_outputs : list[str]
+        List of variable names to merge (resolved from config).
 
     Returns
     -------
     xr.Dataset
         Merged dataset with stacked spatial dimensions.
     """
-    return xr.merge(
-        [
-            decomposable_plant_material_monthly,
-            resistant_plant_material_monthly,
-            microbial_biomass_monthly,
-            humified_organic_matter_monthly,
-            soil_organic_carbon_monthly,
-        ]
-    )
+    return xr.merge(monthly_outputs_list)
 
 
 def monthly_outputs(monthly_outputs_stacked: xr.Dataset) -> xr.Dataset:

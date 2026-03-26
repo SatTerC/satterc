@@ -73,3 +73,35 @@ static_inputs_path = "src/satterc/extras/data/static.nc"
 daily_outputs_path = "results/daily.nc"
 weekly_outputs_path = "results/weekly.nc"
 monthly_outputs_path = "results/monthly.nc"
+
+[outputs]
+daily_outputs_vars = [
+  "actual_evapotranspiration",
+  "soil_moisture",
+  "runoff",
+]
+
+weekly_outputs_vars = [
+  "gpp",
+  "lue",
+  "iwue",
+  "leaf_pool_size",
+  "stem_pool_size",
+  "root_pool_size",
+  "leaf_respiration_loss",
+  "stem_respiration_loss",
+  "root_respiration_loss",
+  "litter_to_soil",
+  "disturbance_loss",
+  "leaf_area_index",
+  "npp",
+  "cue",
+]
+
+monthly_outputs_vars = [
+  "decomposable_plant_material",
+  "resistant_plant_material",
+  "microbial_biomass",
+  "humified_organic_matter",
+  "soil_organic_carbon",
+]
