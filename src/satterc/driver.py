@@ -5,7 +5,7 @@ from hamilton.settings import ENABLE_POWER_USER_MODE
 
 from .inputs import grid, daily, weekly, monthly, static
 from .dynamic import unpack, aggregate
-from . import outputs
+from .outputs import daily as daily_out, weekly as weekly_out, monthly as monthly_out
 from .models import splash, pmodel, sgam, rothc
 
 
@@ -37,7 +37,9 @@ def build_driver(
         static,
         unpack,
         aggregate,
-        outputs,
+        daily_out,
+        weekly_out,
+        monthly_out,
     ] + get_model_modules(modules)
 
     dr = driver.Builder().with_modules(*modules_).with_config(config)
