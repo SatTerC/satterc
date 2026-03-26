@@ -5,11 +5,10 @@ modules = [
   "rothc",
 ]
 
-targets = [
-  "saved_daily_outputs",
-  "saved_weekly_outputs",
-  "saved_monthly_outputs",
-]
+[config]
+method_kphio = "sandoval"
+method_optchi = "lavergne20_c3"
+n_years_spinup = 1
 
 [inputs]
 daily = [
@@ -61,18 +60,10 @@ static = [
   "stem_pool_init",
 ]
 
-[config]
-method_kphio = "sandoval"
-method_optchi = "lavergne20_c3"
-n_years_spinup = 1
 daily_inputs_path = "src/satterc/extras/data/daily.nc"
 weekly_inputs_path = "src/satterc/extras/data/weekly.nc"
 monthly_inputs_path = "src/satterc/extras/data/monthly.nc"
 static_inputs_path = "src/satterc/extras/data/static.nc"
-
-daily_outputs_path = "results/daily.nc"
-weekly_outputs_path = "results/weekly.nc"
-monthly_outputs_path = "results/monthly.nc"
 
 [outputs]
 daily_outputs_vars = [
@@ -105,3 +96,7 @@ monthly_outputs_vars = [
   "humified_organic_matter",
   "soil_organic_carbon",
 ]
+
+daily_outputs_path = "results/daily.nc"
+weekly_outputs_path = "results/weekly.nc"
+monthly_outputs_path = "results/monthly.nc"

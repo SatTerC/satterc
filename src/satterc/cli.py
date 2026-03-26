@@ -35,7 +35,6 @@ def run(
         config = tomllib.load(file)
 
     modules = config["modules"]
-    targets = config["targets"]
     inputs = config.get("inputs", {})
     outputs = config.get("outputs", {})
     driver_config = {**config.get("config", {}), **inputs, **outputs}
@@ -45,6 +44,14 @@ def run(
         config=driver_config,
         allow_module_overrides=allow_overrides,
     )
+
+    targets = []
+    if "daily_outputs_vars" in outputs:
+        targets.append("saved_daily_outputs")
+    if "weekly_outputs_vars" in outputs:
+        targets.append("saved_weekly_outputs")
+    if "monthly_outputs_vars" in outputs:
+        targets.append("saved_monthly_outputs")
 
     dr.execute(targets)
 
