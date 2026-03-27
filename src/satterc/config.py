@@ -21,7 +21,7 @@ def load_config(config_path: str | Path) -> dict[str, Any]:
     with open(config_path, "rb") as f:
         config = tomllib.load(f)
 
-    modules = config["modules"]
+    modules = _build_modules(config)
 
     inputs = _flatten_inputs(config.get("inputs", {}))
     outputs = _flatten_outputs(config.get("outputs", {}))
@@ -42,6 +42,40 @@ def load_config(config_path: str | Path) -> dict[str, Any]:
     }
 
 
+def _build_modules(config: dict) -> list[str]:
+    """Build the modules list from config sections and model names.
+
+    Parameters
+    ----------
+    config : dict
+        The parsed TOML config.
+
+    Returns
+    -------
+    list[str]
+        List of modules to include (e.g., ["inputs.daily", "models.splash"]).
+    """
+    modules = []
+
+    model_names = config.get("modules", [])
+    modules.extend(model_names)
+
+    config_inputs = config.get("inputs", {})
+    for freq in ["daily", "weekly", "monthly", "static"]:
+        if freq in config_inputs:
+            modules.append(f"inputs.{freq}")
+
+    config_outputs = config.get("outputs", {})
+    for freq in ["daily", "weekly", "monthly", "static"]:
+        if freq in config_outputs:
+            modules.append(f"outputs.{freq}")
+
+    if "resample" in config:
+        modules.append("resample")
+
+    return modules
+
+
 def _flatten_inputs(config_inputs: dict) -> dict:
     flat = {}
     for freq in ["daily", "weekly", "monthly", "static"]:
@@ -54,7 +88,7 @@ def _flatten_inputs(config_inputs: dict) -> dict:
 
 def _flatten_outputs(config_outputs: dict) -> dict:
     flat = {}
-    for freq in ["daily", "weekly", "monthly"]:
+    for freq in ["daily", "weekly", "monthly", "static"]:
         if freq in config_outputs:
             section = config_outputs[freq]
             flat[f"{freq}_outputs_path"] = section.get("path")
@@ -64,7 +98,7 @@ def _flatten_outputs(config_outputs: dict) -> dict:
 
 def _get_targets(config_outputs: dict) -> list[str]:
     targets = []
-    for freq in ["daily", "weekly", "monthly"]:
+    for freq in ["daily", "weekly", "monthly", "static"]:
         if freq in config_outputs:
             targets.append(f"save_{freq}_outputs")
     return targets

@@ -10,3 +10,4 @@ site/
 
 notes/
 tmp/
+*.nc

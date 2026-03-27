@@ -1,3 +1,3 @@
-from . import daily, weekly, monthly
+from . import daily, weekly, monthly, static
 
-__all__ = ["daily", "weekly", "monthly"]
+__all__ = ["daily", "weekly", "monthly", "static"]

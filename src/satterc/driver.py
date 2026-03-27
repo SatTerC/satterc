@@ -7,7 +7,6 @@ from .pipeline import inputs, outputs, models, resample
 
 
 def get_model_modules(module_names: list[str]) -> list:
-    # TODO: support custom modules / models
     return [getattr(models, name) for name in module_names]
 
 
@@ -19,17 +18,43 @@ def build_driver(
     config = dict(config) if config else {}
     config[ENABLE_POWER_USER_MODE] = True
 
-    modules_ = [
-        inputs.daily,
-        inputs.weekly,
-        inputs.monthly,
-        inputs.static,
-        inputs.grid,
-        outputs.daily,
-        outputs.weekly,
-        outputs.monthly,
-        resample,
-    ] + get_model_modules(modules)
+    modules_ = []
+
+    if "inputs.daily" in modules:
+        modules_.append(inputs.daily)
+    if "inputs.weekly" in modules:
+        modules_.append(inputs.weekly)
+    if "inputs.monthly" in modules:
+        modules_.append(inputs.monthly)
+    if "inputs.static" in modules:
+        modules_.append(inputs.static)
+
+    input_freqs = [
+        f for f in ["daily", "weekly", "monthly", "static"] if f"inputs.{f}" in modules
+    ]
+    if input_freqs:
+        modules_.append(inputs.grid)
+
+    if "outputs.daily" in modules:
+        modules_.append(outputs.daily)
+    if "outputs.weekly" in modules:
+        modules_.append(outputs.weekly)
+    if "outputs.monthly" in modules:
+        modules_.append(outputs.monthly)
+    if "outputs.static" in modules:
+        modules_.append(outputs.static)
+
+    if "resample" in modules:
+        modules_.append(resample)
+
+    model_names = [
+        m.removeprefix("models.")
+        for m in modules
+        if not m.startswith("inputs.")
+        and not m.startswith("outputs.")
+        and m != "resample"
+    ]
+    modules_ += get_model_modules(model_names)
 
     dr = driver.Builder().with_modules(*modules_).with_config(config)
     if allow_module_overrides:

@@ -1,25 +1,27 @@
 """Generate synthetic input data using Hamilton DAG."""
 
-from pathlib import Path
 from typing import Any
 
 import numpy as np
+import rioxarray  # noqa: F401 - needed to enable .rio accessor
+import xarray as xr
 from hamilton import driver
 from hamilton.settings import ENABLE_POWER_USER_MODE
 
-from . import daily, static, merged
-from .. import pipeline
+from . import daily, static
+from ..pipeline import outputs, resample
 
 
 def _set_random_seed(seed: int) -> None:
-    """Set random seed for reproducibility.
-
-    Parameters
-    ----------
-    seed : int
-        Random seed value.
-    """
+    """Set random seed for reproducibility."""
     np.random.seed(seed)
+
+
+def _add_crs_to_netcdf(path: str) -> None:
+    """Add CRS metadata to a netcdf file using rioxarray."""
+    with xr.open_dataset(path, decode_coords="all") as ds:
+        ds.rio.write_crs("EPSG:4326", inplace=True)
+        # ds.to_netcdf(path)
 
 
 def generate_synthetic_data(
@@ -52,11 +54,14 @@ def generate_synthetic_data(
     -----
     This function builds a Hamilton DAG with:
     - synthetic_data modules for generating variables
-    - pipeline.outputs modules for merging and saving
+    - pipeline.outputs modules for merging and unstacking temporal data
     - pipeline.resample for temporal resampling
 
     The config's input paths are mapped to output paths, since we're
     generating the input data files.
+
+    After the DAG runs, CRS metadata (EPSG:4326) is added to all output
+    netCDF files using rioxarray.
     """
     _set_random_seed(seed)
 
@@ -69,6 +74,9 @@ def generate_synthetic_data(
     daily_to_monthly = list(daily_vars | weekly_vars | monthly_vars)
     weekly_to_monthly: list[str] = []
 
+    weekly_outputs_vars = list(weekly_vars | set(daily_to_weekly))
+    monthly_outputs_vars = list(set(daily_to_monthly) | monthly_vars)
+
     driver_config: dict[str, Any] = {
         ENABLE_POWER_USER_MODE: True,
         "n_lat": n_lat,
@@ -79,9 +87,9 @@ def generate_synthetic_data(
         "daily_outputs_path": config["driver_config"].get("daily_inputs_path"),
         "daily_outputs_vars": list(daily_vars),
         "weekly_outputs_path": config["driver_config"].get("weekly_inputs_path"),
-        "weekly_outputs_vars": list(weekly_vars),
+        "weekly_outputs_vars": weekly_outputs_vars,
         "monthly_outputs_path": config["driver_config"].get("monthly_inputs_path"),
-        "monthly_outputs_vars": list(monthly_vars),
+        "monthly_outputs_vars": monthly_outputs_vars,
         "static_outputs_path": config["driver_config"].get("static_inputs_path"),
         "static_outputs_vars": config["driver_config"].get("static_inputs_vars", []),
         "daily_to_weekly": daily_to_weekly,
@@ -92,11 +100,20 @@ def generate_synthetic_data(
     modules = [
         daily,
         static,
-        merged,
-        pipeline.resample,
+        resample,
+        outputs.daily,
+        outputs.weekly,
+        outputs.monthly,
+        outputs.static,
     ]
 
-    dr = driver.Builder().with_modules(*modules).with_config(driver_config).build()
+    dr = (
+        driver.Builder()
+        .with_modules(*modules)
+        .with_config(driver_config)
+        .allow_module_overrides()
+        .build()
+    )
 
     targets = [
         "save_daily_outputs",
@@ -106,3 +123,10 @@ def generate_synthetic_data(
     ]
 
     dr.execute(targets)
+
+    # Add CRS data to the netcdf files. Easier to do it as an extra step
+    # rather than modifying / reimplementing existing outputs nodes.
+    _add_crs_to_netcdf(driver_config["daily_outputs_path"])
+    _add_crs_to_netcdf(driver_config["weekly_outputs_path"])
+    _add_crs_to_netcdf(driver_config["monthly_outputs_path"])
+    _add_crs_to_netcdf(driver_config["static_outputs_path"])
