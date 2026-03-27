@@ -10,11 +10,13 @@ import xarray as xr
 from ..config import load_config
 from ..driver import build_driver
 from .._version import __version__
+from .synthetic import app as synthetic_app
 
 app = typer.Typer(
     help="Command-line interface for the SatTerC framework.",
     context_settings={"help_option_names": ["-h", "--help"]},
 )
+app.add_typer(synthetic_app)
 
 
 @app.command()
