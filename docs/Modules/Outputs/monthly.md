@@ -1,3 +1,0 @@
-# Monthly
-
-::: satterc.outputs.monthly

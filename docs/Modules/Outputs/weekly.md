@@ -1,3 +1,0 @@
-# Weekly
-
-::: satterc.outputs.weekly

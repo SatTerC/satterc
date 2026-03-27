@@ -1,3 +1,0 @@
-# Grid
-
-::: satterc.inputs.grid
