@@ -9,7 +9,7 @@ from ._utils import load_dataset, stack_spatial_dims, DatetimeIndexValidator
 from .._hamilton_fixes import FixedResolve
 
 
-def monthly_inputs(monthly_inputs_path: str | PathLike) -> xr.Dataset:
+def loaded_monthly_inputs(monthly_inputs_path: str | PathLike) -> xr.Dataset:
     """Load monthly input dataset from file.
 
     Parameters
@@ -25,12 +25,12 @@ def monthly_inputs(monthly_inputs_path: str | PathLike) -> xr.Dataset:
     return load_dataset(monthly_inputs_path)
 
 
-def monthly_inputs_stacked(monthly_inputs: xr.Dataset) -> xr.Dataset:
+def stacked_monthly_inputs(loaded_monthly_inputs: xr.Dataset) -> xr.Dataset:
     """Stack spatial dimensions of monthly inputs dataset.
 
     Parameters
     ----------
-    monthly_inputs : xr.Dataset
+    loaded_monthly_inputs : xr.Dataset
         The loaded monthly inputs dataset.
 
     Returns
@@ -38,16 +38,16 @@ def monthly_inputs_stacked(monthly_inputs: xr.Dataset) -> xr.Dataset:
     xr.Dataset
         Dataset with spatial dimensions stacked into 'pixel' dimension.
     """
-    return stack_spatial_dims(monthly_inputs)
+    return stack_spatial_dims(loaded_monthly_inputs)
 
 
 @check_output_custom(DatetimeIndexValidator("ME"))
-def dates_monthly(monthly_inputs_stacked: xr.Dataset) -> pd.DatetimeIndex:
+def dates_monthly(stacked_monthly_inputs: xr.Dataset) -> pd.DatetimeIndex:
     """Extract monthly datetime index from dataset.
 
     Parameters
     ----------
-    monthly_inputs_stacked : xr.Dataset
+    stacked_monthly_inputs : xr.Dataset
         The loaded monthly inputs dataset.
 
     Returns
@@ -55,7 +55,7 @@ def dates_monthly(monthly_inputs_stacked: xr.Dataset) -> pd.DatetimeIndex:
     pd.DatetimeIndex
         DatetimeIndex with monthly frequency.
     """
-    return cast(pd.DatetimeIndex, monthly_inputs_stacked.get_index("time"))
+    return cast(pd.DatetimeIndex, stacked_monthly_inputs.get_index("time"))
 
 
 @FixedResolve(
@@ -64,8 +64,8 @@ def dates_monthly(monthly_inputs_stacked: xr.Dataset) -> pd.DatetimeIndex:
         {f"{var}_monthly": xr.DataArray for var in monthly_inputs_vars}
     ),
 )
-def unpack_monthly_inputs(
-    monthly_inputs_stacked: xr.Dataset,
+def split_monthly_inputs(
+    stacked_monthly_inputs: xr.Dataset,
     monthly_inputs_vars: list[str],
 ) -> dict[str, xr.DataArray]:
     """Unpacks the raw dataset into individual arrays of input variables.
@@ -74,7 +74,7 @@ def unpack_monthly_inputs(
 
     Parameters
     ----------
-    monthly_inputs_stacked : xr.Dataset
+    stacked_monthly_inputs : xr.Dataset
         The loaded dataset with coordinate reference system information.
     monthly_inputs_vars : list[str]
         List of variable names to extract (resolved from config).
@@ -85,6 +85,6 @@ def unpack_monthly_inputs(
             The data arrays.
     """
     return {
-        f"{var}_monthly": monthly_inputs_stacked[var]
-        for var in monthly_inputs_stacked.data_vars
+        f"{var}_monthly": stacked_monthly_inputs[var]
+        for var in stacked_monthly_inputs.data_vars
     }

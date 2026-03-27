@@ -14,7 +14,7 @@ from ._utils import _save_dataset
         )
     ),
 )
-def daily_outputs_stacked(
+def merged_daily_outputs(
     daily_outputs_list: list[xr.DataArray],
     daily_outputs_vars: list[str],
 ) -> xr.Dataset:
@@ -24,7 +24,7 @@ def daily_outputs_stacked(
     ----------
     daily_outputs_list : list[xr.DataArray]
         List of daily output data arrays.
-    daily_outputs : list[str]
+    daily_outputs_vars : list[str]
         List of variable names to merge (resolved from config).
 
     Returns
@@ -35,12 +35,12 @@ def daily_outputs_stacked(
     return xr.merge(daily_outputs_list)
 
 
-def daily_outputs(daily_outputs_stacked: xr.Dataset) -> xr.Dataset:
+def unstacked_daily_outputs(merged_daily_outputs: xr.Dataset) -> xr.Dataset:
     """Unstack spatial dimensions from daily outputs.
 
     Parameters
     ----------
-    daily_outputs_stacked : xr.Dataset
+    merged_daily_outputs : xr.Dataset
         Daily outputs with stacked spatial dimensions.
 
     Returns
@@ -48,17 +48,19 @@ def daily_outputs(daily_outputs_stacked: xr.Dataset) -> xr.Dataset:
     xr.Dataset
         Daily outputs with original spatial dimensions restored.
     """
-    return daily_outputs_stacked.unstack("pixel")
+    return merged_daily_outputs.unstack("pixel")
 
 
-def saved_daily_outputs(daily_outputs: xr.Dataset, daily_outputs_path: str) -> None:
+def save_daily_outputs(
+    unstacked_daily_outputs: xr.Dataset, daily_outputs_path: str
+) -> None:
     """Save daily outputs to file.
 
     Parameters
     ----------
-    daily_outputs : xr.Dataset
+    unstacked_daily_outputs : xr.Dataset
         Daily outputs dataset.
     daily_outputs_path : str
         Path to save the dataset.
     """
-    _save_dataset(daily_outputs, daily_outputs_path)
+    _save_dataset(unstacked_daily_outputs, daily_outputs_path)

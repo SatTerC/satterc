@@ -14,7 +14,7 @@ from ._utils import _save_dataset
         )
     ),
 )
-def weekly_outputs_stacked(
+def merged_weekly_outputs(
     weekly_outputs_list: list[xr.DataArray],
     weekly_outputs_vars: list[str],
 ) -> xr.Dataset:
@@ -24,7 +24,7 @@ def weekly_outputs_stacked(
     ----------
     weekly_outputs_list : list[xr.DataArray]
         List of weekly output data arrays.
-    weekly_outputs : list[str]
+    weekly_outputs_vars : list[str]
         List of variable names to merge (resolved from config).
 
     Returns
@@ -35,12 +35,12 @@ def weekly_outputs_stacked(
     return xr.merge(weekly_outputs_list)
 
 
-def weekly_outputs(weekly_outputs_stacked: xr.Dataset) -> xr.Dataset:
+def unstacked_weekly_outputs(merged_weekly_outputs: xr.Dataset) -> xr.Dataset:
     """Unstack spatial dimensions from weekly outputs.
 
     Parameters
     ----------
-    weekly_outputs_stacked : xr.Dataset
+    merged_weekly_outputs : xr.Dataset
         Weekly outputs with stacked spatial dimensions.
 
     Returns
@@ -48,17 +48,19 @@ def weekly_outputs(weekly_outputs_stacked: xr.Dataset) -> xr.Dataset:
     xr.Dataset
         Weekly outputs with original spatial dimensions restored.
     """
-    return weekly_outputs_stacked.unstack("pixel")
+    return merged_weekly_outputs.unstack("pixel")
 
 
-def saved_weekly_outputs(weekly_outputs: xr.Dataset, weekly_outputs_path: str) -> None:
+def save_weekly_outputs(
+    unstacked_weekly_outputs: xr.Dataset, weekly_outputs_path: str
+) -> None:
     """Save weekly outputs to file.
 
     Parameters
     ----------
-    weekly_outputs : xr.Dataset
+    unstacked_weekly_outputs : xr.Dataset
         Weekly outputs dataset.
     weekly_outputs_path : str
         Path to save the dataset.
     """
-    _save_dataset(weekly_outputs, weekly_outputs_path)
+    _save_dataset(unstacked_weekly_outputs, weekly_outputs_path)

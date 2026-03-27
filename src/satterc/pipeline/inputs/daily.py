@@ -9,7 +9,7 @@ from ._utils import load_dataset, stack_spatial_dims, DatetimeIndexValidator
 from .._hamilton_fixes import FixedResolve
 
 
-def daily_inputs(daily_inputs_path: str | PathLike) -> xr.Dataset:
+def loaded_daily_inputs(daily_inputs_path: str | PathLike) -> xr.Dataset:
     """Load daily input dataset from file.
 
     Parameters
@@ -25,12 +25,12 @@ def daily_inputs(daily_inputs_path: str | PathLike) -> xr.Dataset:
     return load_dataset(daily_inputs_path)
 
 
-def daily_inputs_stacked(daily_inputs: xr.Dataset) -> xr.Dataset:
+def stacked_daily_inputs(loaded_daily_inputs: xr.Dataset) -> xr.Dataset:
     """Stack spatial dimensions of daily inputs dataset.
 
     Parameters
     ----------
-    daily_inputs : xr.Dataset
+    loaded_daily_inputs : xr.Dataset
         The loaded daily inputs dataset.
 
     Returns
@@ -38,24 +38,7 @@ def daily_inputs_stacked(daily_inputs: xr.Dataset) -> xr.Dataset:
     xr.Dataset
         Dataset with spatial dimensions stacked into 'pixel' dimension.
     """
-    return stack_spatial_dims(daily_inputs)
-
-
-@check_output_custom(DatetimeIndexValidator("D"))
-def dates_daily(daily_inputs_stacked: xr.Dataset) -> pd.DatetimeIndex:
-    """Extract daily datetime index from dataset.
-
-    Parameters
-    ----------
-    daily_inputs_stacked : xr.Dataset
-        The loaded daily inputs dataset.
-
-    Returns
-    -------
-    pd.DatetimeIndex
-        DatetimeIndex with daily frequency.
-    """
-    return cast(pd.DatetimeIndex, daily_inputs_stacked.get_index("time"))
+    return stack_spatial_dims(loaded_daily_inputs)
 
 
 @FixedResolve(
@@ -64,15 +47,15 @@ def dates_daily(daily_inputs_stacked: xr.Dataset) -> pd.DatetimeIndex:
         {f"{var}_daily": xr.DataArray for var in daily_inputs_vars}
     ),
 )
-def unpack_daily_inputs(
-    daily_inputs_stacked: xr.Dataset,
+def split_daily_inputs(
+    stacked_daily_inputs: xr.Dataset,
     daily_inputs_vars: list[str],
 ) -> dict[str, xr.DataArray]:
     """Unpacks the stacked daily inputs dataset into individual arrays of input variables.
 
     Parameters
     ----------
-    daily_inputs_stacked : xr.Dataset
+    stacked_daily_inputs : xr.Dataset
         The loaded dataset with coordinate reference system information.
     daily_inputs_vars : list[str]
         List of variable names to extract (resolved from config).
@@ -83,6 +66,23 @@ def unpack_daily_inputs(
             The data arrays.
     """
     return {
-        f"{var}_daily": daily_inputs_stacked[var]
-        for var in daily_inputs_stacked.data_vars
+        f"{var}_daily": stacked_daily_inputs[var]
+        for var in stacked_daily_inputs.data_vars
     }
+
+
+@check_output_custom(DatetimeIndexValidator("D"))
+def dates_daily(loaded_daily_inputs: xr.Dataset) -> pd.DatetimeIndex:
+    """Extract daily datetime index from dataset.
+
+    Parameters
+    ----------
+    loaded_daily_inputs : xr.Dataset
+        The loaded daily inputs dataset.
+
+    Returns
+    -------
+    pd.DatetimeIndex
+        DatetimeIndex with daily frequency.
+    """
+    return cast(pd.DatetimeIndex, loaded_daily_inputs.get_index("time"))

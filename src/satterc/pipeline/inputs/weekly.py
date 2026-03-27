@@ -9,7 +9,7 @@ from ._utils import load_dataset, stack_spatial_dims, DatetimeIndexValidator
 from .._hamilton_fixes import FixedResolve
 
 
-def weekly_inputs(weekly_inputs_path: str | PathLike) -> xr.Dataset:
+def loaded_weekly_inputs(weekly_inputs_path: str | PathLike) -> xr.Dataset:
     """Load weekly input dataset from file.
 
     Parameters
@@ -25,12 +25,12 @@ def weekly_inputs(weekly_inputs_path: str | PathLike) -> xr.Dataset:
     return load_dataset(weekly_inputs_path)
 
 
-def weekly_inputs_stacked(weekly_inputs: xr.Dataset) -> xr.Dataset:
+def stacked_weekly_inputs(loaded_weekly_inputs: xr.Dataset) -> xr.Dataset:
     """Stack spatial dimensions of weekly inputs dataset.
 
     Parameters
     ----------
-    weekly_inputs : xr.Dataset
+    loaded_weekly_inputs : xr.Dataset
         The loaded weekly inputs dataset.
 
     Returns
@@ -38,16 +38,16 @@ def weekly_inputs_stacked(weekly_inputs: xr.Dataset) -> xr.Dataset:
     xr.Dataset
         Dataset with spatial dimensions stacked into 'pixel' dimension.
     """
-    return stack_spatial_dims(weekly_inputs)
+    return stack_spatial_dims(loaded_weekly_inputs)
 
 
 @check_output_custom(DatetimeIndexValidator("W-SUN"))
-def dates_weekly(weekly_inputs_stacked: xr.Dataset) -> pd.DatetimeIndex:
+def dates_weekly(stacked_weekly_inputs: xr.Dataset) -> pd.DatetimeIndex:
     """Extract weekly datetime index from dataset.
 
     Parameters
     ----------
-    weekly_inputs_stacked : xr.Dataset
+    stacked_weekly_inputs : xr.Dataset
         The loaded weekly inputs dataset.
 
     Returns
@@ -55,7 +55,7 @@ def dates_weekly(weekly_inputs_stacked: xr.Dataset) -> pd.DatetimeIndex:
     pd.DatetimeIndex
         DatetimeIndex with weekly frequency.
     """
-    return cast(pd.DatetimeIndex, weekly_inputs_stacked.get_index("time"))
+    return cast(pd.DatetimeIndex, stacked_weekly_inputs.get_index("time"))
 
 
 @FixedResolve(
@@ -64,8 +64,8 @@ def dates_weekly(weekly_inputs_stacked: xr.Dataset) -> pd.DatetimeIndex:
         {f"{var}_weekly": xr.DataArray for var in weekly_inputs_vars}
     ),
 )
-def unpack_weekly_inputs(
-    weekly_inputs_stacked: xr.Dataset,
+def split_weekly_inputs(
+    stacked_weekly_inputs: xr.Dataset,
     weekly_inputs_vars: list[str],
 ) -> dict[str, xr.DataArray]:
     """Unpacks the raw dataset into individual arrays of input variables.
@@ -74,9 +74,9 @@ def unpack_weekly_inputs(
 
     Parameters
     ----------
-    weekly_inputs_stacked : xr.Dataset
+    stacked_weekly_inputs : xr.Dataset
         The loaded dataset with coordinate reference system information.
-    weekly_inputs_vars : List[str]
+    weekly_inputs_vars : list[str]
         List of variable names to extract (resolved from config).
 
     Returns
@@ -85,6 +85,6 @@ def unpack_weekly_inputs(
             The data arrays.
     """
     return {
-        f"{var}_weekly": weekly_inputs_stacked[var]
-        for var in weekly_inputs_stacked.data_vars
+        f"{var}_weekly": stacked_weekly_inputs[var]
+        for var in stacked_weekly_inputs.data_vars
     }

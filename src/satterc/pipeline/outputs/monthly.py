@@ -14,7 +14,7 @@ from ._utils import _save_dataset
         )
     ),
 )
-def monthly_outputs_stacked(
+def merged_monthly_outputs(
     monthly_outputs_list: list[xr.DataArray],
     monthly_outputs_vars: list[str],
 ) -> xr.Dataset:
@@ -24,7 +24,7 @@ def monthly_outputs_stacked(
     ----------
     monthly_outputs_list : list[xr.DataArray]
         List of monthly output data arrays.
-    monthly_outputs : list[str]
+    monthly_outputs_vars : list[str]
         List of variable names to merge (resolved from config).
 
     Returns
@@ -35,12 +35,12 @@ def monthly_outputs_stacked(
     return xr.merge(monthly_outputs_list)
 
 
-def monthly_outputs(monthly_outputs_stacked: xr.Dataset) -> xr.Dataset:
+def unstacked_monthly_outputs(merged_monthly_outputs: xr.Dataset) -> xr.Dataset:
     """Unstack spatial dimensions from monthly outputs.
 
     Parameters
     ----------
-    monthly_outputs_stacked : xr.Dataset
+    merged_monthly_outputs : xr.Dataset
         Monthly outputs with stacked spatial dimensions.
 
     Returns
@@ -48,19 +48,19 @@ def monthly_outputs(monthly_outputs_stacked: xr.Dataset) -> xr.Dataset:
     xr.Dataset
         Monthly outputs with original spatial dimensions restored.
     """
-    return monthly_outputs_stacked.unstack("pixel")
+    return merged_monthly_outputs.unstack("pixel")
 
 
-def saved_monthly_outputs(
-    monthly_outputs: xr.Dataset, monthly_outputs_path: str
+def save_monthly_outputs(
+    unstacked_monthly_outputs: xr.Dataset, monthly_outputs_path: str
 ) -> None:
     """Save monthly outputs to file.
 
     Parameters
     ----------
-    monthly_outputs : xr.Dataset
+    unstacked_monthly_outputs : xr.Dataset
         Monthly outputs dataset.
     monthly_outputs_path : str
         Path to save the dataset.
     """
-    _save_dataset(monthly_outputs, monthly_outputs_path)
+    _save_dataset(unstacked_monthly_outputs, monthly_outputs_path)

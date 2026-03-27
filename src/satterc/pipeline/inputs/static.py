@@ -7,7 +7,7 @@ from ._utils import load_dataset, stack_spatial_dims
 from .._hamilton_fixes import FixedResolve
 
 
-def static_inputs(static_inputs_path: str | PathLike) -> xr.Dataset:
+def loaded_static_inputs(static_inputs_path: str | PathLike) -> xr.Dataset:
     """Load static input dataset from file.
 
     Parameters
@@ -23,12 +23,12 @@ def static_inputs(static_inputs_path: str | PathLike) -> xr.Dataset:
     return load_dataset(static_inputs_path)
 
 
-def static_inputs_stacked(static_inputs: xr.Dataset) -> xr.Dataset:
+def stacked_static_inputs(loaded_static_inputs: xr.Dataset) -> xr.Dataset:
     """Stack spatial dimensions of static inputs dataset.
 
     Parameters
     ----------
-    static_inputs : xr.Dataset
+    loaded_static_inputs : xr.Dataset
         The loaded static inputs dataset.
 
     Returns
@@ -36,7 +36,7 @@ def static_inputs_stacked(static_inputs: xr.Dataset) -> xr.Dataset:
     xr.Dataset
         Dataset with spatial dimensions stacked into 'pixel' dimension.
     """
-    return stack_spatial_dims(static_inputs)
+    return stack_spatial_dims(loaded_static_inputs)
 
 
 @FixedResolve(
@@ -45,8 +45,8 @@ def static_inputs_stacked(static_inputs: xr.Dataset) -> xr.Dataset:
         {var: xr.DataArray for var in static_inputs_vars}
     ),
 )
-def unpack_static_inputs(
-    static_inputs_stacked: xr.Dataset,
+def split_static_inputs(
+    stacked_static_inputs: xr.Dataset,
     static_inputs_vars: list[str],
 ) -> dict[str, xr.DataArray]:
     """Unpacks the static dataset into individual arrays of input variables.
@@ -55,9 +55,9 @@ def unpack_static_inputs(
 
     Parameters
     ----------
-    static_inputs_stacked : xr.Dataset
+    stacked_static_inputs : xr.Dataset
         The loaded static inputs dataset.
-    static_inputs_vars : List[str]
+    static_inputs_vars : list[str]
         List of variable names to extract (resolved from config).
 
     Returns
@@ -66,5 +66,5 @@ def unpack_static_inputs(
         The data arrays.
     """
     return {
-        str(var): static_inputs_stacked[var] for var in static_inputs_stacked.data_vars
+        str(var): stacked_static_inputs[var] for var in stacked_static_inputs.data_vars
     }

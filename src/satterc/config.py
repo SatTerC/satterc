@@ -66,5 +66,5 @@ def _get_targets(config_outputs: dict) -> list[str]:
     targets = []
     for freq in ["daily", "weekly", "monthly"]:
         if freq in config_outputs:
-            targets.append(f"saved_{freq}_outputs")
+            targets.append(f"save_{freq}_outputs")
     return targets
