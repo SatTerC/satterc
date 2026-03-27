@@ -31,10 +31,6 @@ vars = [
 ]
 
 [inputs.monthly]
-path = "src/satterc/synthetic_data/data/monthly.nc"
-vars = [
-  "dummy_variable",
-]
 
 [inputs.static]
 path = "src/satterc/synthetic_data/data/static.nc"

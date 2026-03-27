@@ -5,7 +5,8 @@ import pandas as pd
 import xarray as xr
 from hamilton.function_modifiers import check_output_custom, extract_fields, ResolveAt
 
-from ._utils import load_dataset, stack_spatial_dims, DatetimeIndexValidator
+from ._utils import load_dataset, stack_spatial_dims
+from ._validators import DatetimeIndexValidator
 from .._hamilton_fixes import FixedResolve
 
 

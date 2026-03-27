@@ -22,7 +22,7 @@ def build_driver(
     modules_ = [
         inputs.daily,
         inputs.weekly,
-        inputs.monthly,
+        # inputs.monthly,
         inputs.static,
         inputs.grid,
         outputs.daily,

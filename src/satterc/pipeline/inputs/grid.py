@@ -46,10 +46,10 @@ def _check_common_grid(ds1: xr.Dataset, ds2: xr.Dataset, atol: float = 1e-6) -> 
 
 # TODO: fix this for the case that not every frequency of input is provided!
 def common_grid(
-    loaded_daily_inputs: xr.Dataset,
-    loaded_weekly_inputs: xr.Dataset,
-    loaded_monthly_inputs: xr.Dataset,
-    loaded_static_inputs: xr.Dataset,
+    loaded_daily_inputs: xr.Dataset | None,
+    loaded_weekly_inputs: xr.Dataset | None,
+    loaded_monthly_inputs: xr.Dataset | None,
+    loaded_static_inputs: xr.Dataset | None,
 ) -> xr.Dataset:
     _check_common_grid(loaded_daily_inputs, loaded_static_inputs)
     _check_common_grid(loaded_weekly_inputs, loaded_static_inputs)
