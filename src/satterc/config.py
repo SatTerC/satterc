@@ -27,11 +27,13 @@ def load_config(config_path: str | Path) -> dict[str, Any]:
     outputs = _flatten_outputs(config.get("outputs", {}))
 
     driver_config = {
-        **config.get("config", {}),
+        **config.get("extra_config", {}),
         **config.get("resample", {}),
         **inputs,
         **outputs,
     }
+
+    driver_config.update(_flatten_models(config))
 
     targets = _get_targets(config.get("outputs", {}))
 
@@ -40,6 +42,18 @@ def load_config(config_path: str | Path) -> dict[str, Any]:
         "driver_config": driver_config,
         "targets": targets,
     }
+
+
+def _get_models(config: dict) -> tuple[list[str], dict[str, Any]]:
+    """Return the list of model modules, and the contributions to driver_config."""
+    modules = []
+    driver_config = {}
+
+    for name, params in config.get("models", {}).items():
+        modules.append(f"models.{name}")
+        driver_config.update(params)
+
+    return modules, driver_config
 
 
 def _build_modules(config: dict) -> list[str]:
@@ -54,26 +68,58 @@ def _build_modules(config: dict) -> list[str]:
     -------
     list[str]
         List of modules to include (e.g., ["inputs.daily", "models.splash"]).
+
+    Raises
+    ------
+    ValueError
+        If a duplicate module is specified.
     """
-    modules = []
+    modules = list(config.get("extra_modules", []))
 
-    model_names = config.get("modules", [])
-    modules.extend(model_names)
+    for name in config.get("models", {}):
+        modules.append(f"models.{name}")
 
-    config_inputs = config.get("inputs", {})
-    for freq in ["daily", "weekly", "monthly", "static"]:
-        if freq in config_inputs:
-            modules.append(f"inputs.{freq}")
+    for freq in config.get("inputs", {}):
+        modules.append(f"inputs.{freq}")
 
-    config_outputs = config.get("outputs", {})
-    for freq in ["daily", "weekly", "monthly", "static"]:
-        if freq in config_outputs:
-            modules.append(f"outputs.{freq}")
+    for freq in config.get("outputs", {}):
+        modules.append(f"outputs.{freq}")
 
-    if "resample" in config:
-        modules.append("resample")
+    reserved = {"extra_modules", "extra_config", "models", "inputs", "outputs"}
+    for key in config:
+        if key not in reserved and isinstance(config[key], dict):
+            modules.append(key)
+
+    if len(modules) != len(set(modules)):
+        raise ValueError("Duplicate module specified")
 
     return modules
+
+
+def _flatten_models(config: dict) -> dict:
+    """Flatten model section parameters to driver_config.
+
+    Parameters
+    ----------
+    config : dict
+        The parsed TOML config.
+
+    Returns
+    -------
+    dict
+        Flattened model parameters.
+    """
+    flat = {}
+    for model_name, model_params in config.get("models", {}).items():
+        if not isinstance(model_params, dict):
+            continue
+        for param_name, param_value in model_params.items():
+            if param_name in flat:
+                raise ValueError(
+                    f"Duplicate parameter: {param_name} appears in multiple [models.*] sections"
+                )
+            flat[param_name] = param_value
+    return flat
 
 
 def _flatten_inputs(config_inputs: dict) -> dict:

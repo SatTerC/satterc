@@ -1,14 +1,15 @@
-modules = [
-  "splash",
-  "pmodel",
-  "sgam",
-  "rothc",
+extra_modules = [
+  "models.splash",
+  "models.sgam",
+  "models.rothc",
 ]
 
-[config]
+[extra_config]
+n_years_spinup = 1
+
+[models.pmodel]
 method_kphio = "sandoval"
 method_optchi = "lavergne20_c3"
-n_years_spinup = 1
 
 [inputs.daily]
 path = "tmp/inputs/daily.nc"
