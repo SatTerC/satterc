@@ -44,18 +44,19 @@ def _check_common_grid(ds1: xr.Dataset, ds2: xr.Dataset, atol: float = 1e-6) -> 
         raise MisalignedGridError("Mismatched coordinate values!") from e
 
 
+# TODO: fix this for the case that not every frequency of input is provided!
 def common_grid(
-    daily_inputs: xr.Dataset,
-    weekly_inputs: xr.Dataset,
-    monthly_inputs: xr.Dataset,
-    static_inputs: xr.Dataset,
+    loaded_daily_inputs: xr.Dataset,
+    loaded_weekly_inputs: xr.Dataset,
+    loaded_monthly_inputs: xr.Dataset,
+    loaded_static_inputs: xr.Dataset,
 ) -> xr.Dataset:
-    _check_common_grid(daily_inputs, static_inputs)
-    _check_common_grid(weekly_inputs, static_inputs)
-    _check_common_grid(monthly_inputs, static_inputs)
+    _check_common_grid(loaded_daily_inputs, loaded_static_inputs)
+    _check_common_grid(loaded_weekly_inputs, loaded_static_inputs)
+    _check_common_grid(loaded_monthly_inputs, loaded_static_inputs)
 
     # Since all grids agree, just take static_inputs as the reference Dataset
-    ds = static_inputs
+    ds = loaded_static_inputs
 
     # Extract coordinates
     x_dim, y_dim = ds.rio.x_dim, ds.rio.y_dim
@@ -79,16 +80,16 @@ def common_grid(
     )
 
 
-def common_grid_stacked(common_grid: xr.Dataset) -> xr.Dataset:
+def stacked_grid(common_grid: xr.Dataset) -> xr.Dataset:
     return stack_spatial_dims(common_grid)
 
 
 @unpack_fields("latitude", "longitude")
-def unpack_common_grid(
-    common_grid_stacked: xr.Dataset,
+def split_grid(
+    stacked_grid: xr.Dataset,
 ) -> tuple[xr.DataArray, xr.DataArray]:
     # NOTE: not sure if there's any point in even including x, y as nodes.
     return (
-        common_grid_stacked.latitude,
-        common_grid_stacked.longitude,
+        stacked_grid.latitude,
+        stacked_grid.longitude,
     )

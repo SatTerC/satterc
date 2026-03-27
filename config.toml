@@ -5,22 +5,102 @@ modules = [
   "rothc",
 ]
 
-targets = [
-  "saved_daily_outputs",
-  "saved_weekly_outputs",
-  "saved_monthly_outputs",
-]
-
 [config]
 method_kphio = "sandoval"
 method_optchi = "lavergne20_c3"
 n_years_spinup = 1
 
-daily_inputs_path = "src/satterc/extras/data/daily.nc"
-weekly_inputs_path = "src/satterc/extras/data/weekly.nc"
-monthly_inputs_path = "src/satterc/extras/data/monthly.nc"
-static_inputs_path = "src/satterc/extras/data/static.nc"
+[inputs.daily]
+path = "src/satterc/synthetic_data/data/daily.nc"
+vars = [
+  "precipitation_mm",
+  "sunshine_fraction",
+  "temperature_celcius",
+  "lai",
+  "gpp",
+]
 
-daily_outputs_path = "outputs/daily.nc"
-weekly_outputs_path = "outputs/weekly.nc"
-monthly_outputs_path = "outputs/monthly.nc"
+[inputs.weekly]
+path = "src/satterc/synthetic_data/data/weekly.nc"
+vars = [
+  "co2_ppm",
+  "fapar",
+  "ppfd_umol_m2_s1",
+  "pressure_pa",
+  "vpd_pa",
+]
+
+[inputs.monthly]
+path = "src/satterc/synthetic_data/data/monthly.nc"
+vars = [
+  "dummy_variable",
+]
+
+[inputs.static]
+path = "src/satterc/synthetic_data/data/static.nc"
+vars = [
+  "elevation",
+  "plant_type",
+  "max_soil_moisture",
+  "clay_content",
+  "soil_depth",
+  "organic_carbon_stocks",
+  "root_pool_init",
+  "leaf_pool_init",
+  "stem_pool_init",
+]
+
+[resample]
+daily_to_weekly = [
+  "temperature_celcius",
+  "precipitation_mm",
+  "soil_moisture",
+  "aridity_index",
+]
+
+daily_to_monthly = [
+  "temperature_celcius",
+  "precipitation_mm",
+  "actual_evapotranspiration",
+]
+
+weekly_to_monthly = [
+  "litter_to_soil",
+]
+
+[outputs.daily]
+path = "results/daily.nc"
+vars = [
+  "actual_evapotranspiration",
+  "soil_moisture",
+  "runoff",
+]
+
+[outputs.weekly]
+path = "results/weekly.nc"
+vars = [
+  "gpp",
+  "lue",
+  "iwue",
+  "leaf_pool_size",
+  "stem_pool_size",
+  "root_pool_size",
+  "leaf_respiration_loss",
+  "stem_respiration_loss",
+  "root_respiration_loss",
+  "litter_to_soil",
+  "disturbance_loss",
+  "leaf_area_index",
+  "npp",
+  "cue",
+]
+
+[outputs.monthly]
+path = "results/monthly.nc"
+vars = [
+  "decomposable_plant_material",
+  "resistant_plant_material",
+  "microbial_biomass",
+  "humified_organic_matter",
+  "soil_organic_carbon",
+]

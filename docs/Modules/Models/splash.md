@@ -1,3 +1,0 @@
-# Splash
-
-::: satterc.models.splash

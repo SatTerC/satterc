@@ -1,7 +1,7 @@
 """
 Unit tests for the grid nodes in grid.py.
 
-Tests the common_grid, common_grid_stacked, and unpack_common_grid nodes
+Tests the common_grid, stacked_grid, and split_grid nodes
 using the synthetic NetCDF data files.
 """
 
@@ -9,7 +9,7 @@ import numpy as np
 import pytest
 import xarray as xr
 
-from satterc.inputs import grid
+from satterc.pipeline.inputs import grid
 
 
 class TestCheckCommonGrid:
@@ -83,20 +83,20 @@ class TestCommonGrid:
 
 
 class TestCommonGridStacked:
-    """Tests for common_grid_stacked function."""
+    """Tests for stacked_grid function."""
 
     def test_stacked_has_pixel_dimension(
         self, daily_ds, weekly_ds, monthly_ds, static_ds
     ):
         """Test that stacked result has pixel dimension."""
         common = grid.common_grid(daily_ds, weekly_ds, monthly_ds, static_ds)
-        stacked = grid.common_grid_stacked(common)
+        stacked = grid.stacked_grid(common)
         assert "pixel" in stacked.dims
 
     def test_stacked_pixel_count(self, daily_ds, weekly_ds, monthly_ds, static_ds):
         """Test that stacked result has correct number of pixels."""
         common = grid.common_grid(daily_ds, weekly_ds, monthly_ds, static_ds)
-        stacked = grid.common_grid_stacked(common)
+        stacked = grid.stacked_grid(common)
         assert stacked.dims["pixel"] == 4  # 2x2 grid
 
     def test_stacked_preserves_lat_lon_vars(
@@ -104,7 +104,7 @@ class TestCommonGridStacked:
     ):
         """Test that latitude and longitude variables are preserved after stacking."""
         common = grid.common_grid(daily_ds, weekly_ds, monthly_ds, static_ds)
-        stacked = grid.common_grid_stacked(common)
+        stacked = grid.stacked_grid(common)
         expected_vars = {"latitude", "longitude"}
         assert set(stacked.data_vars) == expected_vars
 
@@ -113,30 +113,30 @@ class TestCommonGridStacked:
     ):
         """Test that x and y coordinates are preserved after stacking."""
         common = grid.common_grid(daily_ds, weekly_ds, monthly_ds, static_ds)
-        stacked = grid.common_grid_stacked(common)
+        stacked = grid.stacked_grid(common)
         # After stacking, x and y should still be accessible as coordinates
         assert "x" in stacked.coords
         assert "y" in stacked.coords
 
 
 class TestUnpackCommonGrid:
-    """Tests for unpack_common_grid function."""
+    """Tests for split_grid function."""
 
     def test_unpack_returns_two_arrays(
         self, daily_ds, weekly_ds, monthly_ds, static_ds
     ):
         """Test that unpack returns a tuple of two DataArrays."""
         common = grid.common_grid(daily_ds, weekly_ds, monthly_ds, static_ds)
-        stacked = grid.common_grid_stacked(common)
-        result = grid.unpack_common_grid(stacked)
+        stacked = grid.stacked_grid(common)
+        result = grid.split_grid(stacked)
         assert isinstance(result, tuple)
         assert len(result) == 2
 
     def test_unpack_latitude_values(self, daily_ds, weekly_ds, monthly_ds, static_ds):
         """Test unpacked latitude values."""
         common = grid.common_grid(daily_ds, weekly_ds, monthly_ds, static_ds)
-        stacked = grid.common_grid_stacked(common)
-        lat_da, lon_da = grid.unpack_common_grid(stacked)
+        stacked = grid.stacked_grid(common)
+        lat_da, lon_da = grid.split_grid(stacked)
 
         assert lat_da.name == "latitude"
         assert np.all(lat_da.values >= 49.0)
@@ -145,8 +145,8 @@ class TestUnpackCommonGrid:
     def test_unpack_longitude_values(self, daily_ds, weekly_ds, monthly_ds, static_ds):
         """Test unpacked longitude values."""
         common = grid.common_grid(daily_ds, weekly_ds, monthly_ds, static_ds)
-        stacked = grid.common_grid_stacked(common)
-        lat_da, lon_da = grid.unpack_common_grid(stacked)
+        stacked = grid.stacked_grid(common)
+        lat_da, lon_da = grid.split_grid(stacked)
 
         assert lon_da.name == "longitude"
         assert np.all(lon_da.values >= -5.0)
@@ -157,8 +157,8 @@ class TestUnpackCommonGrid:
     ):
         """Test unpacked arrays have pixel dimension."""
         common = grid.common_grid(daily_ds, weekly_ds, monthly_ds, static_ds)
-        stacked = grid.common_grid_stacked(common)
-        lat_da, lon_da = grid.unpack_common_grid(stacked)
+        stacked = grid.stacked_grid(common)
+        lat_da, lon_da = grid.split_grid(stacked)
 
         assert "pixel" in lat_da.dims
         assert "pixel" in lon_da.dims
@@ -166,8 +166,8 @@ class TestUnpackCommonGrid:
     def test_unpack_pixel_count(self, daily_ds, weekly_ds, monthly_ds, static_ds):
         """Test unpacked arrays have correct number of pixels."""
         common = grid.common_grid(daily_ds, weekly_ds, monthly_ds, static_ds)
-        stacked = grid.common_grid_stacked(common)
-        lat_da, lon_da = grid.unpack_common_grid(stacked)
+        stacked = grid.stacked_grid(common)
+        lat_da, lon_da = grid.split_grid(stacked)
 
         assert len(lat_da.pixel) == 4
         assert len(lon_da.pixel) == 4
@@ -183,11 +183,11 @@ class TestIntegration:
         assert isinstance(common, xr.Dataset)
 
         # Step 2: Stack
-        stacked = grid.common_grid_stacked(common)
+        stacked = grid.stacked_grid(common)
         assert "pixel" in stacked.dims
 
         # Step 3: Unpack
-        lat_da, lon_da = grid.unpack_common_grid(stacked)
+        lat_da, lon_da = grid.split_grid(stacked)
 
         # Verify outputs
         assert len(lat_da.pixel) == 4
@@ -231,7 +231,7 @@ class TestIntegration:
     ):
         """Test that x and y coordinates are preserved after stacking."""
         common = grid.common_grid(daily_ds, weekly_ds, monthly_ds, static_ds)
-        stacked = grid.common_grid_stacked(common)
+        stacked = grid.stacked_grid(common)
 
         # After stacking, x and y become 1D arrays indexed by pixel
         # They should contain all combinations of the original x and y values

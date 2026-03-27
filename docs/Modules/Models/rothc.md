@@ -1,3 +1,0 @@
-# RothC
-
-::: satterc.models.rothc

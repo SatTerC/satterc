@@ -7,8 +7,9 @@ import typer
 from hamilton import graph_types
 import xarray as xr
 
-from .driver import build_driver
-from ._version import __version__
+from ..config import load_config
+from ..driver import build_driver
+from .._version import __version__
 
 app = typer.Typer(
     help="Command-line interface for the SatTerC framework.",
@@ -30,21 +31,15 @@ def run(
     ] = False,
 ) -> None:
     """Execute a pipeline defined in a configuration file."""
-
-    with config_file.open("rb") as file:
-        config = tomllib.load(file)
-
-    modules = config["modules"]
-    targets = config["targets"]
-    driver_config = config.get("config", None)
+    parsed = load_config(config_file)
 
     dr = build_driver(
-        modules=modules,
-        config=driver_config,
+        modules=parsed["modules"],
+        config=parsed["driver_config"],
         allow_module_overrides=allow_overrides,
     )
 
-    dr.execute(targets)
+    dr.execute(parsed["targets"])
 
 
 # TODO: refine this and move out of cli
@@ -97,13 +92,12 @@ def graph(
     with config_file.open("rb") as file:
         config = tomllib.load(file)
 
-    modules = config.get("modules", None)
-    driver_config = config.get("config", None)
+    parsed = load_config(config_file)
     graphviz_kwargs = config.get("graphviz", None)
 
     dr = build_driver(
-        modules=modules,
-        config=driver_config,
+        modules=parsed["modules"],
+        config=parsed["driver_config"],
         allow_module_overrides=allow_overrides,
     )
 
