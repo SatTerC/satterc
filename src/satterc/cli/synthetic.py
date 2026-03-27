@@ -1,9 +1,11 @@
 from pathlib import Path
-import tomllib
 import re
 from typing import Annotated
 
 import typer
+
+from ..config import load_config
+from ..synthetic_data import generate_synthetic_data
 
 
 app = typer.Typer(help="Generate synthetic input data for testing.")
@@ -56,6 +58,14 @@ def synthetic(
             help="Time duration (e.g., '2y' for 2 years, '6m' for 6 months, '30d' for 30 days).",
         ),
     ] = "2y",
+    seed: Annotated[
+        int,
+        typer.Option(
+            "--seed",
+            "-s",
+            help="Random seed for reproducibility.",
+        ),
+    ] = 42,
 ) -> None:
     """Generate synthetic input data for Hamilton DAG testing."""
     n_lat, n_lon = grid
@@ -64,14 +74,19 @@ def synthetic(
 
     n_days = _parse_duration(duration)
 
-    with config_file.open("rb") as f:
-        config = tomllib.load(f)
+    config = load_config(config_file)
 
-    typer.echo(f"Config file: {config_file}")
-    typer.echo(f"Grid dimensions: {n_lat} x {n_lon}")
-    typer.echo(f"Duration: {duration} ({n_days} days)")
+    typer.echo(f"Generating synthetic data:")
+    typer.echo(f"  Config file: {config_file}")
+    typer.echo(f"  Grid dimensions: {n_lat} x {n_lon}")
+    typer.echo(f"  Duration: {duration} ({n_days} days)")
+    typer.echo(f"  Random seed: {seed}")
 
-    inputs = config.get("inputs", {})
-    typer.echo(f"Input sections found: {list(inputs.keys())}")
+    generate_synthetic_data(
+        config=config,
+        grid=(n_lat, n_lon),
+        n_days=n_days,
+        seed=seed,
+    )
 
-    typer.echo("\n[TODO] Implement synthetic data generation logic here.")
+    typer.echo("Done!")
