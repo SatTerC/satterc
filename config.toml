@@ -11,7 +11,7 @@ method_optchi = "lavergne20_c3"
 n_years_spinup = 1
 
 [inputs.daily]
-path = "src/satterc/extras/data/daily.nc"
+path = "src/satterc/synthetic_data/data/daily.nc"
 vars = [
   "precipitation_mm",
   "sunshine_fraction",
@@ -21,7 +21,7 @@ vars = [
 ]
 
 [inputs.weekly]
-path = "src/satterc/extras/data/weekly.nc"
+path = "src/satterc/synthetic_data/data/weekly.nc"
 vars = [
   "co2_ppm",
   "fapar",
@@ -31,13 +31,13 @@ vars = [
 ]
 
 [inputs.monthly]
-path = "src/satterc/extras/data/monthly.nc"
+path = "src/satterc/synthetic_data/data/monthly.nc"
 vars = [
   "dummy_variable",
 ]
 
 [inputs.static]
-path = "src/satterc/extras/data/static.nc"
+path = "src/satterc/synthetic_data/data/static.nc"
 vars = [
   "elevation",
   "plant_type",

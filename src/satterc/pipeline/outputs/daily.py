@@ -2,7 +2,7 @@ import xarray as xr
 from hamilton.function_modifiers import group, inject, source
 from hamilton.function_modifiers.delayed import ResolveAt
 
-from ..dynamic._hamilton_fixes import FixedResolve
+from .._hamilton_fixes import FixedResolve
 from ._utils import _save_dataset
 
 

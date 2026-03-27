@@ -3,22 +3,12 @@ from typing import Any
 from hamilton import driver
 from hamilton.settings import ENABLE_POWER_USER_MODE
 
-from .inputs import grid, daily, weekly, monthly, static
-from .dynamic import unpack, aggregate
-from .outputs import daily as daily_out, weekly as weekly_out, monthly as monthly_out
-from .models import splash, pmodel, sgam, rothc
-
-
-_MODULES = dict(
-    splash=splash,
-    pmodel=pmodel,
-    sgam=sgam,
-    rothc=rothc,
-)
+from .pipeline import inputs, outputs, models, resample
 
 
 def get_model_modules(module_names: list[str]) -> list:
-    return [_MODULES[name] for name in module_names]
+    # TODO: support custom modules / models
+    return [getattr(models, name) for name in module_names]
 
 
 def build_driver(
@@ -30,16 +20,15 @@ def build_driver(
     config[ENABLE_POWER_USER_MODE] = True
 
     modules_ = [
-        grid,
-        daily,
-        weekly,
-        monthly,
-        static,
-        unpack,
-        aggregate,
-        daily_out,
-        weekly_out,
-        monthly_out,
+        inputs.daily,
+        inputs.weekly,
+        inputs.monthly,
+        inputs.static,
+        inputs.grid,
+        outputs.daily,
+        outputs.weekly,
+        outputs.monthly,
+        resample,
     ] + get_model_modules(modules)
 
     dr = driver.Builder().with_modules(*modules_).with_config(config)

@@ -5,7 +5,7 @@ import xarray as xr
 
 def _get_data_path(filename: str) -> str:
     """Get path to test data file using importlib.resources."""
-    return str(files("satterc.extras.data").joinpath(filename))
+    return str(files("satterc.synthetic_data.data").joinpath(filename))
 
 
 @pytest.fixture

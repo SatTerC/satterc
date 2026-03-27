@@ -25,12 +25,11 @@ def load_config(config_path: str | Path) -> dict[str, Any]:
 
     inputs = _flatten_inputs(config.get("inputs", {}))
     outputs = _flatten_outputs(config.get("outputs", {}))
-    aggregation = config.get("aggregation", {})
 
     driver_config = {
         **config.get("config", {}),
+        **config.get("aggregation", {}),
         **inputs,
-        **aggregation,
         **outputs,
     }
 
@@ -49,7 +48,7 @@ def _flatten_inputs(config_inputs: dict) -> dict:
         if freq in config_inputs:
             section = config_inputs[freq]
             flat[f"{freq}_inputs_path"] = section.get("path")
-            flat[freq] = section.get("vars", [])
+            flat[f"{freq}_inputs_vars"] = section.get("vars", [])
     return flat
 
 

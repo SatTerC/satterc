@@ -7,9 +7,9 @@ import typer
 from hamilton import graph_types
 import xarray as xr
 
-from .config import load_config
-from .driver import build_driver
-from ._version import __version__
+from ..config import load_config
+from ..driver import build_driver
+from .._version import __version__
 
 app = typer.Typer(
     help="Command-line interface for the SatTerC framework.",

@@ -17,7 +17,7 @@ from ._hamilton_fixes import FixedResolve, NoOpDecorator
         else NoOpDecorator()
     ),
 )
-def aggregate_daily_to_weekly(var_daily: xr.DataArray) -> xr.DataArray:
+def resample_daily_to_weekly(var_daily: xr.DataArray) -> xr.DataArray:
     """Resamples daily xarray data to weekly mean."""
     return var_daily.resample(time="1W").mean()
 
@@ -35,7 +35,7 @@ def aggregate_daily_to_weekly(var_daily: xr.DataArray) -> xr.DataArray:
         else NoOpDecorator()
     ),
 )
-def aggregate_daily_to_monthly(var_daily: xr.DataArray) -> xr.DataArray:
+def resample_daily_to_monthly(var_daily: xr.DataArray) -> xr.DataArray:
     """Resample daily data to monthly mean.
 
     Parameters
@@ -64,7 +64,7 @@ def aggregate_daily_to_monthly(var_daily: xr.DataArray) -> xr.DataArray:
         else NoOpDecorator()
     ),
 )
-def aggregate_weekly_to_monthly(var_weekly: xr.DataArray) -> xr.DataArray:
+def resample_weekly_to_monthly(var_weekly: xr.DataArray) -> xr.DataArray:
     """Resample weekly data to monthly mean.
 
     Parameters

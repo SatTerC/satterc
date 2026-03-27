@@ -1,5 +1,7 @@
 """Satellite to Terrestrial Carbon."""
 
-from . import driver as driver
-from . import models as models
-from ._version import __version__ as __version__
+from .driver import build_driver
+from .config import load_config
+from ._version import __version__
+
+__all__ = ["build_driver", "load_config", "__version__"]

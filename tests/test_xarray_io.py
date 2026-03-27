@@ -10,7 +10,7 @@ import pandas as pd
 import pytest
 import xarray as xr
 
-from satterc.models._utils import xarray_io
+from satterc.pipeline.models._utils import xarray_io
 
 
 @pytest.fixture

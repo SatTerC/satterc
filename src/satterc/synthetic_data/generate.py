@@ -11,10 +11,12 @@ Output files:
     - static.nc: Static inputs (elevation, plant_type, soil properties, carbon pools)
 """
 
+from pathlib import Path
+
 import numpy as np
-from numpy.typing import NDArray
-import xarray as xr
 import pandas as pd
+import xarray as xr
+from numpy.typing import NDArray
 
 
 def _generate_seasonal_cycle(
@@ -463,9 +465,12 @@ def add_crs_metadata(ds: xr.Dataset) -> xr.Dataset:
     return ds
 
 
-def generate_all_synthetic_data(output_dir: str = "src/satterc/extras/data"):
+def generate_all_synthetic_data(output_dir: str | None = None):
     """Generate all synthetic input files."""
     import os
+
+    if output_dir is None:
+        output_dir = str(Path(__file__).parent / "data")
 
     os.makedirs(output_dir, exist_ok=True)
 

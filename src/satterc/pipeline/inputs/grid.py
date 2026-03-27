@@ -44,6 +44,7 @@ def _check_common_grid(ds1: xr.Dataset, ds2: xr.Dataset, atol: float = 1e-6) -> 
         raise MisalignedGridError("Mismatched coordinate values!") from e
 
 
+# TODO: fix this for the case that not every frequency of input is provided!
 def common_grid(
     daily_inputs: xr.Dataset,
     weekly_inputs: xr.Dataset,
