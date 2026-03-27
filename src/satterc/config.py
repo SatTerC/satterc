@@ -28,7 +28,7 @@ def load_config(config_path: str | Path) -> dict[str, Any]:
 
     driver_config = {
         **config.get("config", {}),
-        **config.get("aggregation", {}),
+        **config.get("resample", {}),
         **inputs,
         **outputs,
     }

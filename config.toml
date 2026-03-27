@@ -50,7 +50,7 @@ vars = [
   "stem_pool_init",
 ]
 
-[aggregation]
+[resample]
 daily_to_weekly = [
   "temperature_celcius",
   "precipitation_mm",
