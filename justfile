@@ -14,3 +14,7 @@ viz:
 
 run:
   satterc run config.toml
+
+synth:
+  satterc synthetic config.toml
+  satterc run config.toml

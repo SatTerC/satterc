@@ -1,0 +1,72 @@
+modules = [
+  "inputs.daily",
+  "inputs.weekly",
+  "inputs.monthly",
+  "inputs.static",
+  "resample",
+  "outputs.daily",
+  "outputs.weekly",
+  "outputs.monthly",
+]
+
+[extra_config]
+method_kphio = "sandoval"
+method_optchi = "lavergne20_c3"
+n_years_spinup = 1
+
+[inputs.daily]
+path = "daily.nc"
+vars = [
+  "precipitation_mm",
+  "sunshine_fraction",
+  "temperature_celcius",
+  "lai",
+  "gpp",
+]
+
+[inputs.weekly]
+path = "weekly.nc"
+vars = [
+  "co2_ppm",
+  "fapar",
+  "ppfd_umol_m2_s1",
+  "pressure_pa",
+  "vpd_pa",
+]
+
+[inputs.monthly]
+path = "monthly.nc"
+vars = [
+  "dummy_variable",
+]
+
+[inputs.static]
+path = "static.nc"
+vars = [
+  "elevation",
+  "plant_type",
+  "max_soil_moisture",
+  "clay_content",
+  "soil_depth",
+  "organic_carbon_stocks",
+  "root_pool_init",
+  "leaf_pool_init",
+  "stem_pool_init",
+]
+
+[resample]
+daily_to_weekly = []
+daily_to_monthly = []
+weekly_to_monthly = []
+
+[outputs.daily]
+path = "daily.nc"
+vars = []
+
+[outputs.weekly]
+path = "weekly.nc"
+vars = []
+
+[outputs.monthly]
+path = "monthly.nc"
+vars = []

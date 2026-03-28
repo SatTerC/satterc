@@ -21,19 +21,33 @@ def load_config(config_path: str | Path) -> dict[str, Any]:
     with open(config_path, "rb") as f:
         config = tomllib.load(f)
 
-    modules = config["modules"]
+    modules = config.pop("modules")
+    extra_config = config.pop("extra_config", {})
 
-    inputs = _flatten_inputs(config.get("inputs", {}))
-    outputs = _flatten_outputs(config.get("outputs", {}))
+    config_flat = _flatten_config(config)
 
-    driver_config = {
-        **config.get("config", {}),
-        **config.get("resample", {}),
-        **inputs,
-        **outputs,
-    }
+    for section in config_flat:
+        if section not in modules:
+            raise ValueError(f"Section [{section}] not defined in modules list")
 
-    targets = _get_targets(config.get("outputs", {}))
+    driver_config = {}
+    targets = []
+
+    for section_name, params in config_flat.items():
+        # inputs.freq and outputs.freq are treated differently
+        if section_name.startswith("inputs."):
+            _, freq = section_name.split(".", 1)
+            driver_config[f"{freq}_inputs_path"] = params.get("path")
+            driver_config[f"{freq}_inputs_vars"] = params.get("vars")
+        elif section_name.startswith("outputs."):
+            _, freq = section_name.split(".", 1)
+            driver_config[f"{freq}_outputs_path"] = params.get("path")
+            driver_config[f"{freq}_outputs_vars"] = params.get("vars")
+            targets.append(f"save_{freq}_outputs")
+        else:
+            driver_config |= params
+
+    driver_config |= extra_config
 
     return {
         "modules": modules,
@@ -42,29 +56,26 @@ def load_config(config_path: str | Path) -> dict[str, Any]:
     }
 
 
-def _flatten_inputs(config_inputs: dict) -> dict:
+def _flatten_config(config: dict) -> dict[str, Any]:
+    """Flatten nested TOML sections into dot-notation keys.
+
+    Parameters
+    ----------
+    config : dict
+        The parsed TOML config.
+
+    Returns
+    -------
+    dict
+        Flattened sections with dot-notation keys (e.g., "inputs.daily").
+    """
     flat = {}
-    for freq in ["daily", "weekly", "monthly", "static"]:
-        if freq in config_inputs:
-            section = config_inputs[freq]
-            flat[f"{freq}_inputs_path"] = section.get("path")
-            flat[f"{freq}_inputs_vars"] = section.get("vars", [])
+    for key, value in config.items():
+        if key in ("modules", "extra_config"):
+            continue
+        if isinstance(value, dict) and all(isinstance(v, dict) for v in value.values()):
+            for subkey, subvalue in value.items():
+                flat[f"{key}.{subkey}"] = subvalue
+        else:
+            flat[key] = value
     return flat
-
-
-def _flatten_outputs(config_outputs: dict) -> dict:
-    flat = {}
-    for freq in ["daily", "weekly", "monthly"]:
-        if freq in config_outputs:
-            section = config_outputs[freq]
-            flat[f"{freq}_outputs_path"] = section.get("path")
-            flat[f"{freq}_outputs_vars"] = section.get("vars", [])
-    return flat
-
-
-def _get_targets(config_outputs: dict) -> list[str]:
-    targets = []
-    for freq in ["daily", "weekly", "monthly"]:
-        if freq in config_outputs:
-            targets.append(f"save_{freq}_outputs")
-    return targets

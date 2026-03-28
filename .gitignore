@@ -9,4 +9,5 @@ site/
 *.pdf
 
 notes/
-results/
+tmp/
+*.nc

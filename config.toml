@@ -1,17 +1,27 @@
 modules = [
-  "splash",
-  "pmodel",
-  "sgam",
-  "rothc",
+  "models.pmodel",
+  "models.splash",
+  "models.sgam",
+  "models.rothc",
+  "inputs.daily",
+  "inputs.weekly",
+  "inputs.monthly",
+  "inputs.static",
+  "resample",
+  "outputs.daily",
+  "outputs.weekly",
+  "outputs.monthly",
 ]
 
-[config]
-method_kphio = "sandoval"
-method_optchi = "lavergne20_c3"
+[extra_config]
 n_years_spinup = 1
 
+[models.pmodel]
+method_kphio = "sandoval"
+method_optchi = "lavergne20_c3"
+
 [inputs.daily]
-path = "src/satterc/synthetic_data/data/daily.nc"
+path = "tmp/inputs/daily.nc"
 vars = [
   "precipitation_mm",
   "sunshine_fraction",
@@ -21,7 +31,7 @@ vars = [
 ]
 
 [inputs.weekly]
-path = "src/satterc/synthetic_data/data/weekly.nc"
+path = "tmp/inputs/weekly.nc"
 vars = [
   "co2_ppm",
   "fapar",
@@ -31,13 +41,13 @@ vars = [
 ]
 
 [inputs.monthly]
-path = "src/satterc/synthetic_data/data/monthly.nc"
+path = "tmp/inputs/monthly.nc"
 vars = [
   "dummy_variable",
 ]
 
 [inputs.static]
-path = "src/satterc/synthetic_data/data/static.nc"
+path = "tmp/inputs/static.nc"
 vars = [
   "elevation",
   "plant_type",
@@ -69,7 +79,7 @@ weekly_to_monthly = [
 ]
 
 [outputs.daily]
-path = "results/daily.nc"
+path = "tmp/results/daily.nc"
 vars = [
   "actual_evapotranspiration",
   "soil_moisture",
@@ -77,7 +87,7 @@ vars = [
 ]
 
 [outputs.weekly]
-path = "results/weekly.nc"
+path = "tmp/results/weekly.nc"
 vars = [
   "gpp",
   "lue",
@@ -96,7 +106,7 @@ vars = [
 ]
 
 [outputs.monthly]
-path = "results/monthly.nc"
+path = "tmp/results/monthly.nc"
 vars = [
   "decomposable_plant_material",
   "resistant_plant_material",
