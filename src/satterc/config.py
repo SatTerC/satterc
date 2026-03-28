@@ -22,6 +22,7 @@ def load_config(config_path: str | Path) -> dict[str, Any]:
         config = tomllib.load(f)
 
     modules = config.pop("modules")
+    extra_modules = config.pop("extra_modules", [])
     extra_config = config.pop("extra_config", {})
 
     config_flat = _flatten_config(config)
@@ -51,6 +52,7 @@ def load_config(config_path: str | Path) -> dict[str, Any]:
 
     return {
         "modules": modules,
+        "extra_modules": extra_modules,
         "driver_config": driver_config,
         "targets": targets,
     }

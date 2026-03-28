@@ -1,3 +1,4 @@
+from importlib import import_module
 from typing import Any
 
 from hamilton import driver
@@ -26,11 +27,17 @@ MODULES = {
 def build_driver(
     modules: list[str],
     config: dict[str, Any],
+    extra_modules: list[str] | None = None,
     allow_module_overrides: bool = False,
 ) -> driver.Driver:
     config[ENABLE_POWER_USER_MODE] = True
 
     modules_ = [MODULES[mod] for mod in modules]
+
+    if extra_modules:
+        for mod_path in extra_modules:
+            mod = import_module(mod_path)
+            modules_.append(mod)
 
     # TODO: fix this
     modules_ += [MODULES["inputs.grid"]]

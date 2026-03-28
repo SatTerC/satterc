@@ -108,15 +108,20 @@ def _display_remaining_models(remaining: list[str], n_cols: int = 4) -> None:
     typer.echo("  (type any non-number for custom module path)")
 
 
-def _select_models() -> list[str]:
-    """Interactive model selection loop."""
+def _select_models() -> tuple[list[str], list[str]]:
+    """Interactive model selection loop.
+
+    Returns a tuple of (builtin_models, custom_modules).
+    """
     builtin_models = list(BUILTIN_MODELS.values())
     remaining = list(builtin_models)
-    selected: list[str] = []
+    selected_builtin: list[str] = []
+    selected_custom: list[str] = []
 
     while True:
+        all_selected = selected_builtin + selected_custom
         typer.echo(
-            f"\nModels selected: {', '.join(selected) if selected else '(none)'}"
+            f"\nModels selected: {', '.join(all_selected) if all_selected else '(none)'}"
         )
         _display_remaining_models(remaining)
 
@@ -128,13 +133,13 @@ def _select_models() -> list[str]:
         ).strip()
 
         if choice == "":
-            if not selected:
+            if not all_selected:
                 typer.echo("  Error: You must select at least one model!")
                 continue
             break
 
         if choice == "0":
-            if not selected:
+            if not all_selected:
                 typer.echo("  Error: You must select at least one model!")
                 continue
             break
@@ -151,30 +156,31 @@ def _select_models() -> list[str]:
                 else:
                     typer.echo(f"  Invalid number: {token}")
             else:
-                if token in selected:
+                if token in selected_custom:
                     typer.echo(f"  '{token}' already selected")
                 else:
                     custom_paths.append(token)
 
         for idx in sorted(indices_to_remove, reverse=True):
             model_name = remaining[idx]
-            selected.append(model_name)
+            selected_builtin.append(model_name)
             remaining.remove(model_name)
 
         for custom_path in custom_paths:
-            selected.append(custom_path)
+            selected_custom.append(custom_path)
             typer.echo(f"  Added custom module: {custom_path}")
 
-    return selected
+    return selected_builtin, selected_custom
 
 
 def _generate_toml(
-    selected_models: list[str],
+    selected_models: tuple[list[str], list[str]],
     paths: dict[str, str],
 ) -> str:
     """Generate TOML configuration string."""
-    modules = [f"models.{m}" for m in selected_models if not m.startswith("models.")]
-    modules += [m for m in selected_models if m.startswith("models.")]
+    builtin_models, custom_modules = selected_models
+
+    modules = [f"models.{m}" for m in builtin_models]
     modules += [
         "inputs.daily",
         "inputs.weekly",
@@ -186,7 +192,7 @@ def _generate_toml(
         "outputs.monthly",
     ]
 
-    required_data = _infer_required_data(selected_models)
+    required_data = _infer_required_data(builtin_models)
     rothc_params = _infer_model_params("rothc")
 
     lines = [
@@ -196,19 +202,25 @@ def _generate_toml(
         lines.append(f'  "{module}",')
     lines.append("]")
 
+    if custom_modules:
+        lines.append("")
+        lines.append("extra_modules = [")
+        for mod in custom_modules:
+            lines.append(f'  "{mod}",')
+        lines.append("]")
+
     lines.append("")
     lines.append("[extra_config]")
-    if "rothc" in selected_models and "n_years_spinup" in rothc_params:
+    if "rothc" in builtin_models and "n_years_spinup" in rothc_params:
         lines.append(f"n_years_spinup = {rothc_params['n_years_spinup']}")
     else:
         lines.append("n_years_spinup = 1")
 
-    for model in selected_models:
-        model_key = model.split(".")[-1] if "." in model else model
-        params = _infer_model_params(model_key)
+    for model in builtin_models:
+        params = _infer_model_params(model)
         if params:
             lines.append("")
-            lines.append(f"[models.{model_key}]")
+            lines.append(f"[models.{model}]")
             for key, value in params.items():
                 if isinstance(value, str):
                     lines.append(f'{key} = "{value}"')
@@ -308,7 +320,7 @@ def init_config(
 ) -> None:
     """Generate a configuration file for SatTerC."""
     if defaults:
-        selected_models = list(BUILTIN_MODELS.values())
+        selected_models = (list(BUILTIN_MODELS.values()), [])
         paths = dict(PATH_DEFAULTS)
     else:
         typer.echo("SatTerC Configuration Generator")
@@ -345,7 +357,7 @@ def init_config(
             )
 
             typer.echo("\nOutput file paths:")
-            paths["outputs_daily"] = typer.prompt(ce
+            paths["outputs_daily"] = typer.prompt(
                 "Daily output path",
                 default=PATH_DEFAULTS["outputs_daily"],
             )
