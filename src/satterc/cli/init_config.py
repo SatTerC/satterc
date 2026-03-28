@@ -299,14 +299,15 @@ def init_config(
         "--output",
         help="Output path for the configuration file.",
     ),
-    quiet: bool = typer.Option(
+    defaults: bool = typer.Option(
         False,
-        "--quiet",
+        "-d",
+        "--defaults",
         help="Use default values without prompting.",
     ),
 ) -> None:
     """Generate a configuration file for SatTerC."""
-    if quiet:
+    if defaults:
         selected_models = list(BUILTIN_MODELS.values())
         paths = dict(PATH_DEFAULTS)
     else:
@@ -323,11 +324,6 @@ def init_config(
 
         if use_defaults:
             paths = dict(PATH_DEFAULTS)
-            output = typer.prompt(
-                "\nOutput config path",
-                default=output,
-                type=Path,
-            )
         else:
             typer.echo("\nInput file paths:")
             paths = {}
@@ -349,7 +345,7 @@ def init_config(
             )
 
             typer.echo("\nOutput file paths:")
-            paths["outputs_daily"] = typer.prompt(
+            paths["outputs_daily"] = typer.prompt(ce
                 "Daily output path",
                 default=PATH_DEFAULTS["outputs_daily"],
             )
@@ -362,12 +358,12 @@ def init_config(
                 default=PATH_DEFAULTS["outputs_monthly"],
             )
 
-            typer.echo()
-            output = typer.prompt(
-                "Output config path",
-                default=output,
-                type=Path,
-            )
+        typer.echo()
+        output = typer.prompt(
+            "Output config path",
+            default=output,
+            type=Path,
+        )
 
     typer.echo(f"\nGenerating {output}... ", nl=False)
     toml_content = _generate_toml(selected_models, paths)
