@@ -173,6 +173,96 @@ def _select_models() -> tuple[list[str], list[str]]:
     return selected_builtin, selected_custom
 
 
+def _format_list(items: list[Any], indent: int = 2) -> str:
+    """Format a list as a TOML array."""
+    prefix = " " * indent
+    if not items:
+        return "[]"
+    lines = ["["]
+    for item in items:
+        if isinstance(item, str):
+            lines.append(f'{prefix}  "{item}",')
+        else:
+            lines.append(f"{prefix}  {item},")
+    lines.append(f"{prefix}]")
+    return "\n".join(lines)
+
+
+def _format_value(value: Any) -> str:
+    """Format a simple value for TOML."""
+    if isinstance(value, str):
+        return f'"{value}"'
+    return str(value)
+
+
+def _dict_to_toml(d: dict) -> str:
+    """Serialize config dict to TOML string.
+
+    Handles the specific structure used by this project:
+    - modules: list[str]
+    - extra_modules: list[str] (optional)
+    - extra_config: dict[str, Any]
+    - models: dict[str, dict[str, Any]]
+    - inputs/outputs: dict[str, dict[str, Any]]  (each with path + vars)
+    - resample: dict[str, list[str]]
+    """
+    lines = []
+
+    if "modules" in d:
+        lines.append("modules = [")
+        for m in d["modules"]:
+            lines.append(f'  "{m}",')
+        lines.append("]")
+
+    if "extra_modules" in d:
+        lines.append("")
+        lines.append("extra_modules = [")
+        for m in d["extra_modules"]:
+            lines.append(f'  "{m}",')
+        lines.append("]")
+
+    if "extra_config" in d:
+        lines.append("")
+        lines.append("[extra_config]")
+        for k, v in d["extra_config"].items():
+            lines.append(f"{k} = {_format_value(v)}")
+
+    if "models" in d:
+        for model_name, params in d["models"].items():
+            if params:
+                lines.append("")
+                lines.append(f"[models.{model_name}]")
+                for k, v in params.items():
+                    lines.append(f"{k} = {_format_value(v)}")
+
+    if "inputs" in d:
+        for section in ["daily", "weekly", "monthly", "static"]:
+            if section in d["inputs"]:
+                data = d["inputs"][section]
+                lines.append("")
+                lines.append(f"[inputs.{section}]")
+                lines.append(f'path = "{data["path"]}"')
+                lines.append(f"vars = {_format_list(data['vars'])}")
+
+    if "resample" in d:
+        lines.append("")
+        lines.append("[resample]")
+        for key in ["daily_to_weekly", "daily_to_monthly", "weekly_to_monthly"]:
+            if key in d["resample"]:
+                lines.append(f"{key} = {_format_list(d['resample'][key])}")
+
+    if "outputs" in d:
+        for section in ["daily", "weekly", "monthly"]:
+            if section in d["outputs"]:
+                data = d["outputs"][section]
+                lines.append("")
+                lines.append(f"[outputs.{section}]")
+                lines.append(f'path = "{data["path"]}"')
+                lines.append(f"vars = {_format_list(data['vars'])}")
+
+    return "\n".join(lines)
+
+
 def _generate_toml(
     selected_models: tuple[list[str], list[str]],
     paths: dict[str, str],
@@ -195,112 +285,63 @@ def _generate_toml(
     required_data = _infer_required_data(builtin_models)
     rothc_params = _infer_model_params("rothc")
 
-    lines = [
-        "modules = [",
-    ]
-    for module in modules:
-        lines.append(f'  "{module}",')
-    lines.append("]")
+    config: dict[str, Any] = {
+        "modules": modules,
+    }
 
     if custom_modules:
-        lines.append("")
-        lines.append("extra_modules = [")
-        for mod in custom_modules:
-            lines.append(f'  "{mod}",')
-        lines.append("]")
+        config["extra_modules"] = custom_modules
 
-    lines.append("")
-    lines.append("[extra_config]")
-    if "rothc" in builtin_models and "n_years_spinup" in rothc_params:
-        lines.append(f"n_years_spinup = {rothc_params['n_years_spinup']}")
-    else:
-        lines.append("n_years_spinup = 1")
+    config["extra_config"] = {
+        "n_years_spinup": rothc_params.get("n_years_spinup", 1)
+        if "rothc" in builtin_models
+        else 1
+    }
 
+    config["models"] = {}
     for model in builtin_models:
         params = _infer_model_params(model)
         if params:
-            lines.append("")
-            lines.append(f"[models.{model}]")
-            for key, value in params.items():
-                if isinstance(value, str):
-                    lines.append(f'{key} = "{value}"')
-                else:
-                    lines.append(f"{key} = {value}")
+            config["models"][model] = params
 
-    lines.append("")
-    lines.append("[inputs.daily]")
-    lines.append(f'path = "{paths["inputs_daily"]}"')
-    lines.append("vars = [")
-    for var in required_data["inputs_daily"]:
-        lines.append(f'  "{var}",')
-    lines.append("]")
+    config["inputs"] = {
+        "daily": {"path": paths["inputs_daily"], "vars": required_data["inputs_daily"]},
+        "weekly": {
+            "path": paths["inputs_weekly"],
+            "vars": required_data["inputs_weekly"],
+        },
+        "monthly": {
+            "path": paths["inputs_monthly"],
+            "vars": required_data["inputs_monthly"],
+        },
+        "static": {
+            "path": paths["inputs_static"],
+            "vars": required_data["inputs_static"],
+        },
+    }
 
-    lines.append("")
-    lines.append("[inputs.weekly]")
-    lines.append(f'path = "{paths["inputs_weekly"]}"')
-    lines.append("vars = [")
-    for var in required_data["inputs_weekly"]:
-        lines.append(f'  "{var}",')
-    lines.append("]")
+    config["resample"] = {
+        "daily_to_weekly": required_data["resample_daily_to_weekly"],
+        "daily_to_monthly": required_data["resample_daily_to_monthly"],
+        "weekly_to_monthly": required_data["resample_weekly_to_monthly"],
+    }
 
-    lines.append("")
-    lines.append("[inputs.monthly]")
-    lines.append(f'path = "{paths["inputs_monthly"]}"')
-    lines.append("vars = [")
-    for var in required_data["inputs_monthly"]:
-        lines.append(f'  "{var}",')
-    lines.append("]")
+    config["outputs"] = {
+        "daily": {
+            "path": paths["outputs_daily"],
+            "vars": required_data["outputs_daily"],
+        },
+        "weekly": {
+            "path": paths["outputs_weekly"],
+            "vars": required_data["outputs_weekly"],
+        },
+        "monthly": {
+            "path": paths["outputs_monthly"],
+            "vars": required_data["outputs_monthly"],
+        },
+    }
 
-    lines.append("")
-    lines.append("[inputs.static]")
-    lines.append(f'path = "{paths["inputs_static"]}"')
-    lines.append("vars = [")
-    for var in required_data["inputs_static"]:
-        lines.append(f'  "{var}",')
-    lines.append("]")
-
-    lines.append("")
-    lines.append("[resample]")
-    lines.append("daily_to_weekly = [")
-    for var in required_data["resample_daily_to_weekly"]:
-        lines.append(f'  "{var}",')
-    lines.append("]")
-    lines.append("")
-    lines.append("daily_to_monthly = [")
-    for var in required_data["resample_daily_to_monthly"]:
-        lines.append(f'  "{var}",')
-    lines.append("]")
-    lines.append("")
-    lines.append("weekly_to_monthly = [")
-    for var in required_data["resample_weekly_to_monthly"]:
-        lines.append(f'  "{var}",')
-    lines.append("]")
-
-    lines.append("")
-    lines.append("[outputs.daily]")
-    lines.append(f'path = "{paths["outputs_daily"]}"')
-    lines.append("vars = [")
-    for var in required_data["outputs_daily"]:
-        lines.append(f'  "{var}",')
-    lines.append("]")
-
-    lines.append("")
-    lines.append("[outputs.weekly]")
-    lines.append(f'path = "{paths["outputs_weekly"]}"')
-    lines.append("vars = [")
-    for var in required_data["outputs_weekly"]:
-        lines.append(f'  "{var}",')
-    lines.append("]")
-
-    lines.append("")
-    lines.append("[outputs.monthly]")
-    lines.append(f'path = "{paths["outputs_monthly"]}"')
-    lines.append("vars = [")
-    for var in required_data["outputs_monthly"]:
-        lines.append(f'  "{var}",')
-    lines.append("]")
-
-    return "\n".join(lines) + "\n"
+    return _dict_to_toml(config) + "\n"
 
 
 @app.command()
