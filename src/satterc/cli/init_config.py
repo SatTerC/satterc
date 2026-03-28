@@ -92,78 +92,72 @@ def _infer_required_data(model_names: list[str]) -> dict[str, list[str]]:
     }
 
 
-def _display_model_selection(available: list[str], selected: list[str]) -> None:
-    """Display available models with selection status."""
-    builtin_labels = {
-        "splash": "splash",
-        "pmodel": "pmodel",
-        "sgam": "sgam",
-        "rothc": "rothc",
-        "custom": "custom path",
-    }
-
-    for model in available:
-        marker = "[x]" if model in selected else "[ ]"
-        label = builtin_labels.get(model, model)
-        typer.echo(f"  {marker} {label}")
+def _display_models_grid(
+    available: list[str], selected: list[str], n_cols: int = 4
+) -> None:
+    """Display models in columns with checkmarks."""
+    typer.echo()
+    for i in range(0, len(available), n_cols):
+        row = available[i : i + n_cols]
+        parts = []
+        for j, model in enumerate(row):
+            idx = i + j + 1
+            marker = "[x]" if model in selected else "[ ]"
+            parts.append(f"[{idx}] {marker} {model}")
+        typer.echo("  " + "  ".join(parts))
+    typer.echo("  (type any non-number for custom module path)")
 
 
 def _select_models() -> list[str]:
     """Interactive model selection loop."""
-    available = list(BUILTIN_MODELS.values()) + ["custom"]
+    builtin_models = list(BUILTIN_MODELS.values())
     selected: list[str] = []
 
-    typer.echo("\nAvailable models:")
-    typer.echo("  (type number to select/deselect, 0 to continue)")
+    typer.echo("\nAvailable models (type numbers to select/deselect, e.g. '1 2 3'):")
+    _display_models_grid(builtin_models, selected)
 
     while True:
-        typer.echo()
-        for i, model in enumerate(available, 1):
-            marker = "[x]" if model in selected else "[ ]"
-            label = "custom path" if model == "custom" else model
-            typer.echo(f"  [{i}] {marker} {label}")
-
-        if selected:
-            typer.echo(f"\n  Selected: {len(selected)} model(s)")
-
-        typer.echo()
-        choice = typer.prompt("Select model (0 to continue)").strip()
+        choice = typer.prompt(
+            "\nSelect models (Enter to continue, 0 to finish)"
+        ).strip()
 
         if choice == "":
-            typer.echo(
-                "  Error: No selection made. Type a number or 0 to continue.\n",
-                err=True,
-            )
+            if not selected:
+                typer.echo("  Error: You must select at least one model!")
+                continue
+            _display_models_grid(builtin_models, selected)
+            typer.echo(f"  Selected: {len(selected)} model(s)")
+            typer.echo(f"  ({', '.join(selected)})")
             continue
 
         if choice == "0":
             if not selected:
-                typer.echo(
-                    "  Error: You must select at least one model!\n",
-                    err=True,
-                )
+                typer.echo("  Error: You must select at least one model!")
                 continue
             break
 
-        if choice == "5":
-            if "custom" not in selected:
-                custom_path = typer.prompt("  Enter custom model path")
-                if custom_path:
-                    selected.append(custom_path)
+        tokens = choice.split()
+        for token in tokens:
+            if token.isdigit():
+                idx = int(token)
+                if 1 <= idx <= len(builtin_models):
+                    model_name = builtin_models[idx - 1]
+                    if model_name in selected:
+                        selected.remove(model_name)
+                    else:
+                        selected.append(model_name)
+                else:
+                    typer.echo(
+                        f"  Invalid number: {token} (must be 1-{len(builtin_models)})"
+                    )
             else:
-                typer.echo("  Custom path already selected.\n")
-            continue
+                if token in selected:
+                    typer.echo(f"  '{token}' already selected")
+                else:
+                    selected.append(token)
+                    typer.echo(f"  Added custom module: {token}")
 
-        if choice in BUILTIN_MODELS:
-            model_name = BUILTIN_MODELS[choice]
-            if model_name in selected:
-                selected.remove(model_name)
-                typer.echo(f"  Deselected: {model_name}\n")
-            else:
-                selected.append(model_name)
-                typer.echo(f"  Selected: {model_name}\n")
-        else:
-            typer.echo(f"  Invalid choice: {choice}\n")
+        _display_models_grid(builtin_models, selected)
 
     return selected
 
