@@ -3,6 +3,7 @@ import re
 from typing import Annotated
 
 import typer
+from typer import Abort
 
 from ..config import load_config
 from ..synthetic_data import generate_synthetic_data
@@ -28,6 +29,32 @@ def _parse_duration(duration: str) -> int:
         return int(value * 30.44)
     elif unit == "y":
         return int(value * 365.25)
+
+
+def _validate_output_paths(
+    config: dict,
+) -> tuple[list[Path], list[Path], list[Path]]:
+    """Validate/create directories, prompt for overwrite if files exist. Returns paths."""
+    frequencies = ["daily", "weekly", "monthly", "static"]
+
+    paths = []
+    dirs_to_create = []
+    files_to_overwrite = []
+
+    for freq in frequencies:
+        path_str = config["driver_config"].get(f"{freq}_inputs_path")
+        if path_str is None:
+            continue
+
+        path = Path(path_str)
+        paths.append(path)
+
+        if not path.parent.exists():
+            dirs_to_create.append(path.parent)
+        elif path.is_file():
+            files_to_overwrite.append(path)
+
+    return paths, dirs_to_create, files_to_overwrite
 
 
 @app.command()
@@ -76,7 +103,22 @@ def synthetic(
 
     config = load_config(config_file)
 
-    typer.echo(f"Generating synthetic data:")
+    paths, dirs_to_create, files_to_overwrite = _validate_output_paths(config)
+
+    for d in dirs_to_create:
+        d.mkdir(parents=True, exist_ok=True)
+
+    if dirs_to_create:
+        typer.echo(f"Created directories: {', '.join(str(d) for d in dirs_to_create)}")
+
+    if files_to_overwrite:
+        typer.echo(
+            f"Files already exist: {', '.join(str(p) for p in files_to_overwrite)}"
+        )
+        if not typer.confirm("Overwrite existing files?", default=False):
+            raise Abort()
+
+    typer.echo("Generating synthetic data:")
     typer.echo(f"  Config file: {config_file}")
     typer.echo(f"  Grid dimensions: {n_lat} x {n_lon}")
     typer.echo(f"  Duration: {duration} ({n_days} days)")
@@ -88,5 +130,9 @@ def synthetic(
         n_days=n_days,
         seed=seed,
     )
+
+    typer.echo("Data saved to:")
+    for p in paths:
+        typer.echo(f"  {p}")
 
     typer.echo("Done!")
