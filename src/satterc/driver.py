@@ -25,10 +25,9 @@ MODULES = {
 
 def build_driver(
     modules: list[str],
-    config: dict[str, Any] | None = None,
+    config: dict[str, Any],
     allow_module_overrides: bool = False,
 ) -> driver.Driver:
-    config = dict(config) if config else {}
     config[ENABLE_POWER_USER_MODE] = True
 
     modules_ = [MODULES[mod] for mod in modules]
