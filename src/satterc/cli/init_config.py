@@ -316,45 +316,58 @@ def init_config(
 
         selected_models = _select_models()
 
-        typer.echo("\nInput file paths:")
-        paths = {}
-        paths["inputs_daily"] = typer.prompt(
-            "Daily input path",
-            default=PATH_DEFAULTS["inputs_daily"],
-        )
-        paths["inputs_weekly"] = typer.prompt(
-            "Weekly input path",
-            default=PATH_DEFAULTS["inputs_weekly"],
-        )
-        paths["inputs_monthly"] = typer.prompt(
-            "Monthly input path",
-            default=PATH_DEFAULTS["inputs_monthly"],
-        )
-        paths["inputs_static"] = typer.prompt(
-            "Static input path",
-            default=PATH_DEFAULTS["inputs_static"],
+        use_defaults = typer.confirm(
+            "Use default input/output paths?",
+            default=True,
         )
 
-        typer.echo("\nOutput file paths:")
-        paths["outputs_daily"] = typer.prompt(
-            "Daily output path",
-            default=PATH_DEFAULTS["outputs_daily"],
-        )
-        paths["outputs_weekly"] = typer.prompt(
-            "Weekly output path",
-            default=PATH_DEFAULTS["outputs_weekly"],
-        )
-        paths["outputs_monthly"] = typer.prompt(
-            "Monthly output path",
-            default=PATH_DEFAULTS["outputs_monthly"],
-        )
+        if use_defaults:
+            paths = dict(PATH_DEFAULTS)
+            output = typer.prompt(
+                "\nOutput config path",
+                default=output,
+                type=Path,
+            )
+        else:
+            typer.echo("\nInput file paths:")
+            paths = {}
+            paths["inputs_daily"] = typer.prompt(
+                "Daily input path",
+                default=PATH_DEFAULTS["inputs_daily"],
+            )
+            paths["inputs_weekly"] = typer.prompt(
+                "Weekly input path",
+                default=PATH_DEFAULTS["inputs_weekly"],
+            )
+            paths["inputs_monthly"] = typer.prompt(
+                "Monthly input path",
+                default=PATH_DEFAULTS["inputs_monthly"],
+            )
+            paths["inputs_static"] = typer.prompt(
+                "Static input path",
+                default=PATH_DEFAULTS["inputs_static"],
+            )
 
-        typer.echo()
-        output = typer.prompt(
-            "Output config path",
-            default=output,
-            type=Path,
-        )
+            typer.echo("\nOutput file paths:")
+            paths["outputs_daily"] = typer.prompt(
+                "Daily output path",
+                default=PATH_DEFAULTS["outputs_daily"],
+            )
+            paths["outputs_weekly"] = typer.prompt(
+                "Weekly output path",
+                default=PATH_DEFAULTS["outputs_weekly"],
+            )
+            paths["outputs_monthly"] = typer.prompt(
+                "Monthly output path",
+                default=PATH_DEFAULTS["outputs_monthly"],
+            )
+
+            typer.echo()
+            output = typer.prompt(
+                "Output config path",
+                default=output,
+                type=Path,
+            )
 
     typer.echo(f"\nGenerating {output}... ", nl=False)
     toml_content = _generate_toml(selected_models, paths)
