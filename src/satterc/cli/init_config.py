@@ -92,12 +92,17 @@ def _infer_required_data(model_names: list[str]) -> dict[str, list[str]]:
     }
 
 
-def _display_remaining_models(remaining: list[str]) -> None:
-    """Display remaining unselected models."""
-    typer.echo("\nSelect models:")
+def _display_remaining_models(remaining: list[str], n_cols: int = 4) -> None:
+    """Display remaining unselected models in columns."""
+    typer.echo("\nAvailable models:")
     if remaining:
-        for i, model in enumerate(remaining, 1):
-            typer.echo(f"  [{i}] {model}")
+        for i in range(0, len(remaining), n_cols):
+            row = remaining[i : i + n_cols]
+            parts = []
+            for j, model in enumerate(row):
+                idx = i + j + 1
+                parts.append(f"[{idx}] {model}")
+            typer.echo("  " + "  ".join(parts))
     else:
         typer.echo("  (all built-in models selected)")
     typer.echo("  (type any non-number for custom module path)")
@@ -115,9 +120,20 @@ def _select_models() -> list[str]:
         )
         _display_remaining_models(remaining)
 
-        choice = typer.prompt("\nSelect models (Enter to continue)").strip()
+        choice = typer.prompt(
+            "\nSelect models (e.g. '1', '1 2', 'mypackage.mymodule', or leave blank to continue)",
+            default="",
+            show_default=False,
+            prompt_suffix="\n> ",
+        ).strip()
 
         if choice == "":
+            if not selected:
+                typer.echo("  Error: You must select at least one model!")
+                continue
+            break
+
+        if choice == "0":
             if not selected:
                 typer.echo("  Error: You must select at least one model!")
                 continue
