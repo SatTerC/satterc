@@ -84,7 +84,7 @@ def _rothc(
     )
 
 
-def rothc_parameters(n_years_spinup: int) -> tuple[int]:
+def rothc_parameters(n_years_spinup: int = 1) -> tuple[int]:
     """Static parameters for the Rothamsted Carbon model.
 
     Parameters

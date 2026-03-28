@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from importlib import import_module
+import inspect
 from pathlib import Path
 from typing import Any
 
@@ -8,27 +9,39 @@ import typer
 
 app = typer.Typer(help="Generate a configuration file for SatTerC.")
 
-BUILTIN_MODELS = {
-    "1": "splash",
-    "2": "pmodel",
-    "3": "sgam",
-    "4": "rothc",
-}
 
-MODEL_DEFAULTS: dict[str, dict[str, Any]] = {
-    "splash": {
-        "soil_moisture_init_max_iter": 10,
-        "soil_moisture_init_max_diff": 1.0,
-    },
-    "pmodel": {
-        "method_optchi": "prentice14",
-        "method_jmaxlim": "wang17",
-        "method_kphio": "temperature",
-        "method_arrhenius": "simple",
-    },
-    "sgam": {},
-    "rothc": {},
-}
+def _get_builtin_models() -> list[str]:
+    """Get list of builtin models from __all__."""
+    from satterc.pipeline import models
+
+    return list(models.__all__)
+
+
+def _infer_model_params(model_name: str) -> dict[str, Any]:
+    """Extract parameters from <model_name>_parameters() function signature."""
+    builtin_models = _get_builtin_models()
+    if model_name in builtin_models:
+        try:
+            module = import_module(f"satterc.pipeline.models.{model_name}")
+        except ImportError:
+            return {}
+    else:
+        try:
+            module = import_module(model_name)
+        except ImportError:
+            return {}
+
+    param_func_name = f"{model_name}_parameters"
+    if hasattr(module, param_func_name):
+        param_func = getattr(module, param_func_name)
+        sig = inspect.signature(param_func)
+        return {
+            p.name: p.default
+            for p in sig.parameters.values()
+            if p.default is not inspect.Parameter.empty
+        }
+    return {}
+
 
 PATH_DEFAULTS = {
     "inputs_daily": "inputs/daily.nc",
@@ -39,37 +52,6 @@ PATH_DEFAULTS = {
     "outputs_weekly": "outputs/weekly.nc",
     "outputs_monthly": "outputs/monthly.nc",
 }
-
-
-def _infer_model_params(model_name: str) -> dict[str, Any]:
-    """Return default parameters for a model.
-
-    For builtin models, returns hardcoded defaults from MODEL_DEFAULTS.
-    For custom modules, attempts to import and call the model's *_parameters() function.
-    Falls back to empty dict if the module doesn't have a parameters function.
-    """
-    if model_name in MODEL_DEFAULTS:
-        return MODEL_DEFAULTS[model_name]
-
-    try:
-        module = import_module(model_name)
-        for attr_name in dir(module):
-            if attr_name.endswith("_parameters"):
-                param_func = getattr(module, attr_name)
-                if callable(param_func):
-                    import inspect
-
-                    sig = inspect.signature(param_func)
-                    defaults = {
-                        p.name: p.default
-                        for p in sig.parameters.values()
-                        if p.default is not inspect.Parameter.empty
-                    }
-                    return defaults
-    except ImportError:
-        pass
-
-    return {}
 
 
 def _infer_required_data(model_names: list[str]) -> dict[str, list[str]]:
@@ -113,7 +95,7 @@ def _select_models() -> tuple[list[str], list[str]]:
 
     Returns a tuple of (builtin_models, custom_modules).
     """
-    builtin_models = list(BUILTIN_MODELS.values())
+    builtin_models = _get_builtin_models()
     remaining = list(builtin_models)
     selected_builtin: list[str] = []
     selected_custom: list[str] = []
@@ -252,7 +234,7 @@ def _dict_to_toml(d: dict) -> str:
                 lines.append(f"{key} = {_format_list(d['resample'][key])}")
 
     if "outputs" in d:
-        for section in ["daily", "weekly", "monthly"]:
+        for section in ["daily", "weekly", "monthly", "static"]:
             if section in d["outputs"]:
                 data = d["outputs"][section]
                 lines.append("")
