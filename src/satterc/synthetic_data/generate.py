@@ -1,9 +1,10 @@
 """Generate synthetic input data using Hamilton DAG."""
 
+from os import PathLike
+from pathlib import Path
 from typing import Any
 
 import numpy as np
-import rioxarray  # noqa: F401 - needed to enable .rio accessor
 import xarray as xr
 from hamilton import driver
 from hamilton.settings import ENABLE_POWER_USER_MODE
@@ -17,11 +18,31 @@ def _set_random_seed(seed: int) -> None:
     np.random.seed(seed)
 
 
-def _add_crs_to_netcdf(path: str) -> None:
-    """Add CRS metadata to a netcdf file using rioxarray."""
-    with xr.open_dataset(path, decode_coords="all") as ds:
-        ds.rio.write_crs("EPSG:4326", inplace=True)
-        # ds.to_netcdf(path)
+def _save_dataset_with_crs(ds: xr.Dataset, path: str | PathLike) -> None:
+    """Save dataset with CRS metadata to a NetCDF file or Zarr store.
+
+    Parameters
+    ----------
+    ds : xr.Dataset
+        The dataset to save.
+    path : str | PathLike
+        The destination path.
+    """
+    p = Path(path)
+    suffix = p.suffix.lower()
+
+    ds.attrs["crs"] = "EPSG:4326"
+
+    if suffix in [".nc", ".netcdf"]:
+        ds.to_netcdf(path, engine="netcdf4")
+
+    elif suffix == ".zarr" or (not suffix and p.is_dir()):
+        ds.to_zarr(path)
+
+    else:
+        raise ValueError(
+            f"Unsupported file extension: '{suffix}'. Use '.nc', '.netcdf', or '.zarr'."
+        )
 
 
 def generate_synthetic_data(
@@ -61,7 +82,7 @@ def generate_synthetic_data(
     generating the input data files.
 
     After the DAG runs, CRS metadata (EPSG:4326) is added to all output
-    netCDF files using rioxarray.
+    netCDF files.
     """
     _set_random_seed(seed)
 
@@ -116,17 +137,23 @@ def generate_synthetic_data(
     )
 
     targets = [
-        "save_daily_outputs",
-        "save_weekly_outputs",
-        "save_monthly_outputs",
-        "save_static_outputs",
+        "unstacked_daily_outputs",
+        "unstacked_weekly_outputs",
+        "unstacked_monthly_outputs",
+        "unstacked_static_outputs",
     ]
 
-    dr.execute(targets)
+    results = dr.execute(targets)
 
-    # Add CRS data to the netcdf files. Easier to do it as an extra step
-    # rather than modifying / reimplementing existing outputs nodes.
-    _add_crs_to_netcdf(driver_config["daily_outputs_path"])
-    _add_crs_to_netcdf(driver_config["weekly_outputs_path"])
-    _add_crs_to_netcdf(driver_config["monthly_outputs_path"])
-    _add_crs_to_netcdf(driver_config["static_outputs_path"])
+    _save_dataset_with_crs(
+        results["unstacked_daily_outputs"], driver_config["daily_outputs_path"]
+    )
+    _save_dataset_with_crs(
+        results["unstacked_weekly_outputs"], driver_config["weekly_outputs_path"]
+    )
+    _save_dataset_with_crs(
+        results["unstacked_monthly_outputs"], driver_config["monthly_outputs_path"]
+    )
+    _save_dataset_with_crs(
+        results["unstacked_static_outputs"], driver_config["static_outputs_path"]
+    )
