@@ -54,6 +54,38 @@ PATH_DEFAULTS = {
 }
 
 
+def _get_model_outputs() -> set[str]:
+    """Discover all output node names from builtin models.
+
+    Reads the model source files and extracts:
+    - Fields declared in @extract_fields(...) decorators
+    - Functions with _daily, _weekly, _monthly, _static suffixes
+    """
+    import re
+    from pathlib import Path
+
+    outputs: set[str] = set()
+    models_dir = Path(__file__).parent.parent / "pipeline" / "models"
+
+    for model_name in _get_builtin_models():
+        model_file = models_dir / f"{model_name}.py"
+        if not model_file.exists():
+            continue
+
+        content = model_file.read_text()
+
+        for match in re.finditer(r"@extract_fields\(\s*([^\)]+)\)", content, re.DOTALL):
+            fields_str = match.group(1)
+            outputs.update(re.findall(r'["\'](\w+)["\']', fields_str))
+
+        for match in re.finditer(r"def (\w+)\(", content):
+            func_name = match.group(1)
+            if func_name.endswith(("_daily", "_weekly", "_monthly", "_static")):
+                outputs.add(func_name)
+
+    return outputs
+
+
 def _infer_required_data(model_names: list[str]) -> dict[str, list[str]]:
     """Infer required input variables from model function signatures.
 
@@ -62,24 +94,7 @@ def _infer_required_data(model_names: list[str]) -> dict[str, list[str]]:
     """
     from satterc.pipeline import models
 
-    KNOWN_UPSTREAM_PARAMS = {
-        "aridity_index_weekly",
-        "soil_moisture_weekly",
-        "gpp_weekly",
-        "lue_weekly",
-        "iwue_weekly",
-        "disturbances_weekly",
-        "litter_to_soil_monthly",
-        "evaporation_monthly",
-        "soil_carbon_input_monthly",
-        "plant_cover_monthly",
-        "dpm_rpm_ratio_monthly",
-        "inert_organic_matter",
-        "mean_growth_temperature_weekly",
-        "farmyard_manure_input_monthly",
-        "aridity_index_daily",
-        "disturbances_daily",
-    }
+    known_upstream_params = _get_model_outputs()
 
     def classify_param(param_name: str) -> str | None:
         if param_name.endswith("_parameters"):
@@ -122,8 +137,21 @@ def _infer_required_data(model_names: list[str]) -> dict[str, list[str]]:
         sig = inspect.signature(main_func)
 
         for param_name in sig.parameters:
-            if param_name in KNOWN_UPSTREAM_PARAMS:
+            if param_name in known_upstream_params:
                 continue
+
+            if param_name.endswith("_weekly"):
+                base = param_name[:-7]
+                if f"{base}_daily" in known_upstream_params:
+                    continue
+            if param_name.endswith("_monthly"):
+                base = param_name[:-8]
+                if (
+                    f"{base}_daily" in known_upstream_params
+                    or f"{base}_weekly" in known_upstream_params
+                ):
+                    continue
+
             category = classify_param(param_name)
             if category:
                 var_name = param_name
