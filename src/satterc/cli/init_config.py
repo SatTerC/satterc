@@ -55,12 +55,55 @@ PATH_DEFAULTS = {
 
 
 def _infer_required_data(model_names: list[str]) -> dict[str, list[str]]:
-    """Infer required input/output variables based on model signatures.
+    """Infer required input variables from model function signatures.
 
-    Currently returns empty lists for all sections. Future work will involve
-    signature inspection or Hamilton DAG utilities to determine required data.
+    Analyzes each model's main function signature and extracts parameters
+    that are external inputs (not derived from other models or internal).
     """
-    return {
+    from satterc.pipeline import models
+
+    KNOWN_UPSTREAM_PARAMS = {
+        "aridity_index_weekly",
+        "soil_moisture_weekly",
+        "gpp_weekly",
+        "lue_weekly",
+        "iwue_weekly",
+        "disturbances_weekly",
+        "litter_to_soil_monthly",
+        "evaporation_monthly",
+        "soil_carbon_input_monthly",
+        "plant_cover_monthly",
+        "dpm_rpm_ratio_monthly",
+        "inert_organic_matter",
+        "mean_growth_temperature_weekly",
+        "farmyard_manure_input_monthly",
+        "aridity_index_daily",
+        "disturbances_daily",
+    }
+
+    def classify_param(param_name: str) -> str | None:
+        if param_name.endswith("_parameters"):
+            return None
+        if param_name.startswith("dates_"):
+            return None
+        if param_name in (
+            "plant_type",
+            "leaf_pool_init",
+            "stem_pool_init",
+            "root_pool_init",
+            "organic_carbon_stocks",
+        ):
+            return "inputs_static"
+
+        if param_name.endswith("_daily"):
+            return "inputs_daily"
+        if param_name.endswith("_weekly"):
+            return "inputs_weekly"
+        if param_name.endswith("_monthly"):
+            return "inputs_monthly"
+        return None
+
+    result = {
         "inputs_daily": [],
         "inputs_weekly": [],
         "inputs_monthly": [],
@@ -72,6 +115,26 @@ def _infer_required_data(model_names: list[str]) -> dict[str, list[str]]:
         "outputs_weekly": [],
         "outputs_monthly": [],
     }
+
+    for model_name in model_names:
+        module = getattr(models, model_name)
+        main_func = getattr(module, model_name)
+        sig = inspect.signature(main_func)
+
+        for param_name in sig.parameters:
+            if param_name in KNOWN_UPSTREAM_PARAMS:
+                continue
+            category = classify_param(param_name)
+            if category:
+                var_name = param_name
+                for suffix in ("_daily", "_weekly", "_monthly", "_static"):
+                    if var_name.endswith(suffix):
+                        var_name = var_name[: -len(suffix)]
+                        break
+                if var_name not in result[category]:
+                    result[category].append(var_name)
+
+    return result
 
 
 def _display_remaining_models(remaining: list[str], n_cols: int = 4) -> None:
@@ -343,7 +406,7 @@ def init_config(
 ) -> None:
     """Generate a configuration file for SatTerC."""
     if defaults:
-        selected_models = (list(BUILTIN_MODELS.values()), [])
+        selected_models = (_get_builtin_models(), [])
         paths = dict(PATH_DEFAULTS)
     else:
         typer.echo("SatTerC Configuration Generator")
