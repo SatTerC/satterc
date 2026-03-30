@@ -197,7 +197,7 @@ def infer_required_data(model_names: list[str]) -> dict[str, list[str]]:
     }
 
 
-def make_config(
+def generate_config(
     builtin_models: list[str],
     custom_modules: list[str],
     paths: dict[str, str],

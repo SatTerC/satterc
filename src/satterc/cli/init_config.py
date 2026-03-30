@@ -5,7 +5,7 @@ from pathlib import Path
 import typer
 
 from ..config import Config
-from ..utils.make_config import make_config, get_builtin_models
+from ..utils import generate_config, get_builtin_models
 
 app = typer.Typer(help="Generate a configuration file for SatTerC.")
 
@@ -167,6 +167,6 @@ def init_config(
         )
 
     typer.echo(f"\nGenerating {output}... ", nl=False)
-    config = make_config(builtin_models, custom_modules, paths)
+    config = generate_config(builtin_models, custom_modules, paths)
     config.dump(output)
     typer.echo("Done!")
