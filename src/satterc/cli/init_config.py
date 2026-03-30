@@ -4,13 +4,20 @@ from pathlib import Path
 
 import typer
 
-from ..config_generator import (
-    PATH_DEFAULTS,
-    generate_config,
-    get_builtin_models,
-)
+from ..config_generator import generate_config
+from ..pipeline import models
 
 app = typer.Typer(help="Generate a configuration file for SatTerC.")
+
+PATH_DEFAULTS = {
+    "inputs_daily": "inputs/daily.nc",
+    "inputs_weekly": "inputs/weekly.nc",
+    "inputs_monthly": "inputs/monthly.nc",
+    "inputs_static": "inputs/static.nc",
+    "outputs_daily": "outputs/daily.nc",
+    "outputs_weekly": "outputs/weekly.nc",
+    "outputs_monthly": "outputs/monthly.nc",
+}
 
 
 def _display_remaining_models(remaining: list[str], n_cols: int = 4) -> None:
@@ -34,7 +41,7 @@ def _select_models() -> tuple[list[str], list[str]]:
 
     Returns a tuple of (builtin_models, custom_modules).
     """
-    builtin_models = get_builtin_models()
+    builtin_models = list(models.__all__)
     remaining = list(builtin_models)
     selected_builtin: list[str] = []
     selected_custom: list[str] = []
@@ -111,7 +118,7 @@ def init_config(
 ) -> None:
     """Generate a configuration file for SatTerC."""
     if defaults:
-        builtin_models = get_builtin_models()
+        builtin_models = list(models.__all__)
         custom_modules: list[str] = []
         paths = dict(PATH_DEFAULTS)
     else:
