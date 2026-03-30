@@ -76,16 +76,15 @@ def get_builtin_models() -> list[str]:
 def get_model_params(model_name: str) -> dict[str, Any]:
     """Extract parameters from <model_name>_parameters() function signature."""
     builtin_models = get_builtin_models()
-    model_name = (
+    module_path = (
         f"satterc.pipeline.models.{model_name}"
         if model_name in builtin_models
         else model_name
     )
 
     try:
-        module = import_module(model_name)
+        module = import_module(module_path)
     except ImportError:
-        # TODO: helpful warning message?
         return {}
 
     param_func_name = f"{model_name}_parameters"
@@ -120,14 +119,9 @@ def infer_required_data(model_names: list[str]) -> dict[str, list[str]]:
         outputs.monthly,
     ]
 
-    model_params = {}
-    for name in model_names:
-        params = get_model_params(name)
-        model_params.update(params)
-
+    # Config for the full driver - model params not needed here
     config = {
         ENABLE_POWER_USER_MODE: True,
-        **model_params,
         "daily_inputs_path": "inputs/daily.nc",
         "weekly_inputs_path": "inputs/weekly.nc",
         "monthly_inputs_path": "inputs/monthly.nc",
@@ -145,6 +139,112 @@ def infer_required_data(model_names: list[str]) -> dict[str, list[str]]:
         "daily_to_weekly": [],
         "daily_to_monthly": [],
         "weekly_to_monthly": [],
+    }
+
+    # ------------------------------------------------------------------
+    # Step 1: Discover model outputs using analyze_model_module
+    # (to filter external inputs and populate output file lists)
+    # ------------------------------------------------------------------
+    base_config = {ENABLE_POWER_USER_MODE: True}
+
+    model_output_bases: set[str] = set()
+    all_model_outputs: list[str] = []
+
+    for model_name in model_names:
+        module = getattr(models, model_name)
+        data_inputs, non_data, data_outputs = analyze_model_module(module, base_config)
+
+        for output in data_outputs:
+            all_model_outputs.append(output)
+            # Extract base name
+            for suffix in ("_daily", "_weekly", "_monthly", "_static"):
+                if output.endswith(suffix):
+                    model_output_bases.add(output[: -len(suffix)])
+
+    # ------------------------------------------------------------------
+    # Step 2: Build full driver and get external inputs
+    # ------------------------------------------------------------------
+    dr = driver.Builder().with_modules(*all_modules).with_config(config).build()
+
+    all_vars = dr.list_available_variables()
+    external_inputs = [v for v in all_vars if v.is_external_input]
+
+    # Skip config keys plus additional patterns for internal variables
+    skip_patterns = list(config.keys()) + ["_outputs_list", "var"]
+
+    # ------------------------------------------------------------------
+    # Step 3: Categorize external inputs (filtering out model outputs)
+    # ------------------------------------------------------------------
+    daily = []
+    weekly = []
+    monthly = []
+    static = []
+
+    for v in external_inputs:
+        name = v.name
+        if any(p in name for p in skip_patterns):
+            continue
+
+        # Extract base name and check if it's a model output
+        base_name = name
+        for suffix in ("_daily", "_weekly", "_monthly", "_static"):
+            if name.endswith(suffix):
+                base_name = name[: -len(suffix)]
+                break
+
+        if base_name in model_output_bases:
+            continue
+
+        if name.endswith("_daily"):
+            daily.append(name[:-6])
+        elif name.endswith("_weekly"):
+            weekly.append(name[:-7])
+        elif name.endswith("_monthly"):
+            monthly.append(name[:-8])
+        else:
+            static.append(name)
+
+    daily = set(daily)
+    weekly = set(weekly)
+    monthly = set(monthly)
+
+    # ------------------------------------------------------------------
+    # Step 4: Determine resample lists (variables appearing in multiple frequencies)
+    # Priority: daily -> weekly -> monthly
+    # ------------------------------------------------------------------
+    daily_to_weekly = daily & weekly
+    weekly_to_monthly = weekly & monthly
+    daily_to_monthly = (daily & monthly) - weekly
+
+    weekly = weekly - daily_to_weekly - weekly_to_monthly
+    monthly = monthly - daily_to_monthly - weekly_to_monthly
+
+    # ------------------------------------------------------------------
+    # Step 5: Collect model outputs for output file lists
+    # ------------------------------------------------------------------
+    outputs_daily = []
+    outputs_weekly = []
+    outputs_monthly = []
+
+    for output in all_model_outputs:
+        if output.endswith("_daily"):
+            outputs_daily.append(output[:-6])
+        elif output.endswith("_weekly"):
+            outputs_weekly.append(output[:-7])
+        elif output.endswith("_monthly"):
+            outputs_monthly.append(output[:-8])
+
+    return {
+        "inputs_daily": sorted(daily),
+        "inputs_weekly": sorted(weekly),
+        "inputs_monthly": sorted(monthly),
+        "inputs_static": sorted(set(static)),
+        "resample_daily_to_weekly": sorted(daily_to_weekly),
+        "resample_daily_to_monthly": sorted(daily_to_monthly),
+        "resample_weekly_to_monthly": sorted(weekly_to_monthly),
+        "outputs_daily": sorted(set(outputs_daily)),
+        "outputs_weekly": sorted(set(outputs_weekly)),
+        "outputs_monthly": sorted(set(outputs_monthly)),
     }
 
     # Step 1: Discover model outputs using analyze_model_module
