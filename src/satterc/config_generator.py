@@ -12,8 +12,49 @@ from typing import Any
 
 from hamilton import driver
 from hamilton.settings import ENABLE_POWER_USER_MODE
+import xarray as xr
 
 from .pipeline import models, inputs, outputs, resample
+
+
+def analyze_model_module(
+    module: Any, config: dict[str, Any]
+) -> tuple[list[str], list[str], list[str]]:
+    """Analyze a model module to discover its inputs and outputs.
+
+    Parameters
+    ----------
+    module : Any
+        A Hamilton module (e.g., models.splash).
+    config : dict[str, Any]
+        Configuration dict with model parameters.
+
+    Returns
+    -------
+    tuple
+        A tuple containing three lists of strings:
+        - 'data_inputs': list of external inputs of type xarray.DataArray
+        - 'non_data_inputs': list of config inputs (not DataArray type)
+        - 'data_outputs': list of produced outputs of type xarray.DataArray
+    """
+    dr = driver.Builder().with_modules(module).with_config(config).build()
+    all_vars = dr.list_available_variables()
+
+    data_inputs = []
+    data_outputs = []
+    non_data_inputs = []
+
+    for v in all_vars:
+        if v.is_external_input:
+            if v.type == xr.DataArray:
+                data_inputs.append(v.name)
+            else:
+                non_data_inputs.append(v.name)
+        else:
+            if v.type == xr.DataArray:
+                data_outputs.append(v.name)
+
+    return data_inputs, non_data_inputs, data_outputs
 
 
 PATH_DEFAULTS = {
@@ -35,16 +76,17 @@ def get_builtin_models() -> list[str]:
 def get_model_params(model_name: str) -> dict[str, Any]:
     """Extract parameters from <model_name>_parameters() function signature."""
     builtin_models = get_builtin_models()
-    if model_name in builtin_models:
-        try:
-            module = import_module(f"satterc.pipeline.models.{model_name}")
-        except ImportError:
-            return {}
-    else:
-        try:
-            module = import_module(model_name)
-        except ImportError:
-            return {}
+    model_name = (
+        f"satterc.pipeline.models.{model_name}"
+        if model_name in builtin_models
+        else model_name
+    )
+
+    try:
+        module = import_module(model_name)
+    except ImportError:
+        # TODO: helpful warning message?
+        return {}
 
     param_func_name = f"{model_name}_parameters"
     if hasattr(module, param_func_name):
@@ -105,6 +147,29 @@ def infer_required_data(model_names: list[str]) -> dict[str, list[str]]:
         "weekly_to_monthly": [],
     }
 
+    # Step 1: Discover model outputs using analyze_model_module
+    # Build config for individual model analysis
+    base_config = {ENABLE_POWER_USER_MODE: True}
+
+    model_output_bases: set[str] = set()
+    all_model_outputs: list[str] = []
+
+    for model_name in model_names:
+        module = getattr(models, model_name)
+        model_config = {**base_config, **get_model_params(model_name)}
+        data_inputs, non_data_inputs, data_outputs = analyze_model_module(
+            module, model_config
+        )
+
+        for output in data_outputs:
+            all_model_outputs.append(output)
+            # Extract base name
+            for suffix in ("_daily", "_weekly", "_monthly", "_static"):
+                if output.endswith(suffix):
+                    model_output_bases.add(output[: -len(suffix)])
+                    break
+
+    # Step 2: Build full driver and get external inputs
     dr = driver.Builder().with_modules(*all_modules).with_config(config).build()
 
     all_vars = dr.list_available_variables()
@@ -122,6 +187,17 @@ def infer_required_data(model_names: list[str]) -> dict[str, list[str]]:
         name = v.name
         if any(p in name for p in skip_patterns):
             continue
+
+        # Extract base name and check if it's a model output
+        base_name = name
+        for suffix in ("_daily", "_weekly", "_monthly", "_static"):
+            if name.endswith(suffix):
+                base_name = name[: -len(suffix)]
+                break
+
+        if base_name in model_output_bases:
+            continue
+
         if name.endswith("_daily"):
             daily.append(name[:-6])
         elif name.endswith("_weekly"):
@@ -131,17 +207,41 @@ def infer_required_data(model_names: list[str]) -> dict[str, list[str]]:
         else:
             static.append(name)
 
+    daily = set(daily)
+    weekly = set(weekly)
+    monthly = set(monthly)
+
+    daily_to_weekly = daily & weekly
+    weekly_to_monthly = weekly & monthly
+    daily_to_monthly = (daily & monthly) - weekly
+
+    weekly = weekly - daily_to_weekly - weekly_to_monthly
+    monthly = monthly - daily_to_monthly - weekly_to_monthly
+
+    # Step 3: Collect model outputs for output file lists
+    outputs_daily = []
+    outputs_weekly = []
+    outputs_monthly = []
+
+    for output in all_model_outputs:
+        if output.endswith("_daily"):
+            outputs_daily.append(output[:-6])
+        elif output.endswith("_weekly"):
+            outputs_weekly.append(output[:-7])
+        elif output.endswith("_monthly"):
+            outputs_monthly.append(output[:-8])
+
     return {
-        "inputs_daily": sorted(set(daily)),
-        "inputs_weekly": sorted(set(weekly)),
-        "inputs_monthly": sorted(set(monthly)),
+        "inputs_daily": sorted(daily),
+        "inputs_weekly": sorted(weekly),
+        "inputs_monthly": sorted(monthly),
         "inputs_static": sorted(set(static)),
-        "resample_daily_to_weekly": [],
-        "resample_daily_to_monthly": [],
-        "resample_weekly_to_monthly": [],
-        "outputs_daily": [],
-        "outputs_weekly": [],
-        "outputs_monthly": [],
+        "resample_daily_to_weekly": sorted(daily_to_weekly),
+        "resample_daily_to_monthly": sorted(daily_to_monthly),
+        "resample_weekly_to_monthly": sorted(weekly_to_monthly),
+        "outputs_daily": sorted(set(outputs_daily)),
+        "outputs_weekly": sorted(set(outputs_weekly)),
+        "outputs_monthly": sorted(set(outputs_monthly)),
     }
 
 
