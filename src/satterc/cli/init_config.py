@@ -177,6 +177,6 @@ def init_config(
         )
 
     typer.echo(f"\nGenerating {output}... ", nl=False)
-    toml_content = generate_config(builtin_models, custom_modules, paths)
-    output.write_text(toml_content)
+    config = generate_config(builtin_models, custom_modules, paths)
+    config.dump(output)
     typer.echo("Done!")
