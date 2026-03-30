@@ -5,7 +5,7 @@ from pathlib import Path
 import typer
 
 from ..config import Config
-from ..utils import generate_config, get_builtin_models
+from ..setup_utils import generate_config, get_builtin_models
 
 app = typer.Typer(help="Generate a configuration file for SatTerC.")
 
@@ -92,7 +92,7 @@ def _select_models() -> tuple[list[str], list[str]]:
 
 
 @app.command()
-def init_config(
+def generate(
     output: Path = typer.Option(
         Path("config.toml"),
         "-o",
