@@ -4,20 +4,10 @@ from pathlib import Path
 
 import typer
 
-from ..config_generator import generate_config
-from ..pipeline import models
+from ..config import Config
+from ..utils.make_config import make_config, get_builtin_models
 
 app = typer.Typer(help="Generate a configuration file for SatTerC.")
-
-PATH_DEFAULTS = {
-    "inputs_daily": "inputs/daily.nc",
-    "inputs_weekly": "inputs/weekly.nc",
-    "inputs_monthly": "inputs/monthly.nc",
-    "inputs_static": "inputs/static.nc",
-    "outputs_daily": "outputs/daily.nc",
-    "outputs_weekly": "outputs/weekly.nc",
-    "outputs_monthly": "outputs/monthly.nc",
-}
 
 
 def _display_remaining_models(remaining: list[str], n_cols: int = 4) -> None:
@@ -41,7 +31,7 @@ def _select_models() -> tuple[list[str], list[str]]:
 
     Returns a tuple of (builtin_models, custom_modules).
     """
-    builtin_models = list(models.__all__)
+    builtin_models = get_builtin_models()
     remaining = list(builtin_models)
     selected_builtin: list[str] = []
     selected_custom: list[str] = []
@@ -118,9 +108,9 @@ def init_config(
 ) -> None:
     """Generate a configuration file for SatTerC."""
     if defaults:
-        builtin_models = list(models.__all__)
+        builtin_models = get_builtin_models()
         custom_modules: list[str] = []
-        paths = dict(PATH_DEFAULTS)
+        paths = dict(Config.PATH_DEFAULTS)
     else:
         typer.echo("SatTerC Configuration Generator")
         typer.echo("=" * 35)
@@ -134,39 +124,39 @@ def init_config(
         )
 
         if use_defaults:
-            paths = dict(PATH_DEFAULTS)
+            paths = dict(Config.PATH_DEFAULTS)
         else:
             typer.echo("\nInput file paths:")
             paths = {}
             paths["inputs_daily"] = typer.prompt(
                 "Daily input path",
-                default=PATH_DEFAULTS["inputs_daily"],
+                default=Config.PATH_DEFAULTS["inputs_daily"],
             )
             paths["inputs_weekly"] = typer.prompt(
                 "Weekly input path",
-                default=PATH_DEFAULTS["inputs_weekly"],
+                default=Config.PATH_DEFAULTS["inputs_weekly"],
             )
             paths["inputs_monthly"] = typer.prompt(
                 "Monthly input path",
-                default=PATH_DEFAULTS["inputs_monthly"],
+                default=Config.PATH_DEFAULTS["inputs_monthly"],
             )
             paths["inputs_static"] = typer.prompt(
                 "Static input path",
-                default=PATH_DEFAULTS["inputs_static"],
+                default=Config.PATH_DEFAULTS["inputs_static"],
             )
 
             typer.echo("\nOutput file paths:")
             paths["outputs_daily"] = typer.prompt(
                 "Daily output path",
-                default=PATH_DEFAULTS["outputs_daily"],
+                default=Config.PATH_DEFAULTS["outputs_daily"],
             )
             paths["outputs_weekly"] = typer.prompt(
                 "Weekly output path",
-                default=PATH_DEFAULTS["outputs_weekly"],
+                default=Config.PATH_DEFAULTS["outputs_weekly"],
             )
             paths["outputs_monthly"] = typer.prompt(
                 "Monthly output path",
-                default=PATH_DEFAULTS["outputs_monthly"],
+                default=Config.PATH_DEFAULTS["outputs_monthly"],
             )
 
         typer.echo()
@@ -177,6 +167,6 @@ def init_config(
         )
 
     typer.echo(f"\nGenerating {output}... ", nl=False)
-    config = generate_config(builtin_models, custom_modules, paths)
+    config = make_config(builtin_models, custom_modules, paths)
     config.dump(output)
     typer.echo("Done!")

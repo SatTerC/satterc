@@ -6,9 +6,6 @@ by introspecting the Hamilton driver and discovering required inputs.
 
 from importlib import import_module
 import inspect
-import os
-import tomllib
-from pathlib import Path
 from typing import Any
 from types import ModuleType
 
@@ -16,126 +13,8 @@ from hamilton import driver
 from hamilton.settings import ENABLE_POWER_USER_MODE
 import xarray as xr
 
-from .pipeline import models
-
-
-class Config:
-    """Wrapper around configuration dict with TOML serialization."""
-
-    PATH_DEFAULTS = {
-        "inputs_daily": "inputs/daily.nc",
-        "inputs_weekly": "inputs/weekly.nc",
-        "inputs_monthly": "inputs/monthly.nc",
-        "inputs_static": "inputs/static.nc",
-        "outputs_daily": "outputs/daily.nc",
-        "outputs_weekly": "outputs/weekly.nc",
-        "outputs_monthly": "outputs/monthly.nc",
-    }
-
-    def __init__(self, data: dict[str, Any]) -> None:
-        """Initialize with a config dict."""
-        self._data = data
-
-    @classmethod
-    def from_path(cls, path: str | os.PathLike) -> "Config":
-        """Load config from a TOML file."""
-        with open(path, "rb") as f:
-            data = tomllib.load(f)
-        return cls(data)
-
-    def dump(self, path: str | os.PathLike | None = None) -> str:
-        """Write config to a TOML file, or return string if path is None."""
-        toml_str = self._dict_to_toml()
-
-        if path is not None:
-            Path(path).write_text(toml_str)
-
-        return toml_str
-
-    def __str__(self) -> str:
-        """Return TOML string representation."""
-        return self.dump()
-
-    @staticmethod
-    def _format_list(items: list[Any], indent: int = 2) -> str:
-        """Format a list as a TOML array."""
-        prefix = " " * indent
-        if not items:
-            return "[]"
-        lines = ["["]
-        for item in items:
-            if isinstance(item, str):
-                lines.append(f'{prefix}  "{item}",')
-            else:
-                lines.append(f"{prefix}  {item},")
-        lines.append(f"{prefix}]")
-        return "\n".join(lines)
-
-    @staticmethod
-    def _format_value(value: Any) -> str:
-        """Format a simple value for TOML."""
-        if isinstance(value, str):
-            return f'"{value}"'
-        return str(value)
-
-    def _dict_to_toml(self) -> str:
-        """Serialize config dict to TOML string."""
-        d = self._data
-        lines = []
-
-        if "modules" in d:
-            lines.append("modules = [")
-            for m in d["modules"]:
-                lines.append(f'  "{m}",')
-            lines.append("]")
-
-        if "extra_modules" in d:
-            lines.append("")
-            lines.append("extra_modules = [")
-            for m in d["extra_modules"]:
-                lines.append(f'  "{m}",')
-            lines.append("]")
-
-        if "extra_config" in d:
-            lines.append("")
-            lines.append("[extra_config]")
-            for k, v in d["extra_config"].items():
-                lines.append(f"{k} = {self._format_value(v)}")
-
-        if "models" in d:
-            for model_name, params in d["models"].items():
-                if params:
-                    lines.append("")
-                    lines.append(f"[models.{model_name}]")
-                    for k, v in params.items():
-                        lines.append(f"{k} = {self._format_value(v)}")
-
-        if "inputs" in d:
-            for section in ["daily", "weekly", "monthly", "static"]:
-                if section in d["inputs"]:
-                    data = d["inputs"][section]
-                    lines.append("")
-                    lines.append(f"[inputs.{section}]")
-                    lines.append(f'path = "{data["path"]}"')
-                    lines.append(f"vars = {self._format_list(data['vars'])}")
-
-        if "resample" in d:
-            lines.append("")
-            lines.append("[resample]")
-            for key in ["daily_to_weekly", "daily_to_monthly", "weekly_to_monthly"]:
-                if key in d["resample"]:
-                    lines.append(f"{key} = {self._format_list(d['resample'][key])}")
-
-        if "outputs" in d:
-            for section in ["daily", "weekly", "monthly", "static"]:
-                if section in d["outputs"]:
-                    data = d["outputs"][section]
-                    lines.append("")
-                    lines.append(f"[outputs.{section}]")
-                    lines.append(f'path = "{data["path"]}"')
-                    lines.append(f"vars = {self._format_list(data['vars'])}")
-
-        return "\n".join(lines)
+from ..config import Config
+from ..pipeline import models
 
 
 def analyze_model_module(
@@ -204,7 +83,7 @@ def get_builtin_models() -> list[str]:
 
 def get_model_params(model_name: str) -> dict[str, Any]:
     """Extract parameters from <model_name>_parameters() function signature."""
-    builtin_models = list(models.__all__)
+    builtin_models = get_builtin_models()
     module_path = (
         f"satterc.pipeline.models.{model_name}"
         if model_name in builtin_models
@@ -318,7 +197,7 @@ def infer_required_data(model_names: list[str]) -> dict[str, list[str]]:
     }
 
 
-def generate_config(
+def make_config(
     builtin_models: list[str],
     custom_modules: list[str],
     paths: dict[str, str],
@@ -339,6 +218,9 @@ def generate_config(
     Config
         Configuration object.
     """
+    required_data = infer_required_data(builtin_models)
+    rothc_params = get_model_params("rothc")
+
     modules = [f"models.{m}" for m in builtin_models]
     modules += [
         "inputs.daily",
@@ -351,29 +233,26 @@ def generate_config(
         "outputs.monthly",
     ]
 
-    required_data = infer_required_data(builtin_models)
-    rothc_params = get_model_params("rothc")
-
-    config: dict[str, Any] = {
+    config_data: dict[str, Any] = {
         "modules": modules,
     }
 
     if custom_modules:
-        config["extra_modules"] = custom_modules
+        config_data["extra_modules"] = custom_modules
 
-    config["extra_config"] = {
+    config_data["extra_config"] = {
         "n_years_spinup": rothc_params.get("n_years_spinup", 1)
         if "rothc" in builtin_models
         else 1
     }
 
-    config["models"] = {}
+    config_data["models"] = {}
     for model in builtin_models:
         params = get_model_params(model)
         if params:
-            config["models"][model] = params
+            config_data["models"][model] = params
 
-    config["inputs"] = {
+    config_data["inputs"] = {
         "daily": {"path": paths["inputs_daily"], "vars": required_data["inputs_daily"]},
         "weekly": {
             "path": paths["inputs_weekly"],
@@ -389,13 +268,13 @@ def generate_config(
         },
     }
 
-    config["resample"] = {
+    config_data["resample"] = {
         "daily_to_weekly": required_data["resample_daily_to_weekly"],
         "daily_to_monthly": required_data["resample_daily_to_monthly"],
         "weekly_to_monthly": required_data["resample_weekly_to_monthly"],
     }
 
-    config["outputs"] = {
+    config_data["outputs"] = {
         "daily": {
             "path": paths["outputs_daily"],
             "vars": required_data["outputs_daily"],
@@ -410,4 +289,4 @@ def generate_config(
         },
     }
 
-    return Config(config)
+    return Config(config_data)
