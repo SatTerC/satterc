@@ -30,20 +30,127 @@ def _parse_duration(duration: str) -> int:
         return int(value * 365.25)
 
 
-def _display_remaining_models(remaining: list[str], n_cols: int = 4) -> None:
-    """Display remaining unselected models in columns."""
+def _parse_selections(selection_str: str) -> list[str]:
+    """Parse comma/space-separated selection into list of items."""
+    items = re.split(r"[,\s]+", selection_str.strip())
+    return [item for item in items if item]
+
+
+def _display_models(models: list[str], selected: set[str], n_cols: int = 4) -> None:
+    """Display available models with [x] next to selected ones in columns."""
     typer.echo("\nAvailable models:")
-    if remaining:
-        for i in range(0, len(remaining), n_cols):
-            row = remaining[i : i + n_cols]
-            parts = []
-            for j, model in enumerate(row):
-                idx = i + j + 1
-                parts.append(f"[{idx}] {model}")
-            typer.echo("  " + "  ".join(parts))
-    else:
-        typer.echo("  (all built-in models selected)")
-    typer.echo("  (type any non-number for custom module path)")
+    for i in range(0, len(models), n_cols):
+        row = models[i : i + n_cols]
+        parts = []
+        for j, model in enumerate(row):
+            idx = i + j + 1
+            marker = "x" if model in selected else " "
+            parts.append(f"[{marker}] {idx}: {model}")
+        typer.echo("  " + "  ".join(parts))
+
+
+def _toggle_selections(
+    current: list[str],
+    selections: list[str],
+    available: set[str] | None = None,
+) -> list[str]:
+    """Toggle items in/out of selection list.
+
+    Args:
+        current: Currently selected items
+        selections: Items to toggle
+        available: Optional set of valid items for validation
+
+    Returns:
+        Updated list with toggled items
+    """
+    for item in selections:
+        if available and item not in available:
+            continue
+        if item in current:
+            current.remove(item)
+        else:
+            current.append(item)
+    return current
+
+
+def _select_builtin_models() -> list[str]:
+    """Interactive selection loop for built-in models.
+
+    Returns a list of selected built-in model names.
+    """
+    builtin_models = get_builtin_models()
+    selected: list[str] = []
+    available_set = set(builtin_models)
+
+    while True:
+        typer.echo(f"\nSelected: {', '.join(selected) or '(none)'}")
+        _display_models(builtin_models, set(selected))
+        typer.echo("  (enter numbers or names, comma or space separated, 0 when done)")
+
+        choice = typer.prompt(
+            "\nSelect models",
+            default="",
+            show_default=False,
+            prompt_suffix="\n> ",
+        ).strip()
+
+        if choice == "" or choice == "0":
+            if not selected:
+                typer.echo("  Error: You must select at least one model!")
+                continue
+            break
+
+        selections = _parse_selections(choice)
+
+        validated_selections = []
+        for token in selections:
+            if token.isdigit():
+                idx = int(token)
+                if 1 <= idx <= len(builtin_models):
+                    validated_selections.append(builtin_models[idx - 1])
+                else:
+                    typer.echo(f"  Invalid number: {token}")
+            else:
+                if token in available_set:
+                    validated_selections.append(token)
+                else:
+                    typer.echo(f"  Unknown model: {token}")
+
+        _toggle_selections(selected, validated_selections)
+
+    return selected
+
+
+def _select_custom_modules() -> list[str]:
+    """Interactive selection loop for custom module paths.
+
+    Returns a list of custom module paths.
+    """
+    selected: list[str] = []
+
+    while True:
+        typer.echo(f"\nSelected: {', '.join(selected) or '(none)'}")
+
+        choice = typer.prompt(
+            "Enter module paths (comma or space separated, 0 when done)",
+            default="",
+            show_default=False,
+            prompt_suffix="\n> ",
+        ).strip()
+
+        if choice == "" or choice == "0":
+            break
+
+        selections = _parse_selections(choice)
+
+        for item in selections:
+            action = "Removed" if item in selected else "Added"
+            typer.echo(f"  {action}: {item}")
+
+        _toggle_selections(selected, selections)
+
+    return selected
 
 
 def _select_models() -> tuple[list[str], list[str]]:
@@ -51,63 +158,8 @@ def _select_models() -> tuple[list[str], list[str]]:
 
     Returns a tuple of (builtin_models, custom_modules).
     """
-    builtin_models = get_builtin_models()
-    remaining = list(builtin_models)
-    selected_builtin: list[str] = []
-    selected_custom: list[str] = []
-
-    while True:
-        all_selected = selected_builtin + selected_custom
-        typer.echo(
-            f"\nModels selected: {', '.join(all_selected) if all_selected else '(none)'}"
-        )
-        _display_remaining_models(remaining)
-
-        choice = typer.prompt(
-            "\nSelect models (e.g. '1', '1 2', 'mypackage.mymodule', or leave blank to continue)",
-            default="",
-            show_default=False,
-            prompt_suffix="\n> ",
-        ).strip()
-
-        if choice == "":
-            if not all_selected:
-                typer.echo("  Error: You must select at least one model!")
-                continue
-            break
-
-        if choice == "0":
-            if not all_selected:
-                typer.echo("  Error: You must select at least one model!")
-                continue
-            break
-
-        tokens = choice.split()
-        indices_to_remove = []
-        custom_paths = []
-
-        for token in tokens:
-            if token.isdigit():
-                idx = int(token)
-                if 1 <= idx <= len(remaining):
-                    indices_to_remove.append(idx - 1)
-                else:
-                    typer.echo(f"  Invalid number: {token}")
-            else:
-                if token in selected_custom:
-                    typer.echo(f"  '{token}' already selected")
-                else:
-                    custom_paths.append(token)
-
-        for idx in sorted(indices_to_remove, reverse=True):
-            model_name = remaining[idx]
-            selected_builtin.append(model_name)
-            remaining.remove(model_name)
-
-        for custom_path in custom_paths:
-            selected_custom.append(custom_path)
-            typer.echo(f"  Added custom module: {custom_path}")
-
+    selected_builtin = _select_builtin_models()
+    selected_custom = _select_custom_modules()
     return selected_builtin, selected_custom
 
 

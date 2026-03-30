@@ -1,3 +1,5 @@
+from enum import StrEnum
+
 from .config_gen import (
     generate_config,
     analyze_model_module,
@@ -5,3 +7,10 @@ from .config_gen import (
     get_builtin_models,
     get_model_params,
 )
+
+
+class BuiltinModels(StrEnum):
+    SPLASH = "splash"
+    PMODEL = "pmodel"
+    SGAM = "sgam"
+    ROTHC = "rothc"
