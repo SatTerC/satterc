@@ -6,7 +6,7 @@ from pathlib import Path
 import typer
 
 from ..config import Config
-from ..setup_utils import generate_config, get_builtin_models
+from ..setup_utils import BuiltinModels, generate_config, get_builtin_models
 from ..setup_utils.data_gen import generate_synthetic_data
 
 app = typer.Typer(help="Generate a configuration file for SatTerC.")
@@ -153,18 +153,14 @@ def _select_custom_modules() -> list[str]:
     return selected
 
 
-def _select_models() -> tuple[list[str], list[str]]:
-    """Interactive model selection loop.
-
-    Returns a tuple of (builtin_models, custom_modules).
-    """
-    selected_builtin = _select_builtin_models()
-    selected_custom = _select_custom_modules()
-    return selected_builtin, selected_custom
-
-
 @app.command()
 def setup(
+    models: str | None = typer.Option(
+        None,
+        "-m",
+        "--models",
+        help="Built-in models (e.g., -m splash pmodel). If not provided, runs interactive selector.",
+    ),
     output: Path = typer.Option(
         Path("config.toml"),
         "-o",
@@ -175,20 +171,33 @@ def setup(
         False,
         "-d",
         "--defaults",
-        help="Use default values without prompting.",
+        help="Use default values without interactive prompting.",
     ),
 ) -> None:
     """Generate a configuration file for SatTerC."""
-    if defaults:
-        builtin_models = get_builtin_models()
-        custom_modules: list[str] = []
-        paths = dict(Config.PATH_DEFAULTS)
+    if defaults and models is None:
+        raise typer.BadParameter("--defaults requires --models to be specified")
+
+    if models is not None:
+        model_names = _parse_selections(models)
+        builtin_models = []
+        for name in model_names:
+            try:
+                builtin_models.append(BuiltinModels(name).value)
+            except ValueError:
+                raise typer.BadParameter(f"Invalid model: {name}")
     else:
         typer.echo("SatTerC Configuration Generator")
         typer.echo("=" * 35)
         typer.echo()
 
-        builtin_models, custom_modules = _select_models()
+        builtin_models = _select_builtin_models()
+
+    if defaults:
+        custom_modules: list[str] = []
+        paths = dict(Config.PATH_DEFAULTS)
+    else:
+        custom_modules = _select_custom_modules()
 
         use_defaults = typer.confirm(
             "Use default input/output paths?",
