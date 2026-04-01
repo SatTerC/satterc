@@ -72,8 +72,8 @@ class DatetimeIndexValidator(DataValidator):
     def __init__(self, freq: str) -> None:
         super().__init__(importance="fail")
 
-        if freq not in ("D", "W-SUN", "ME"):
-            raise ValueError("`freq` must be one of 'D', 'W-SUN', or 'ME'")
+        if freq not in ("D", "W", "ME"):
+            raise ValueError("`freq` must be one of 'D', 'W', or 'ME'")
 
         self.freq = freq
 
