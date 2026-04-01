@@ -41,7 +41,7 @@ def stacked_weekly_inputs(loaded_weekly_inputs: xr.Dataset) -> xr.Dataset:
     return stack_spatial_dims(loaded_weekly_inputs)
 
 
-@check_output_custom(DatetimeIndexValidator("W-SUN"))
+@check_output_custom(DatetimeIndexValidator("W"))
 def dates_weekly(stacked_weekly_inputs: xr.Dataset) -> pd.DatetimeIndex:
     """Extract weekly datetime index from dataset.
 

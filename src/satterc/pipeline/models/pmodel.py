@@ -192,4 +192,4 @@ def mean_growth_temperature_weekly(
 
     # Compute weekly mean, masking non-growing degree days
     # TODO: if the whole week is < 0, this will include NaN. Need to check pmodel can deal with this!
-    return temperature_celcius_daily.where(gdd_mask).resample(time="W").mean()
+    return temperature_celcius_daily.where(gdd_mask).resample(time="7D").mean()

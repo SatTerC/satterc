@@ -19,7 +19,7 @@ from ._hamilton_fixes import FixedResolve, NoOpDecorator
 )
 def resample_daily_to_weekly(var_daily: xr.DataArray) -> xr.DataArray:
     """Resamples daily xarray data to weekly mean."""
-    return var_daily.resample(time="1W").mean()
+    return var_daily.resample(time="7D").mean()
 
 
 @FixedResolve(
