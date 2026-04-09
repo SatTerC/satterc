@@ -2,16 +2,20 @@ import xarray as xr
 from hamilton.function_modifiers import group, inject, source
 from hamilton.function_modifiers.delayed import ResolveAt
 
-from .._hamilton_fixes import FixedResolve
+from .._hamilton_fixes import FixedResolve, NoOpDecorator
 from ._utils import _save_dataset
 
 
 @FixedResolve(
     when=ResolveAt.CONFIG_AVAILABLE,
-    decorate_with=lambda monthly_outputs_vars: inject(
-        monthly_outputs_list=group(
-            *[source(f"{var}_monthly") for var in monthly_outputs_vars]
+    decorate_with=lambda monthly_outputs_vars: (
+        inject(
+            monthly_outputs_list=group(
+                *[source(f"{var}_monthly") for var in monthly_outputs_vars]
+            )
         )
+        if monthly_outputs_vars
+        else NoOpDecorator()
     ),
 )
 def merged_monthly_outputs(

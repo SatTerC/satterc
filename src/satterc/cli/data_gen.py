@@ -6,7 +6,7 @@ import typer
 from typer import Abort
 
 from ..config import load_config
-from ..synthetic_data import generate_synthetic_data
+from ..setup_utils.data_gen import generate_synthetic_data
 
 
 app = typer.Typer(help="Generate synthetic input data for testing.")
@@ -58,7 +58,7 @@ def _validate_output_paths(
 
 
 @app.command()
-def synthetic(
+def generate(
     config_file: Annotated[
         Path,
         typer.Argument(

@@ -6,7 +6,7 @@ import xarray as xr
 from hamilton.function_modifiers import check_output_custom, extract_fields, ResolveAt
 
 from ._utils import load_dataset, stack_spatial_dims, DatetimeIndexValidator
-from .._hamilton_fixes import FixedResolve
+from .._hamilton_fixes import FixedResolve, NoOpDecorator
 
 
 def loaded_weekly_inputs(weekly_inputs_path: str | PathLike) -> xr.Dataset:
@@ -60,8 +60,10 @@ def dates_weekly(stacked_weekly_inputs: xr.Dataset) -> pd.DatetimeIndex:
 
 @FixedResolve(
     when=ResolveAt.CONFIG_AVAILABLE,
-    decorate_with=lambda weekly_inputs_vars: extract_fields(
-        {f"{var}_weekly": xr.DataArray for var in weekly_inputs_vars}
+    decorate_with=lambda weekly_inputs_vars: (
+        extract_fields({f"{var}_weekly": xr.DataArray for var in weekly_inputs_vars})
+        if weekly_inputs_vars
+        else NoOpDecorator()
     ),
 )
 def split_weekly_inputs(

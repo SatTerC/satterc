@@ -6,7 +6,7 @@ import xarray as xr
 from hamilton.function_modifiers import check_output_custom, extract_fields, ResolveAt
 
 from ._utils import load_dataset, stack_spatial_dims, DatetimeIndexValidator
-from .._hamilton_fixes import FixedResolve
+from .._hamilton_fixes import FixedResolve, NoOpDecorator
 
 
 def loaded_daily_inputs(daily_inputs_path: str | PathLike) -> xr.Dataset:
@@ -43,8 +43,10 @@ def stacked_daily_inputs(loaded_daily_inputs: xr.Dataset) -> xr.Dataset:
 
 @FixedResolve(
     when=ResolveAt.CONFIG_AVAILABLE,
-    decorate_with=lambda daily_inputs_vars: extract_fields(
-        {f"{var}_daily": xr.DataArray for var in daily_inputs_vars}
+    decorate_with=lambda daily_inputs_vars: (
+        extract_fields({f"{var}_daily": xr.DataArray for var in daily_inputs_vars})
+        if daily_inputs_vars
+        else NoOpDecorator()
     ),
 )
 def split_daily_inputs(

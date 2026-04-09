@@ -10,7 +10,7 @@ from hamilton import driver
 from hamilton.settings import ENABLE_POWER_USER_MODE
 
 from . import daily, static
-from ..pipeline import outputs, resample
+from ...pipeline import outputs, resample
 
 
 def _set_random_seed(seed: int) -> None:

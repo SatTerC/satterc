@@ -2,14 +2,16 @@ import xarray as xr
 from hamilton.function_modifiers import group, inject, source
 from hamilton.function_modifiers.delayed import ResolveAt
 
-from .._hamilton_fixes import FixedResolve
+from .._hamilton_fixes import FixedResolve, NoOpDecorator
 from ._utils import _save_dataset
 
 
 @FixedResolve(
     when=ResolveAt.CONFIG_AVAILABLE,
-    decorate_with=lambda static_outputs_vars: inject(
-        static_outputs_list=group(*[source(var) for var in static_outputs_vars])
+    decorate_with=lambda static_outputs_vars: (
+        inject(static_outputs_list=group(*[source(var) for var in static_outputs_vars]))
+        if static_outputs_vars
+        else NoOpDecorator()
     ),
 )
 def merged_static_outputs(

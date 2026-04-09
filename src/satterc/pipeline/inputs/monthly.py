@@ -6,7 +6,7 @@ import xarray as xr
 from hamilton.function_modifiers import check_output_custom, extract_fields, ResolveAt
 
 from ._utils import load_dataset, stack_spatial_dims, DatetimeIndexValidator
-from .._hamilton_fixes import FixedResolve
+from .._hamilton_fixes import FixedResolve, NoOpDecorator
 
 
 def loaded_monthly_inputs(monthly_inputs_path: str | PathLike) -> xr.Dataset:
@@ -60,8 +60,10 @@ def dates_monthly(stacked_monthly_inputs: xr.Dataset) -> pd.DatetimeIndex:
 
 @FixedResolve(
     when=ResolveAt.CONFIG_AVAILABLE,
-    decorate_with=lambda monthly_inputs_vars: extract_fields(
-        {f"{var}_monthly": xr.DataArray for var in monthly_inputs_vars}
+    decorate_with=lambda monthly_inputs_vars: (
+        extract_fields({f"{var}_monthly": xr.DataArray for var in monthly_inputs_vars})
+        if monthly_inputs_vars
+        else NoOpDecorator()
     ),
 )
 def split_monthly_inputs(

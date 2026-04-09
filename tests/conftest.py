@@ -4,7 +4,7 @@ import pytest
 import xarray as xr
 
 from satterc.config import load_config
-from satterc.synthetic_data import generate_synthetic_data
+from satterc.setup_utils.data_gen import generate_synthetic_data
 
 
 TEST_CONFIG_PATH = Path(__file__).parent / "test_config.toml"

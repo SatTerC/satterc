@@ -28,6 +28,7 @@ def run(
     dr = build_driver(
         modules=parsed["modules"],
         config=parsed["driver_config"],
+        extra_modules=parsed.get("extra_modules"),
         allow_module_overrides=allow_overrides,
     )
 

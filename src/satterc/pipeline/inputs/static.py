@@ -4,7 +4,7 @@ import xarray as xr
 from hamilton.function_modifiers import extract_fields, ResolveAt
 
 from ._utils import load_dataset, stack_spatial_dims
-from .._hamilton_fixes import FixedResolve
+from .._hamilton_fixes import FixedResolve, NoOpDecorator
 
 
 def loaded_static_inputs(static_inputs_path: str | PathLike) -> xr.Dataset:
@@ -41,8 +41,10 @@ def stacked_static_inputs(loaded_static_inputs: xr.Dataset) -> xr.Dataset:
 
 @FixedResolve(
     when=ResolveAt.CONFIG_AVAILABLE,
-    decorate_with=lambda static_inputs_vars: extract_fields(
-        {var: xr.DataArray for var in static_inputs_vars}
+    decorate_with=lambda static_inputs_vars: (
+        extract_fields({var: xr.DataArray for var in static_inputs_vars})
+        if static_inputs_vars
+        else NoOpDecorator()
     ),
 )
 def split_static_inputs(
