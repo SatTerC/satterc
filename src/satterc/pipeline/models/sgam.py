@@ -4,8 +4,81 @@ import pandas as pd
 from numpy.typing import NDArray
 import xarray as xr
 from sgam import Disturbances, Sgam
+from sgam.pft import PlantFunctionalType, PftParams, get_default_pft_params
 
 from ._utils import xarray_io
+
+
+def _pft_int_to_enum(value: int) -> PlantFunctionalType:
+    return list(PlantFunctionalType)[value]
+
+
+def _build_pft_params_dataset(plant_type: xr.DataArray) -> xr.Dataset:
+    field_names = [
+        "leaf_base_allocation",
+        "stem_base_allocation",
+        "root_base_allocation",
+        "leaf_turnover_rate",
+        "stem_turnover_rate",
+        "root_turnover_rate",
+        "lue_max",
+        "iwue_max",
+        "disturbance_threshold",
+        "disturbance_leaf_loss_frac",
+        "leaf_carbon_area",
+        "wilting_point",
+        "field_capacity",
+        "vpd_threshold",
+        "vpd_sensitivity",
+    ]
+
+    pft_vars: dict[str, xr.DataArray] = {}
+    for field_name in field_names:
+        values = []
+        for pft_int in plant_type.values:
+            pft_enum = _pft_int_to_enum(int(pft_int))
+            params = get_default_pft_params(pft_enum)
+            values.append(getattr(params, field_name))
+        pft_vars[field_name] = xr.DataArray(data=np.array(values), dims=["pixel"])
+
+    return xr.Dataset(pft_vars)
+
+
+def _pft_params_from_dataset(ds: xr.Dataset, pixel_idx: int) -> PftParams:
+    return PftParams(
+        leaf_base_allocation=ds["leaf_base_allocation"].values[pixel_idx],
+        stem_base_allocation=ds["stem_base_allocation"].values[pixel_idx],
+        root_base_allocation=ds["root_base_allocation"].values[pixel_idx],
+        leaf_turnover_rate=ds["leaf_turnover_rate"].values[pixel_idx],
+        stem_turnover_rate=ds["stem_turnover_rate"].values[pixel_idx],
+        root_turnover_rate=ds["root_turnover_rate"].values[pixel_idx],
+        lue_max=ds["lue_max"].values[pixel_idx],
+        iwue_max=ds["iwue_max"].values[pixel_idx],
+        disturbance_threshold=ds["disturbance_threshold"].values[pixel_idx],
+        disturbance_leaf_loss_frac=ds["disturbance_leaf_loss_frac"].values[pixel_idx],
+        leaf_carbon_area=ds["leaf_carbon_area"].values[pixel_idx],
+        wilting_point=ds["wilting_point"].values[pixel_idx],
+        field_capacity=ds["field_capacity"].values[pixel_idx],
+        vpd_threshold=ds["vpd_threshold"].values[pixel_idx],
+        vpd_sensitivity=ds["vpd_sensitivity"].values[pixel_idx],
+    )
+
+
+def pft_params(plant_type: xr.DataArray) -> xr.Dataset:
+    """Get PFT parameters for each pixel based on plant_type.
+
+    Parameters
+    ----------
+    plant_type : xr.DataArray
+        Plant functional type as integer (0=tree, 1=grass, 2=shrub, 3=crop).
+        Dims: ["pixel"].
+
+    Returns
+    -------
+    xr.Dataset
+        Dataset with dimension (pixel) containing PFT parameters for each pixel.
+    """
+    return _build_pft_params_dataset(plant_type)
 
 
 @xarray_io()
@@ -73,7 +146,8 @@ def disturbances_weekly(disturbances_daily: xr.DataArray) -> xr.DataArray:
 
 @xarray_io()
 def _sgam(
-    plant_type: NDArray[np.str_],
+    plant_type: NDArray[np.int_],
+    pft_params: xr.Dataset,
     temperature_celcius_weekly: NDArray[np.float64],
     gpp_weekly: NDArray[np.float64],
     soil_moisture_weekly: NDArray[np.float64],
@@ -93,11 +167,10 @@ def _sgam(
     results_all_pixels = []
 
     for i in range(len(plant_type)):
-        # BUG: plant_type in synthetic data is integer - need to map onto valid 15:1515:15PFT string
-        # This is a temporary hack to check pipeline actually executes.
-        from sgam.pft import PlantFunctionalType
+        pft_enum = _pft_int_to_enum(int(plant_type[i]))
+        params = _pft_params_from_dataset(pft_params, i)
 
-        results_i = Sgam(PlantFunctionalType.GRASS)(
+        results_i = Sgam(plant_type=pft_enum, pft_params=params)(
             gpp=gpp_weekly[:, i],
             temperature=temperature_celcius_weekly[:, i],
             soil_moisture=soil_moisture_weekly[:, i],
@@ -141,6 +214,7 @@ def _sgam(
 )
 def sgam(
     plant_type: xr.DataArray,
+    pft_params: xr.Dataset,
     temperature_celcius_weekly: xr.DataArray,
     gpp_weekly: xr.DataArray,
     soil_moisture_weekly: xr.DataArray,
@@ -158,7 +232,9 @@ def sgam(
     Parameters
     ----------
     plant_type : xr.DataArray
-        Plant functional type.
+        Plant functional type as integer (0=tree, 1=grass, 2=shrub, 3=crop).
+    pft_params : xr.Dataset
+        PFT parameters for each pixel. Output of pft_params node.
     temperature_celcius_weekly : xr.DataArray
         Weekly air temperature (degrees Celsius).
     gpp_weekly : xr.DataArray
@@ -189,6 +265,7 @@ def sgam(
     """
     return _sgam(
         plant_type=plant_type.values,
+        pft_params=pft_params,
         temperature_celcius_weekly=temperature_celcius_weekly,
         gpp_weekly=gpp_weekly,
         soil_moisture_weekly=soil_moisture_weekly,
