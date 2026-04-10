@@ -3,7 +3,7 @@ import numpy as np
 import pandas as pd
 from numpy.typing import NDArray
 import xarray as xr
-from sgam import Disturbances, SgamComponent
+from sgam import Disturbances, Sgam
 
 from ._utils import xarray_io
 
@@ -93,11 +93,11 @@ def _sgam(
     results_all_pixels = []
 
     for i in range(len(plant_type)):
-        # BUG: plant_type in synthetic data is integer - need to map onto valid PFT string
+        # BUG: plant_type in synthetic data is integer - need to map onto valid 15:1515:15PFT string
         # This is a temporary hack to check pipeline actually executes.
         from sgam.pft import PlantFunctionalType
 
-        results_i = SgamComponent(PlantFunctionalType.GRASS)(
+        results_i = Sgam(PlantFunctionalType.GRASS)(
             gpp=gpp_weekly[:, i],
             temperature=temperature_celcius_weekly[:, i],
             soil_moisture=soil_moisture_weekly[:, i],
