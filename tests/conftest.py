@@ -4,6 +4,8 @@ import pytest
 import xarray as xr
 
 from satterc.config import load_config
+from satterc.driver import build_driver
+from satterc.pipeline.inputs import grid
 from satterc.setup_utils.data_gen import generate_synthetic_data
 
 
@@ -16,11 +18,7 @@ SEED = 42
 
 @pytest.fixture(scope="session")
 def synthetic_data_dir(tmp_path_factory):
-    """Generate synthetic data once per test session.
-
-    Creates test data in a temporary directory that's automatically
-    cleaned up after the test session ends.
-    """
+    """Generate synthetic data once per test session."""
     data_dir = tmp_path_factory.mktemp("synthetic_data")
 
     config = load_config(TEST_CONFIG_PATH)
@@ -45,25 +43,60 @@ def synthetic_data_dir(tmp_path_factory):
     return data_dir
 
 
-@pytest.fixture
+@pytest.fixture(scope="session")
 def daily_ds(synthetic_data_dir):
     """Load daily synthetic dataset."""
     return xr.open_dataset(synthetic_data_dir / "daily.nc", decode_coords="all")
 
 
-@pytest.fixture
+@pytest.fixture(scope="session")
 def weekly_ds(synthetic_data_dir):
     """Load weekly synthetic dataset."""
     return xr.open_dataset(synthetic_data_dir / "weekly.nc", decode_coords="all")
 
 
-@pytest.fixture
+@pytest.fixture(scope="session")
 def monthly_ds(synthetic_data_dir):
     """Load monthly synthetic dataset."""
     return xr.open_dataset(synthetic_data_dir / "monthly.nc", decode_coords="all")
 
 
-@pytest.fixture
+@pytest.fixture(scope="session")
 def static_ds(synthetic_data_dir):
     """Load static synthetic dataset."""
     return xr.open_dataset(synthetic_data_dir / "static.nc", decode_coords="all")
+
+
+@pytest.fixture(scope="session")
+def common_grid_ds(daily_ds, weekly_ds, monthly_ds, static_ds):
+    """Compute the common grid once per session."""
+    return grid.common_grid(daily_ds, weekly_ds, monthly_ds, static_ds)
+
+
+@pytest.fixture(scope="session")
+def stacked_grid_ds(common_grid_ds):
+    """Compute the stacked grid once per session."""
+    return grid.stacked_grid(common_grid_ds)
+
+
+@pytest.fixture(scope="session")
+def pipeline_config(synthetic_data_dir):
+    """Load test config with all paths pointing to the synthetic data dir."""
+    config = load_config(TEST_CONFIG_PATH)
+    config["driver_config"]["daily_inputs_path"] = str(synthetic_data_dir / "daily.nc")
+    config["driver_config"]["weekly_inputs_path"] = str(synthetic_data_dir / "weekly.nc")
+    config["driver_config"]["monthly_inputs_path"] = str(synthetic_data_dir / "monthly.nc")
+    config["driver_config"]["static_inputs_path"] = str(synthetic_data_dir / "static.nc")
+    config["driver_config"]["daily_outputs_path"] = str(synthetic_data_dir / "out_daily.nc")
+    config["driver_config"]["weekly_outputs_path"] = str(synthetic_data_dir / "out_weekly.nc")
+    config["driver_config"]["monthly_outputs_path"] = str(synthetic_data_dir / "out_monthly.nc")
+    return config
+
+
+@pytest.fixture(scope="session")
+def pipeline_driver(pipeline_config):
+    """Build Hamilton driver for integration tests."""
+    return build_driver(
+        pipeline_config["modules"],
+        pipeline_config["driver_config"],
+    )

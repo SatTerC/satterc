@@ -99,7 +99,12 @@ class TestPassthroughBehavior:
 
 
 class TestInputDataArrayDimensionVariations:
-    """Tests for different DataArray input dimension configurations."""
+    """Tests for different DataArray input dimension configurations.
+
+    The decorator requires at least one 2D DataArray input with dims (time, pixel)
+    and a DatetimeIndex on the time coordinate. 1D inputs are not supported as the
+    sole input — the decorator cannot determine coordinates for the output.
+    """
 
     def test_datarray_2d_input_time_pixel(self, ref_datarray_2d):
         @xarray_io()
@@ -111,26 +116,25 @@ class TestInputDataArrayDimensionVariations:
         assert result.dims == ("time", "pixel")
         np.testing.assert_array_equal(result.values, ref_datarray_2d.values * 2)
 
-    @pytest.mark.xfail(reason="decorator requires 2D DataArray with time dimension")
-    def test_datarray_1d_input_pixel_only(self, ref_datarray_1d):
+    def test_datarray_1d_input_pixel_only_raises(self, ref_datarray_1d):
+        """1D (pixel,) DataArray is not a valid reference — decorator raises."""
+
         @xarray_io()
         def func(arr):
             return arr * 2
 
-        result = func(ref_datarray_1d)
-        assert isinstance(result, xr.DataArray)
-        assert result.dims == ("pixel",)
-        np.testing.assert_array_equal(result.values, ref_datarray_1d.values * 2)
+        with pytest.raises(Exception, match="None of the xarray.DataArray inputs satisfy"):
+            func(ref_datarray_1d)
 
-    @pytest.mark.xfail(reason="decorator requires 2D DataArray with time dimension")
-    def test_datarray_1d_input_as_kwarg(self, ref_datarray_1d):
+    def test_datarray_1d_input_as_kwarg_raises(self, ref_datarray_1d):
+        """1D (pixel,) DataArray passed as kwarg is not a valid reference — decorator raises."""
+
         @xarray_io()
         def func(arr=None):
             return arr * 2
 
-        result = func(arr=ref_datarray_1d)
-        assert isinstance(result, xr.DataArray)
-        assert result.dims == ("pixel",)
+        with pytest.raises(Exception, match="None of the xarray.DataArray inputs satisfy"):
+            func(arr=ref_datarray_1d)
 
 
 class TestOutputDimensionTests:
