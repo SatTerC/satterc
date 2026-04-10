@@ -1,0 +1,10 @@
+{% extends "base.html" %}
+  {% block content %}
+  {% if "Examples/" in page.url and "/index.html" in page.url %}
+    <a href="exported.html"
+        class="md-button md-button--primary" style="margin-bottom: 1em;">
+        Open Marimo notebook
+      </a>
+  {% endif %}
+  {{ super() }}
+{% endblock %}
