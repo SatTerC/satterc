@@ -97,11 +97,18 @@ class DatetimeIndexValidator(DataValidator):
 
         inferred_freq = index.freqstr or pd.infer_freq(index)
 
+        if inferred_freq is None:
+            return ValidationResult(
+                passes=False,
+                message="Could not determine frequency from index",
+            )
+
         if self.freq == "W":
             weekly_prefixes = ("W", "7D")
-            passes = inferred_freq is not None and any(
-                inferred_freq.startswith(p) for p in weekly_prefixes
-            )
+            passes = any(inferred_freq.startswith(p) for p in weekly_prefixes)
+        elif self.freq == "ME":
+            monthly_prefixes = ("ME", "MS")
+            passes = any(inferred_freq.startswith(p) for p in monthly_prefixes)
         else:
             passes = inferred_freq == self.freq
 
