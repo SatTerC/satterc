@@ -75,3 +75,18 @@ class TestGridNodes:
         assert result["longitude"].sizes["pixel"] == N_PIXELS
 
 
+class TestFullPipeline:
+    """Test the complete pipeline execution including the targets list."""
+
+    def test_pipeline_executes_without_error(self, pipeline_driver, pipeline_config):
+        """Pipeline with no output vars should execute without error."""
+        pipeline_driver.execute(pipeline_config["targets"])
+
+    def test_no_output_files_written_when_vars_empty(
+        self, pipeline_driver, pipeline_config, synthetic_data_dir
+    ):
+        """With empty *_outputs_vars, output modules are not loaded — no files created."""
+        pipeline_driver.execute(pipeline_config["targets"])
+        assert not (synthetic_data_dir / "out_daily.nc").exists()
+        assert not (synthetic_data_dir / "out_weekly.nc").exists()
+        assert not (synthetic_data_dir / "out_monthly.nc").exists()

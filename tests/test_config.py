@@ -16,16 +16,10 @@ EXPECTED_MODULES = [
     "inputs.monthly",
     "inputs.static",
     "resample",
-    "outputs.daily",
-    "outputs.weekly",
-    "outputs.monthly",
+    # outputs.daily/weekly/monthly are absent — all have empty vars in test_config.toml
 ]
 
-EXPECTED_TARGETS = [
-    "save_daily_outputs",
-    "save_weekly_outputs",
-    "save_monthly_outputs",
-]
+EXPECTED_TARGETS = []  # no output vars → no targets
 
 
 @pytest.fixture(scope="module")
@@ -68,11 +62,12 @@ class TestDriverConfig:
         assert "monthly_inputs_path" in dc
         assert "static_inputs_path" in dc
 
-    def test_output_path_keys_present(self, parsed_config):
+    def test_output_path_keys_absent_when_vars_empty(self, parsed_config):
+        """Output paths are not added to driver_config when vars list is empty."""
         dc = parsed_config["driver_config"]
-        assert "daily_outputs_path" in dc
-        assert "weekly_outputs_path" in dc
-        assert "monthly_outputs_path" in dc
+        assert "daily_outputs_path" not in dc
+        assert "weekly_outputs_path" not in dc
+        assert "monthly_outputs_path" not in dc
 
     def test_input_vars_keys_present(self, parsed_config):
         dc = parsed_config["driver_config"]

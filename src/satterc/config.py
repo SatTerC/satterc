@@ -54,9 +54,13 @@ class Config:
                 driver_config[f"{freq}_inputs_vars"] = params.get("vars")
             elif section_name.startswith("outputs."):
                 _, freq = section_name.split(".", 1)
-                driver_config[f"{freq}_outputs_path"] = params.get("path")
-                driver_config[f"{freq}_outputs_vars"] = params.get("vars")
-                targets.append(f"save_{freq}_outputs")
+                vars_ = params.get("vars") or []
+                if vars_:
+                    driver_config[f"{freq}_outputs_path"] = params.get("path")
+                    driver_config[f"{freq}_outputs_vars"] = vars_
+                    targets.append(f"save_{freq}_outputs")
+                else:
+                    modules = [m for m in modules if m != f"outputs.{freq}"]
             else:
                 driver_config |= params
 
