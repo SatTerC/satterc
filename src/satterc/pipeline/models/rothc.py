@@ -205,12 +205,12 @@ def evaporation_monthly(
     # RothC expects monthly *open pan evaporation* NOT actual evapotranspiration.
 
 
-def soil_carbon_input_monthly(litter_to_soil_monthly: DataArray) -> DataArray:
+def soil_carbon_input_monthly(litter_pool_monthly: DataArray) -> DataArray:
     """Temporary bridge to map litter input to soil carbon input.
 
     Parameters
     ----------
-    litter_to_soil_monthly : DataArray
+    litter_pool_monthly : DataArray
         Monthly litter input (tC/ha).
 
     Returns
@@ -218,7 +218,7 @@ def soil_carbon_input_monthly(litter_to_soil_monthly: DataArray) -> DataArray:
     DataArray
         Monthly soil carbon input (tC/ha).
     """
-    return litter_to_soil_monthly
+    return litter_pool_monthly
 
 
 def inert_organic_matter(organic_carbon_stocks: DataArray) -> DataArray:

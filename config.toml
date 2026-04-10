@@ -75,7 +75,7 @@ daily_to_monthly = [
 ]
 
 weekly_to_monthly = [
-  "litter_to_soil",
+  "litter_pool",
 ]
 
 [outputs.daily]
@@ -90,19 +90,11 @@ vars = [
 path = "tmp/results/weekly.nc"
 vars = [
   "gpp",
-  "lue",
-  "iwue",
-  "leaf_pool_size",
-  "stem_pool_size",
-  "root_pool_size",
-  "leaf_respiration_loss",
-  "stem_respiration_loss",
-  "root_respiration_loss",
-  "litter_to_soil",
-  "disturbance_loss",
+  "leaf_pool",
+  "stem_pool",
+  "root_pool",
+  "litter_pool",
   "leaf_area_index",
-  "npp",
-  "cue",
 ]
 
 [outputs.monthly]

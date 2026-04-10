@@ -191,25 +191,23 @@ def _sgam(
         key: np.vstack([d[key] for d in results_all_pixels]) for key in keys
     }
 
-    # Append "_weekly" suffix to all keys
-    results_stacked = {f"{key}_weekly": value for key, value in results_stacked.items()}
+    # Rename litter_pool to litter_pool_weekly, drop removed
+    results_stacked = {
+        "leaf_pool_weekly": results_stacked.pop("leaf_pool"),
+        "stem_pool_weekly": results_stacked.pop("stem_pool"),
+        "root_pool_weekly": results_stacked.pop("root_pool"),
+        "litter_pool_weekly": results_stacked.pop("litter_pool"),
+    }
 
     return results_stacked
 
 
 @extract_fields(
     [
-        "leaf_pool_size_weekly",
-        "stem_pool_size_weekly",
-        "root_pool_size_weekly",
-        "leaf_respiration_loss_weekly",
-        "stem_respiration_loss_weekly",
-        "root_respiration_loss_weekly",
-        "litter_to_soil_weekly",
-        "disturbance_loss_weekly",
-        "leaf_area_index_weekly",
-        "npp_weekly",
-        "cue_weekly",
+        "leaf_pool_weekly",
+        "stem_pool_weekly",
+        "root_pool_weekly",
+        "litter_pool_weekly",
     ]
 )
 def sgam(
@@ -278,3 +276,26 @@ def sgam(
         stem_pool_init=stem_pool_init,
         root_pool_init=root_pool_init,
     )
+
+
+def leaf_area_index_weekly(
+    leaf_pool_weekly: xr.DataArray,
+    pft_params: xr.Dataset,
+) -> xr.DataArray:
+    """Compute leaf area index from leaf carbon pool.
+
+    Parameters
+    ----------
+    leaf_pool_weekly : xr.DataArray
+        Weekly leaf pool size (gC). Shape: (time, pixel).
+    pft_params : xr.Dataset
+        PFT parameters for each pixel. Contains leaf_carbon_area.
+
+    Returns
+    -------
+    xr.DataArray
+        Weekly leaf area index. Shape: (time, pixel).
+    """
+    leaf_carbon_area = pft_params["leaf_carbon_area"]
+    leaf_area_index = leaf_pool_weekly / leaf_carbon_area
+    return leaf_area_index.rename("leaf_area_index")
