@@ -17,7 +17,7 @@ edit:
 # Runs notebook.py as a python script and exports the result to notebook.html.
 [no-cd]
 export: lint md
-  {{prefix}} marimo export html notebook.py --output notebook.html --force
+  {{prefix}} marimo export html notebook.py --output exported.html --force
 
 # Generates a PDF visualisation of the DAG (requires graphviz to be installed).
 [no-cd]
@@ -28,8 +28,7 @@ graph:
 # Converts notebook.py to a markdown document.
 [no-cd]
 md:
-  {{prefix}} marimo export md notebook.py --output notebook.md --force
-  printf '\n---\n\n<a href="notebook.html" class="md-button md-button--primary">Open Marimo notebook</a>\n' >> notebook.md
+  {{prefix}} marimo export md notebook.py --output index.md --force
 
 # Runs ruff and marimo linters, and ruff formatter.
 [no-cd]

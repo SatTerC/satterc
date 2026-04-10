@@ -7,6 +7,19 @@ site_url = "https://satterc.github.io/satterc"
 use_directory_urls = false  # TODO: set to true once stable?
 copyright = "Copyright &copy; 2026 The authors"
 
+nav = [
+  {Home = "index.md"},
+  {Models = [
+    {PModel = "Models/pmodel.md"},
+    {RothC = "Models/rothc.md"},
+    {SGAM = "Models/sgam.md"},
+    {SPLASH = "Models/splash.md"},
+  ]},
+  {Examples = [
+    {"Demo" = "Examples/01-demo/index.md"},
+  ]},
+]
+
 # Katex
 extra_javascript = [
     "javascripts/katex.js",
@@ -18,6 +31,7 @@ extra_css = [
 ]
 
 [project.theme]
+custom_dir = "overrides"
 language = "en"
 features = [
     "announce.dismiss",
