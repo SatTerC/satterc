@@ -16,5 +16,5 @@ run:
   satterc run config.toml
 
 synth:
-  satterc synthetic config.toml
+  satterc data-gen generate config.toml
   satterc run config.toml

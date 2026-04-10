@@ -95,9 +95,20 @@ class DatetimeIndexValidator(DataValidator):
                 passes=False, message=f"Expected pd.DatetimeIndex, got {type(index)}"
             )
 
-        if not (freq := (index.freqstr or pd.infer_freq(index))) == self.freq:
+        inferred_freq = index.freqstr or pd.infer_freq(index)
+
+        if self.freq == "W":
+            weekly_prefixes = ("W", "7D")
+            passes = inferred_freq is not None and any(
+                inferred_freq.startswith(p) for p in weekly_prefixes
+            )
+        else:
+            passes = inferred_freq == self.freq
+
+        if not passes:
             return ValidationResult(
-                passes=False, message=f"Expected frequency {self.freq}, got {freq}"
+                passes=False,
+                message=f"Expected frequency {self.freq}, got {inferred_freq}",
             )
 
         return ValidationResult(passes=True, message="")
