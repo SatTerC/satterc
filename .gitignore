@@ -11,3 +11,6 @@ site/
 notes/
 tmp/
 *.nc
+
+*.html
+__marimo__/

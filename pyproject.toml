@@ -30,15 +30,22 @@ satterc = "satterc.cli:main"
 [dependency-groups]
 dev = [
     {include-group = "docs"},
+    {include-group = "examples"},
     {include-group = "test"},
     "ruff>=0.15.4",
     "rust-just>=1.46.0",
 ]
 docs = [
+    {include-group = "examples"},
     "mkdocstrings-python>=2.0.3",
     "zensical>=0.0.24",
 ]
+examples = [
+    "marimo>=0.23.0",
+    "matplotlib>=3.10.8",
+]
 test = [
+    {include-group = "examples"},
     "pytest>=9.0.2",
 ]
 
