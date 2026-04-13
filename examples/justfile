@@ -1,0 +1,23 @@
+# Default recipe to display available commands.
+_:
+  @just --list
+
+# Opens notebook.py in editable mode using the marimo browser interface.
+[no-cd]
+edit:
+  #uvx marimo edit --sandbox notebook.py
+  marimo edit notebook.py
+
+# Runs ruff and marimo linters, and ruff formatter.
+[no-cd]
+lint:
+  ruff check notebook.py
+  ruff format notebook.py
+  marimo check notebook.py
+
+# Opens notebook.py in read-only mode using the marimo browser interface.
+[no-cd]
+read:
+  #uvx marimo run --sandbox notebook.py
+  marimo run notebook.py
+
