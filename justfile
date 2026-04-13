@@ -17,15 +17,15 @@ test: lint
 docs:
   zensical build
 
-# Export a single example notebook to the docs.
-_export example:
-  # Export as Markdown file (won't have rendered outputs, sadly)
-  marimo export md "examples/{{example}}/notebook.py" --output "docs/Examples/{{example}}.md" --force
+# Export a single example notebook to docs/Examples/.
+export example:
+  # Export to Markdown file
+  marimo export md "examples/{{example}}.py" --output "docs/Examples/{{example}}.md" --no-sandbox --force
+  # Export to static HTML
+  marimo export html "examples/{{example}}.py" --output "docs/Examples/{{example}}-notebook.html" --no-sandbox --force
 
-  # Export as static HTML
-  marimo export html "examples/{{example}}/notebook.py" --output "docs/Examples/{{example}}-notebook.html" --force
-
-# Export all notebooks in examples/ to Markdown+HTML in docs/Examples/.
-export-examples:
+# Export all notebooks in examples/ to docs/Examples/.
+export-all:
   just _export 01-demo
+  just _export 00-getting-started
   

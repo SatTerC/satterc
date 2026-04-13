@@ -1,3 +1,10 @@
+# /// script
+# requires-python = ">=3.13"
+# dependencies = [
+#     "marimo",
+#     "matplotlib",
+# ]
+# ///
 import marimo
 
 __generated_with = "0.21.1"
@@ -16,14 +23,27 @@ def _(mo):
 
 @app.cell
 def _():
+    import tempfile
+    import tomllib
     from pathlib import Path
 
     import marimo as mo  # required for Markdown etc.
     import matplotlib.pyplot as plt
 
-    from satterc import load_config, build_driver
+    from satterc import build_driver
+    from satterc.config import Config
+    from satterc.setup_utils.data_gen import generate_synthetic_data
 
-    return Path, build_driver, load_config, mo, plt
+    return (
+        Config,
+        Path,
+        build_driver,
+        generate_synthetic_data,
+        mo,
+        plt,
+        tempfile,
+        tomllib,
+    )
 
 
 @app.cell(hide_code=True)
@@ -43,17 +63,138 @@ def _(mo):
 
 
 @app.cell
-def _(Path, load_config):
-    # Let's create a `pathlib.Path` object for the config file and check that it exists.
-    config_file = Path(__file__).parent / "config.toml"
-    assert config_file.exists()
+def _(Config, tomllib):
+    _config_toml = """
+modules = [
+  "models.pmodel",
+  "models.splash",
+  "models.sgam",
+  "models.rothc",
+  "inputs.daily",
+  "inputs.weekly",
+  "inputs.monthly",
+  "inputs.static",
+  "resample",
+  "outputs.daily",
+  "outputs.weekly",
+  "outputs.monthly",
+]
 
-    # Now we load / parse the config
-    parsed_config = load_config(config_file)
+[extra_config]
+n_years_spinup = 1
+
+[models.pmodel]
+method_kphio = "sandoval"
+method_optchi = "lavergne20_c3"
+
+[inputs.daily]
+path = "daily.nc"
+vars = [
+  "precipitation_mm",
+  "sunshine_fraction",
+  "temperature_celcius",
+  "lai",
+  "gpp",
+]
+
+[inputs.weekly]
+path = "weekly.nc"
+vars = [
+  "co2_ppm",
+  "fapar",
+  "ppfd_umol_m2_s1",
+  "pressure_pa",
+  "vpd_pa",
+]
+
+[inputs.monthly]
+path = "monthly.nc"
+vars = [
+  "dummy_variable",
+]
+
+[inputs.static]
+path = "static.nc"
+vars = [
+  "elevation",
+  "plant_type",
+  "max_soil_moisture",
+  "clay_content",
+  "soil_depth",
+  "organic_carbon_stocks",
+  "root_pool_init",
+  "leaf_pool_init",
+  "stem_pool_init",
+]
+
+[resample]
+daily_to_weekly = [
+  "temperature_celcius",
+  "precipitation_mm",
+  "soil_moisture",
+  "aridity_index",
+]
+
+daily_to_monthly = [
+  "temperature_celcius",
+  "precipitation_mm",
+  "actual_evapotranspiration",
+]
+
+weekly_to_monthly = [
+  "litter_pool",
+]
+
+[outputs.daily]
+path = "results/daily.nc"
+vars = [
+  "actual_evapotranspiration",
+  "soil_moisture",
+  "runoff",
+]
+
+[outputs.weekly]
+path = "results/weekly.nc"
+vars = [
+  "gpp",
+  "leaf_pool",
+  "stem_pool",
+  "root_pool",
+  "litter_pool",
+  "leaf_area_index",
+]
+
+[outputs.monthly]
+path = "results/monthly.nc"
+vars = [
+  "decomposable_plant_material",
+  "resistant_plant_material",
+  "microbial_biomass",
+  "humified_organic_matter",
+  "soil_organic_carbon",
+]
+"""
+
+    # Parse config directly from the TOML string (no file needed)
+    parsed_config = Config(tomllib.loads(_config_toml)).parse()
 
     # `parsed_config` contains (1) `modules`, (2) `driver_config`, (3) `targets`
     parsed_config
     return (parsed_config,)
+
+
+@app.cell
+def _(Path, generate_synthetic_data, parsed_config, tempfile):
+    # Generate synthetic input data into a temporary directory
+    _tmpdir = Path(tempfile.mkdtemp())
+
+    parsed_config["driver_config"]["daily_inputs_path"] = str(_tmpdir / "daily.nc")
+    parsed_config["driver_config"]["weekly_inputs_path"] = str(_tmpdir / "weekly.nc")
+    parsed_config["driver_config"]["monthly_inputs_path"] = str(_tmpdir / "monthly.nc")
+    parsed_config["driver_config"]["static_inputs_path"] = str(_tmpdir / "static.nc")
+
+    generate_synthetic_data(config=parsed_config, grid=(4, 4), n_days=365, seed=42)
+    return
 
 
 @app.cell(hide_code=True)
