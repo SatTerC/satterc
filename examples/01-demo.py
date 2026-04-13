@@ -193,7 +193,7 @@ def _(Path, generate_synthetic_data, parsed_config, tempfile):
     parsed_config["driver_config"]["monthly_inputs_path"] = str(_tmpdir / "monthly.nc")
     parsed_config["driver_config"]["static_inputs_path"] = str(_tmpdir / "static.nc")
 
-    generate_synthetic_data(config=parsed_config, grid=(4, 4), n_days=365, seed=42)
+    generate_synthetic_data(config=parsed_config, grid=(4, 4), n_days=730, seed=42)
     return
 
 

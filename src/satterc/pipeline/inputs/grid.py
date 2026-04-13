@@ -11,7 +11,13 @@ class MisalignedGridError(Exception):
     pass
 
 
-def _check_common_grid(ds1: xr.Dataset, ds2: xr.Dataset, atol: float = 1e-6) -> None:
+def _check_common_grid(
+    ds1: xr.Dataset,
+    ds2: xr.Dataset,
+    label1: str = "ds1",
+    label2: str = "ds2",
+    atol: float = 1e-6,
+) -> None:
     """Check that two Datasets share a common grid.
 
     Raises
@@ -21,19 +27,23 @@ def _check_common_grid(ds1: xr.Dataset, ds2: xr.Dataset, atol: float = 1e-6) -> 
     """
     # Check CRS metadata
     if not (ds1.rio.crs == ds2.rio.crs):
-        raise MisalignedGridError(f"Mismatched CRS! {ds1.rio.crs} ≠ {ds2.rio.crs}")
+        raise MisalignedGridError(
+            f"Mismatched CRS! {label1}={ds1.rio.crs} ≠ {label2}={ds2.rio.crs}"
+        )
 
     # Attempt to access dim names
     try:
         x1, y1 = ds1.rio.x_dim, ds1.rio.y_dim
         x2, y2 = ds2.rio.x_dim, ds2.rio.y_dim
     except AttributeError as e:
-        raise MisalignedGridError("Could not access (x, y) dims") from e
+        raise MisalignedGridError(
+            f"Could not access (x, y) dims for {label1} or {label2}"
+        ) from e
 
     # Check dim names agree
     if not (x1 == x2 and y1 == y2):
         raise MisalignedGridError(
-            f"Mismatched dimension names: ({x1}, {y1}) ≠ ({x2}, {y2})"
+            f"Mismatched dimension names: {label1}=({x1}, {y1}) ≠ {label2}=({x2}, {y2})"
         )
 
     # Check coord values
@@ -41,33 +51,44 @@ def _check_common_grid(ds1: xr.Dataset, ds2: xr.Dataset, atol: float = 1e-6) -> 
         np.testing.assert_allclose(ds1[x1].values, ds2[x2].values, atol=atol)
         np.testing.assert_allclose(ds1[y1].values, ds2[y2].values, atol=atol)
     except AssertionError as e:
-        raise MisalignedGridError("Mismatched coordinate values!") from e
+        raise MisalignedGridError(
+            f"Mismatched coordinate values between {label1} and {label2}!"
+        ) from e
 
 
-# TODO: fix this for the case that not every frequency of input is provided!
 def common_grid(
-    loaded_daily_inputs: xr.Dataset,
-    loaded_weekly_inputs: xr.Dataset,
-    loaded_monthly_inputs: xr.Dataset,
-    loaded_static_inputs: xr.Dataset,
+    loaded_daily_inputs: xr.Dataset | None = None,
+    loaded_weekly_inputs: xr.Dataset | None = None,
+    loaded_monthly_inputs: xr.Dataset | None = None,
+    loaded_static_inputs: xr.Dataset | None = None,
 ) -> xr.Dataset:
-    _check_common_grid(loaded_daily_inputs, loaded_static_inputs)
-    _check_common_grid(loaded_weekly_inputs, loaded_static_inputs)
-    _check_common_grid(loaded_monthly_inputs, loaded_static_inputs)
+    present = [
+        (name, ds)
+        for name, ds in [
+            ("daily", loaded_daily_inputs),
+            ("weekly", loaded_weekly_inputs),
+            ("monthly", loaded_monthly_inputs),
+            ("static", loaded_static_inputs),
+        ]
+        if ds is not None
+    ]
+    if not present:
+        raise ValueError("At least one input dataset must be provided to common_grid")
 
-    # Since all grids agree, just take static_inputs as the reference Dataset
-    ds = loaded_static_inputs
+    ref_name, ref_ds = present[0]
+    for name, ds in present[1:]:
+        _check_common_grid(ref_ds, ds, label1=ref_name, label2=name)
 
-    # Extract coordinates
-    x_dim, y_dim = ds.rio.x_dim, ds.rio.y_dim
-    x = ds[x_dim].values
-    y = ds[y_dim].values
+    # All inputs share a common grid; use the first available as spatial reference
+    x_dim, y_dim = ref_ds.rio.x_dim, ref_ds.rio.y_dim
+    x = ref_ds[x_dim].values
+    y = ref_ds[y_dim].values
 
     # Create meshgrid for transformation
     x_grid, y_grid = np.meshgrid(x, y, indexing="ij")
 
     # Transform to lat/lon
-    transformer = Transformer.from_crs(ds.rio.crs, "EPSG:4326", always_xy=True)
+    transformer = Transformer.from_crs(ref_ds.rio.crs, "EPSG:4326", always_xy=True)
     lon_grid, lat_grid = transformer.transform(x_grid, y_grid)
 
     return xr.Dataset(
@@ -76,7 +97,7 @@ def common_grid(
             "longitude": (["x", "y"], lon_grid),
         },
         coords={"x": x, "y": y},
-        attrs={"crs": ds.rio.crs},
+        attrs={"crs": ref_ds.rio.crs},
     )
 
 

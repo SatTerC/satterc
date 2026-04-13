@@ -26,6 +26,6 @@ export example:
 
 # Export all notebooks in examples/ to docs/Examples/.
 export-all:
-  just _export 01-demo
-  just _export 00-getting-started
+  just export 00-getting-started
+  just export 01-demo
   

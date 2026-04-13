@@ -130,6 +130,37 @@ class TestUnpackCommonGrid:
         assert len(lon_da.pixel) == 4
 
 
+class TestCommonGridPartialInputs:
+    """Tests for common_grid with subsets of input datasets."""
+
+    def test_daily_only(self, daily_ds):
+        result = grid.common_grid(loaded_daily_inputs=daily_ds)
+        assert isinstance(result, xr.Dataset)
+        assert set(result.data_vars) == {"latitude", "longitude"}
+
+    def test_static_only(self, static_ds):
+        result = grid.common_grid(loaded_static_inputs=static_ds)
+        assert isinstance(result, xr.Dataset)
+        assert set(result.data_vars) == {"latitude", "longitude"}
+
+    def test_daily_and_static(self, daily_ds, static_ds):
+        result = grid.common_grid(
+            loaded_daily_inputs=daily_ds, loaded_static_inputs=static_ds
+        )
+        assert isinstance(result, xr.Dataset)
+        assert set(result.data_vars) == {"latitude", "longitude"}
+
+    def test_no_inputs_raises(self):
+        with pytest.raises(ValueError, match="At least one input"):
+            grid.common_grid()
+
+    def test_misaligned_labels_in_error(self, daily_ds):
+        ds2 = daily_ds.copy()
+        ds2 = ds2.assign_attrs({"crs": "EPSG:4327"})
+        with pytest.raises(grid.MisalignedGridError, match="daily"):
+            grid.common_grid(loaded_daily_inputs=daily_ds, loaded_weekly_inputs=ds2)
+
+
 class TestIntegration:
     """Integration tests for the full grid pipeline."""
 

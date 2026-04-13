@@ -118,15 +118,20 @@ def generate_synthetic_data(
         "weekly_to_monthly": weekly_to_monthly,
     }
 
-    modules = [
-        daily,
-        static,
-        resample,
-        outputs.daily,
-        outputs.weekly,
-        outputs.monthly,
-        outputs.static,
-    ]
+    modules = [daily, static, resample]
+    targets = []
+
+    if daily_vars:
+        modules.append(outputs.daily)
+        targets.append("unstacked_daily_outputs")
+    if weekly_outputs_vars:
+        modules.append(outputs.weekly)
+        targets.append("unstacked_weekly_outputs")
+    if monthly_outputs_vars:
+        modules.append(outputs.monthly)
+        targets.append("unstacked_monthly_outputs")
+    modules.append(outputs.static)
+    targets.append("unstacked_static_outputs")
 
     dr = (
         driver.Builder()
@@ -136,24 +141,20 @@ def generate_synthetic_data(
         .build()
     )
 
-    targets = [
-        "unstacked_daily_outputs",
-        "unstacked_weekly_outputs",
-        "unstacked_monthly_outputs",
-        "unstacked_static_outputs",
-    ]
-
     results = dr.execute(targets)
 
-    _save_dataset_with_crs(
-        results["unstacked_daily_outputs"], driver_config["daily_outputs_path"]
-    )
-    _save_dataset_with_crs(
-        results["unstacked_weekly_outputs"], driver_config["weekly_outputs_path"]
-    )
-    _save_dataset_with_crs(
-        results["unstacked_monthly_outputs"], driver_config["monthly_outputs_path"]
-    )
+    if daily_vars and driver_config["daily_outputs_path"]:
+        _save_dataset_with_crs(
+            results["unstacked_daily_outputs"], driver_config["daily_outputs_path"]
+        )
+    if weekly_outputs_vars and driver_config["weekly_outputs_path"]:
+        _save_dataset_with_crs(
+            results["unstacked_weekly_outputs"], driver_config["weekly_outputs_path"]
+        )
+    if monthly_outputs_vars and driver_config["monthly_outputs_path"]:
+        _save_dataset_with_crs(
+            results["unstacked_monthly_outputs"], driver_config["monthly_outputs_path"]
+        )
     _save_dataset_with_crs(
         results["unstacked_static_outputs"], driver_config["static_outputs_path"]
     )

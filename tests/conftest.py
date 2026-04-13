@@ -70,7 +70,12 @@ def static_ds(synthetic_data_dir):
 @pytest.fixture(scope="session")
 def common_grid_ds(daily_ds, weekly_ds, monthly_ds, static_ds):
     """Compute the common grid once per session."""
-    return grid.common_grid(daily_ds, weekly_ds, monthly_ds, static_ds)
+    return grid.common_grid(
+        loaded_daily_inputs=daily_ds,
+        loaded_weekly_inputs=weekly_ds,
+        loaded_monthly_inputs=monthly_ds,
+        loaded_static_inputs=static_ds,
+    )
 
 
 @pytest.fixture(scope="session")
