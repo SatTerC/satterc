@@ -84,12 +84,24 @@ def pipeline_config(synthetic_data_dir):
     """Load test config with all paths pointing to the synthetic data dir."""
     config = load_config(TEST_CONFIG_PATH)
     config["driver_config"]["daily_inputs_path"] = str(synthetic_data_dir / "daily.nc")
-    config["driver_config"]["weekly_inputs_path"] = str(synthetic_data_dir / "weekly.nc")
-    config["driver_config"]["monthly_inputs_path"] = str(synthetic_data_dir / "monthly.nc")
-    config["driver_config"]["static_inputs_path"] = str(synthetic_data_dir / "static.nc")
-    config["driver_config"]["daily_outputs_path"] = str(synthetic_data_dir / "out_daily.nc")
-    config["driver_config"]["weekly_outputs_path"] = str(synthetic_data_dir / "out_weekly.nc")
-    config["driver_config"]["monthly_outputs_path"] = str(synthetic_data_dir / "out_monthly.nc")
+    config["driver_config"]["weekly_inputs_path"] = str(
+        synthetic_data_dir / "weekly.nc"
+    )
+    config["driver_config"]["monthly_inputs_path"] = str(
+        synthetic_data_dir / "monthly.nc"
+    )
+    config["driver_config"]["static_inputs_path"] = str(
+        synthetic_data_dir / "static.nc"
+    )
+    config["driver_config"]["daily_outputs_path"] = str(
+        synthetic_data_dir / "out_daily.nc"
+    )
+    config["driver_config"]["weekly_outputs_path"] = str(
+        synthetic_data_dir / "out_weekly.nc"
+    )
+    config["driver_config"]["monthly_outputs_path"] = str(
+        synthetic_data_dir / "out_monthly.nc"
+    )
     return config
 
 

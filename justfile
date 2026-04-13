@@ -2,13 +2,14 @@
 _:
   @just --list
 
-# Format and lint the package using ruff.
+# Format and lint the package using ruff, and lint the examples using marimo.
 lint:
-  ruff format src/
-  ruff check src/
+  ruff format
+  ruff check
+  marimo check examples/
 
 # Run the full test suite.
-test:
+test: lint
   pytest
   # TODO: integration test
 
@@ -24,8 +25,7 @@ _export example:
   # Export as static HTML
   marimo export html "examples/{{example}}/notebook.py" --output "docs/Examples/{{example}}-notebook.html" --force
 
-  # TODO: both of these commands could be run using --sandbox
-
 # Export all notebooks in examples/ to Markdown+HTML in docs/Examples/.
 export-examples:
   just _export 01-demo
+  

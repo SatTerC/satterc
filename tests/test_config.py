@@ -1,6 +1,5 @@
 """Unit tests for satterc.config."""
 
-import tomllib
 from pathlib import Path
 
 import pytest
@@ -106,7 +105,12 @@ class TestPathResolution:
 
     def test_input_paths_are_absolute(self, parsed_config):
         dc = parsed_config["driver_config"]
-        for key in ("daily_inputs_path", "weekly_inputs_path", "monthly_inputs_path", "static_inputs_path"):
+        for key in (
+            "daily_inputs_path",
+            "weekly_inputs_path",
+            "monthly_inputs_path",
+            "static_inputs_path",
+        ):
             assert Path(dc[key]).is_absolute(), f"{key} should be absolute"
 
     def test_input_paths_resolve_relative_to_config(self, parsed_config):
@@ -154,7 +158,9 @@ class TestDump:
 
         assert reloaded["modules"] == original_parsed["modules"]
         assert reloaded["targets"] == original_parsed["targets"]
-        assert reloaded["driver_config"].keys() == original_parsed["driver_config"].keys()
+        assert (
+            reloaded["driver_config"].keys() == original_parsed["driver_config"].keys()
+        )
 
     def test_dump_refuses_overwrite_by_default(self, tmp_path):
         """dump() should raise FileExistsError if file already exists."""

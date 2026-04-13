@@ -123,7 +123,9 @@ class TestInputDataArrayDimensionVariations:
         def func(arr):
             return arr * 2
 
-        with pytest.raises(Exception, match="None of the xarray.DataArray inputs satisfy"):
+        with pytest.raises(
+            Exception, match="None of the xarray.DataArray inputs satisfy"
+        ):
             func(ref_datarray_1d)
 
     def test_datarray_1d_input_as_kwarg_raises(self, ref_datarray_1d):
@@ -133,7 +135,9 @@ class TestInputDataArrayDimensionVariations:
         def func(arr=None):
             return arr * 2
 
-        with pytest.raises(Exception, match="None of the xarray.DataArray inputs satisfy"):
+        with pytest.raises(
+            Exception, match="None of the xarray.DataArray inputs satisfy"
+        ):
             func(arr=ref_datarray_1d)
 
 

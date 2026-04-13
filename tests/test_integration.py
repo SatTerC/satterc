@@ -6,7 +6,6 @@ input loading → grid → (optionally) output writing — works end-to-end.
 """
 
 import numpy as np
-import pytest
 
 
 N_PIXELS = 4  # 2x2 grid
@@ -43,13 +42,19 @@ class TestInputNodes:
 
     def test_no_nan_in_daily_inputs(self, pipeline_driver):
         result = pipeline_driver.execute(
-            ["temperature_celcius_daily", "precipitation_mm_daily", "sunshine_fraction_daily"]
+            [
+                "temperature_celcius_daily",
+                "precipitation_mm_daily",
+                "sunshine_fraction_daily",
+            ]
         )
         for name, da in result.items():
             assert not np.any(np.isnan(da.values)), f"{name} contains NaN"
 
     def test_no_nan_in_static_inputs(self, pipeline_driver):
-        result = pipeline_driver.execute(["elevation", "max_soil_moisture", "clay_content"])
+        result = pipeline_driver.execute(
+            ["elevation", "max_soil_moisture", "clay_content"]
+        )
         for name, da in result.items():
             assert not np.any(np.isnan(da.values)), f"{name} contains NaN"
 

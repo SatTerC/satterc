@@ -53,3 +53,7 @@ test = [
 rothc-py = { git = "https://github.com/SatTerC/rothc_py.git" }
 sgam = { git = "https://github.com/SatTerC/sgam.git" }
 
+[tool.ruff]
+line-length = 88
+target-version = "py313"
+exclude = [".venv"]
