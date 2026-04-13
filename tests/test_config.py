@@ -101,6 +101,24 @@ class TestTargets:
         assert parsed_config["targets"] == EXPECTED_TARGETS
 
 
+class TestPathResolution:
+    """Tests for path resolution relative to the config file location."""
+
+    def test_input_paths_are_absolute(self, parsed_config):
+        dc = parsed_config["driver_config"]
+        for key in ("daily_inputs_path", "weekly_inputs_path", "monthly_inputs_path", "static_inputs_path"):
+            assert Path(dc[key]).is_absolute(), f"{key} should be absolute"
+
+    def test_input_paths_resolve_relative_to_config(self, parsed_config):
+        dc = parsed_config["driver_config"]
+        assert Path(dc["daily_inputs_path"]) == TEST_CONFIG_PATH.parent / "daily.nc"
+
+    def test_direct_construction_paths_unchanged(self):
+        """Config() constructed directly should not modify paths."""
+        config = Config({"inputs": {"daily": {"path": "relative/path.nc", "vars": []}}})
+        assert config._data["inputs"]["daily"]["path"] == "relative/path.nc"
+
+
 class TestValidation:
     """Tests for config validation behaviour."""
 
