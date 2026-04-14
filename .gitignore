@@ -15,4 +15,4 @@ tmp/
 *.html
 __marimo__/
 
-!overrides/main.html
+CLAUDE.md
