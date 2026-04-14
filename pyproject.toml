@@ -32,6 +32,7 @@ dev = [
     {include-group = "docs"},
     {include-group = "examples"},
     {include-group = "test"},
+    "pre-commit>=4.5.1",
     "ruff>=0.15.4",
     "rust-just>=1.46.0",
 ]
