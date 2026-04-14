@@ -1,0 +1,36 @@
+name: CI
+
+on:
+  pull_request:
+    branches: ["main"]
+  merge_group:
+    types: [checks_requested]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+      - run: uv sync --dev --locked
+      - name: Run the tests
+        run: uv run just test
+
+  examples:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+      - run: uv sync --dev --locked
+      - name: Export the examples
+        run: uv run just export-all
+
+  docs:
+    runs-on: ubuntu-latest
+    needs: examples
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+      - run: uv sync --dev --locked
+      - name: Build the docs
+        run: uv run just docs

@@ -26,8 +26,10 @@ class Config:
     @classmethod
     def load(cls, path: str | os.PathLike) -> "Config":
         """Load config from a TOML file."""
+        path = Path(path).resolve()
         with open(path, "rb") as f:
             data = tomllib.load(f)
+        _resolve_paths(data, base=path.parent)
         return cls(data)
 
     def parse(self) -> dict[str, Any]:
@@ -54,9 +56,13 @@ class Config:
                 driver_config[f"{freq}_inputs_vars"] = params.get("vars")
             elif section_name.startswith("outputs."):
                 _, freq = section_name.split(".", 1)
-                driver_config[f"{freq}_outputs_path"] = params.get("path")
-                driver_config[f"{freq}_outputs_vars"] = params.get("vars")
-                targets.append(f"save_{freq}_outputs")
+                vars_ = params.get("vars") or []
+                if vars_:
+                    driver_config[f"{freq}_outputs_path"] = params.get("path")
+                    driver_config[f"{freq}_outputs_vars"] = vars_
+                    targets.append(f"save_{freq}_outputs")
+                else:
+                    modules = [m for m in modules if m != f"outputs.{freq}"]
             else:
                 driver_config |= params
 
@@ -157,6 +163,14 @@ def load_config(config_path: str | Path) -> dict[str, Any]:
         Parsed config with modules, driver_config, and targets keys.
     """
     return Config.load(config_path).parse()
+
+
+def _resolve_paths(data: dict, base: Path) -> None:
+    """Resolve relative paths in-place, relative to the config file's directory."""
+    for section in ("inputs", "outputs"):
+        for params in data.get(section, {}).values():
+            if "path" in params and not Path(params["path"]).is_absolute():
+                params["path"] = str(base / params["path"])
 
 
 def _flatten_config(config: dict) -> dict[str, Any]:

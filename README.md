@@ -2,6 +2,8 @@
 
 This is a work in progress - expect **very** sharp edges.
 
+For usage instructions see the [documentation](https://SatTerC.github.io/satterc) (this is also WIP!)
+
 ## Developer instructions
 
 This project uses **[uv](https://docs.astral.sh/uv/)** for dependency management and packaging.
@@ -37,19 +39,22 @@ source .venv/bin/activate  # On Windows: .venv\Scripts\activate
 (Or prefix all commands with `uv run`.)
 
 
-### Pre-commit actions
+### Pre-commit hooks
 
-1. **Run the tests:**
+This project uses [pre-commit](https://pre-commit.com/) to run linting and tests automatically before each commit.
+
+**First-time setup:**
 
 ```bash
-uv run pytest
+uv run pre-commit install
 ```
 
-2. **After making changes, run `ruff`:**
+After this, `just lint` and `just test` will run automatically before every `git commit`. If either fails, the commit is aborted — fix the issues and try again.
+
+To run hooks manually without committing:
 
 ```bash
-ruff format
-ruff check
+uv run pre-commit run --all-files
 ```
 
 ### Building the docs
@@ -72,9 +77,11 @@ The awesome [`just`](https://github.com/casey/just) is a development dependency 
 You can run the following commands anywhere in the repository:
 
 ```bash
-just test  # run the tests (pytest)
-just lint  # run the formatter and linter (ruff)
-just docs  # build the docs (zensical)
+just test        # run linting and the test suite (ruff + marimo + pytest)
+just lint        # format and lint code with ruff, check examples with marimo
+just docs        # build the docs (zensical)
+just export <x>  # export a notebook example to docs (e.g. just export 00-getting-started)
+just export-all  # export all example notebooks
 ```
 
 ## CLI use
@@ -104,13 +111,4 @@ satterc run config.toml
 ```
 
 This will produce three netcdf files in `outputs/`, for daily, weekly and monthly output data.
-
-## Building config files
-
-To do.
-
-## Use in Python sessions and notebooks
-
-To do.
-
 

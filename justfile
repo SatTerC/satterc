@@ -1,20 +1,31 @@
+# Default recipe to display available commands.
+_:
+  @just --list
+
+# Format and lint the package using ruff, and lint the examples using marimo.
+lint:
+  ruff format
+  ruff check
+  marimo check examples/
+
+# Run the full test suite.
+test: lint
+  pytest
+  # TODO: integration test
+
+# Build the documentation using Zensical.
 docs:
   zensical build
 
-test:
-  pytest
+# Export a single example notebook to docs/Examples/.
+export example:
+  # Export to Markdown file
+  marimo export md "examples/{{example}}.py" --output "docs/Examples/{{example}}.md" --no-sandbox --force
+  # Export to static HTML
+  marimo export html "examples/{{example}}.py" --output "docs/Examples/{{example}}-notebook.html" --no-sandbox --force
 
-lint:
-  ruff format src/
-  ruff check src/
-
-viz:
-  satterc graph config.toml --pdf
-  zathura pipeline.pdf
-
-run:
-  satterc run config.toml
-
-synth:
-  satterc data-gen generate config.toml
-  satterc run config.toml
+# Export all notebooks in examples/ to docs/Examples/.
+export-all:
+  just export 00-getting-started
+  just export 01-demo
+  
