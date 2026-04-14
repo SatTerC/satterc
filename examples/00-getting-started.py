@@ -20,10 +20,6 @@ def _(mo):
 
     This notebook walks through running a SatTerC pipeline step by step.
     It is aimed at users who are new to SatTerC, and assumes only basic familiarity with Python.
-
-    **You are currently reading a static version of this notebook.**
-    To run it interactively — so you can edit code, change parameters, and see results
-    update in real time — follow the instructions in the next section.
     """)
     return
 
@@ -280,8 +276,10 @@ def _(mo):
 @app.cell
 def _(Path, config_toml):
     _output_path = Path("my_pipeline.toml")
-    _output_path.write_text(config_toml.strip())
-    print(f"Config written to: {_output_path.resolve()}")
+
+    # Uncomment this line!
+    # _output_path.write_text(config_toml.strip())
+    # print(f"Config written to: {_output_path.resolve()}")
     return
 
 
