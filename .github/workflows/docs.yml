@@ -1,28 +1,44 @@
 name: Documentation
 on:
   push:
-    branches:
-      - main
-permissions:
-  contents: read
-  pages: write
-  id-token: write
+    branches: [ "main" ]
 jobs:
+
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+      
+      - name: Install Python
+        run: uv python install
+
+      - name: Install the project
+        run: uv sync --locked --dev
+
+      - name: Export the examples
+        run: uv run just export-all
+
+      - name: Build the documentation
+        run: uv run just docs
+
+      - name: Upload static files
+        uses: actions/upload-pages-artifact@v4
+        with:
+          path: site
+
   deploy:
+    runs-on: ubuntu-latest
+    needs: build
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
-    runs-on: ubuntu-latest
     steps:
-      - uses: actions/configure-pages@v5
-      - uses: actions/checkout@v5
-      - uses: actions/setup-python@v5
-        with:
-          python-version: 3.x
-      - run: pip install zensical mkdocstrings-python
-      - run: zensical build --clean
-      - uses: actions/upload-pages-artifact@v4
-        with:
-          path: site
-      - uses: actions/deploy-pages@v4
-        id: deployment
+      - name: Deploy to GitHub pages
+        uses: actions/deploy-pages@v4
