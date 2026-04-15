@@ -207,6 +207,9 @@ This motivates Bayesian inference: rather than a single point estimate, we want
 a *distribution* over plausible parameter values that honestly reflects the
 residual uncertainty. Here we use the Metropolis-Hastings algorithm.
 
+Note that with a uniform prior the posterior is proportional to the likelihood
+alone — p(θ|y) ∝ p(y|θ) — so the posterior mean coincides with the MLE.
+
 ```python {.marimo}
 def make_log_posterior(
     dr,

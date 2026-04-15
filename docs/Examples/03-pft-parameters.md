@@ -186,14 +186,15 @@ Two features of the optimisation results are worth noting:
 # Start far from the grassland defaults (≈ 3.0, 0.035) to show the
 # optimiser earning its keep — not just confirming the initial guess.
 _x0 = [4.0, 0.02]
-opt_history = [
-    [*_x0, float(objective_function(_x0, dr, synthetic_obs, upstream))]
-]
+opt_history = [[*_x0, float(objective_function(_x0, dr, synthetic_obs, upstream))]]
 
 def _callback(xk):
     opt_history.append(
-        [float(xk[0]), float(xk[1]),
-         float(objective_function(list(xk), dr, synthetic_obs, upstream))]
+        [
+            float(xk[0]),
+            float(xk[1]),
+            float(objective_function(list(xk), dr, synthetic_obs, upstream)),
+        ]
     )
 
 _result = minimize(
@@ -292,6 +293,9 @@ Each step is drawn as `uniform(−step, +step)` independently per parameter.
 Samples are denormalised back to physical units before storage, so the plots
 below show posterior distributions in their original units.
 
+Note that with uniform priors the posterior is proportional to the likelihood
+alone — p(θ|y) ∝ p(y|θ) — so the posterior means coincide with the MLE.
+
 ```python {.marimo}
 def objective_function(params, dr, observations, upstream):
     lue_max, leaf_turnover = params
@@ -373,8 +377,7 @@ accepted = 0
 
 for _i in range(burn_in + n_iterations):
     _proposed = list(
-        np.array(current)
-        + np.random.uniform(-_step_sizes, _step_sizes, 2)
+        np.array(current) + np.random.uniform(-_step_sizes, _step_sizes, 2)
     )
 
     _log_alpha = log_posterior(_proposed) - log_posterior(current)
