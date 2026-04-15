@@ -28,4 +28,6 @@ export example:
 export-all:
   just export 00-getting-started
   just export 01-demo
+  just export 02-soil-moisture
+  just export 03-pft-parameters
   
