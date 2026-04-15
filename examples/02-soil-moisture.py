@@ -30,9 +30,7 @@ def _(mo):
 def _():
     import tempfile
     import tomllib
-    from math import log
     from pathlib import Path
-    from random import random
 
     import marimo as mo
     import matplotlib.pyplot as plt
@@ -50,12 +48,10 @@ def _():
         Path,
         build_driver,
         generate_synthetic_data,
-        log,
         minimize,
         mo,
         np,
         plt,
-        random,
         tempfile,
         tomllib,
         xr,
@@ -304,19 +300,28 @@ def _(np, objective_function):
 
 
 @app.cell
-def _(
-    dr, log, make_log_posterior, n_pixels, optimisation_result, random, synthetic_obs
-):
+def _(dr, make_log_posterior, n_pixels, np, optimisation_result, synthetic_obs):
     _prior_low = 150.0
     _prior_high = 250.0
     step_size = 3.0
     n_iterations = 200
     burn_in = 100
 
+    # Adaptive Metropolis constants (Haario et al. 2001)
+    _d = 1
+    _s_d = 2.38**2 / _d  # optimal scaling for 1D Gaussian target
+    _ε = 1e-6
+    _t0 = burn_in // 2  # switch to adaptive proposals after this many steps
+
     # Warm-start from the MLE estimate rather than the prior boundary
     current = float(optimisation_result.x[0])
     mcmc_history = [current]
     accepted = 0
+
+    # Welford online mean/variance state
+    _n_w = 0
+    _mean_w = current
+    _var_M2 = 0.0
 
     log_posterior = make_log_posterior(
         dr,
@@ -328,15 +333,26 @@ def _(
     )
 
     for i in range(burn_in + n_iterations):
-        delta = (2 * random() - 1) * step_size
-        proposed = current + delta
+        # Phase 1: fixed uniform step; Phase 2: adaptive Gaussian proposal
+        if i < _t0:
+            proposed = current + np.random.uniform(-step_size, step_size)
+        else:
+            _sigma = np.sqrt(_s_d * (_var_M2 / max(1, _n_w - 1) + _ε))
+            proposed = np.random.normal(current, _sigma)
+
         log_acceptance_prob = log_posterior([proposed]) - log_posterior([current])
 
-        if log(random()) < log_acceptance_prob:
+        if np.log(np.random.uniform()) < log_acceptance_prob:
             current = proposed
 
             if i > burn_in:  # only track acceptance after burn-in
                 accepted += 1
+
+        # Welford update using accepted position
+        _n_w += 1
+        _delta = current - _mean_w
+        _mean_w += _delta / _n_w
+        _var_M2 += _delta * (current - _mean_w)
 
         mcmc_history.append(current)
 
