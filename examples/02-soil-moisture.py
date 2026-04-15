@@ -195,10 +195,11 @@ def _(
 
     optimisation_result = minimize(
         fun=objective_function,
-        x0=[150],  # initial guess
+        x0=[150],  # initial guess: prior lower bound
         args=(dr, synthetic_obs, n_pixels),
         method="Nelder-Mead",
         callback=logging_callback,
+        options={"xatol": 1e-8, "fatol": 1e-8, "maxiter": 2000},
     )
 
     return optimisation_result, optimisation_history
@@ -212,11 +213,14 @@ def _(np, plt, optimisation_history, synthetic_obs_max_soil_moisture):
     _fig, _axes = plt.subplots(1, 2, figsize=(12, 4))
 
     _axes[0].plot(_f, marker="o")
+    _axes[0].axhline(
+        y=25, color="k", linestyle="--", alpha=0.6, label="Expected minimum (σ²=25)"
+    )
     _axes[0].set_xlabel("Iteration")
     _axes[0].set_ylabel("MSE")
     _axes[0].set_title("Objective Function Convergence")
+    _axes[0].legend()
     _axes[0].grid(True)
-    _axes[0].axhline(y=0, color="k", linestyle="--", alpha=0.3)
 
     _axes[1].plot(_x, marker="o")
     _axes[1].axhline(
@@ -258,11 +262,21 @@ def _(mo):
 
     ## Bayesian Inference with synthetic observations
 
-    We ultimately want to perform Bayesian inference to estimate posterior distributions
-    for parameters of interest.
+    Two features of the optimisation results are worth noting before we proceed:
 
-    Here, we reuse the synthetic observations to sanity-check a simple approach using
-    the Metropolis-Hastings algorithm for a single parameter.
+    - **The MSE does not converge to zero.** The irreducible minimum is σ² = 25,
+      the variance of the noise added to the synthetic observations. Even with the
+      exact true parameter, the model cannot fit the noise away.
+    - **The MLE does not recover the exact true value.** With a finite, noisy
+      sample the optimizer finds the parameter that best explains the *noisy*
+      signal, not the true one. This bias shrinks with more data but never vanishes.
+
+    This motivates Bayesian inference: rather than a single point estimate, we want
+    a *distribution* over plausible parameter values that honestly reflects the
+    residual uncertainty. Here we use the Metropolis-Hastings algorithm.
+
+    Note that with a uniform prior the posterior is proportional to the likelihood
+    alone — p(θ|y) ∝ p(y|θ) — so the posterior mean coincides with the MLE.
     """)
     return
 
@@ -303,25 +317,14 @@ def _(np, objective_function):
 def _(dr, make_log_posterior, n_pixels, np, optimisation_result, synthetic_obs):
     _prior_low = 150.0
     _prior_high = 250.0
-    step_size = 3.0
+    step_size = 0.5
     n_iterations = 200
     burn_in = 100
 
-    # Adaptive Metropolis constants (Haario et al. 2001)
-    _d = 1
-    _s_d = 2.38**2 / _d  # optimal scaling for 1D Gaussian target
-    _ε = 1e-6
-    _t0 = burn_in // 2  # switch to adaptive proposals after this many steps
-
-    # Warm-start from the MLE estimate rather than the prior boundary
+    # Warm-start from the MLE estimate
     current = float(optimisation_result.x[0])
     mcmc_history = [current]
     accepted = 0
-
-    # Welford online mean/variance state
-    _n_w = 0
-    _mean_w = current
-    _var_M2 = 0.0
 
     log_posterior = make_log_posterior(
         dr,
@@ -333,26 +336,15 @@ def _(dr, make_log_posterior, n_pixels, np, optimisation_result, synthetic_obs):
     )
 
     for i in range(burn_in + n_iterations):
-        # Phase 1: fixed uniform step; Phase 2: adaptive Gaussian proposal
-        if i < _t0:
-            proposed = current + np.random.uniform(-step_size, step_size)
-        else:
-            _sigma = np.sqrt(_s_d * (_var_M2 / max(1, _n_w - 1) + _ε))
-            proposed = np.random.normal(current, _sigma)
+        proposed = current + np.random.uniform(-step_size, step_size)
 
         log_acceptance_prob = log_posterior([proposed]) - log_posterior([current])
 
         if np.log(np.random.uniform()) < log_acceptance_prob:
             current = proposed
 
-            if i > burn_in:  # only track acceptance after burn-in
+            if i >= burn_in:
                 accepted += 1
-
-        # Welford update using accepted position
-        _n_w += 1
-        _delta = current - _mean_w
-        _mean_w += _delta / _n_w
-        _var_M2 += _delta * (current - _mean_w)
 
         mcmc_history.append(current)
 

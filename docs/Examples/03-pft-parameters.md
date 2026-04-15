@@ -167,24 +167,95 @@ synthetic_obs = _true_leaf_pool + np.random.normal(0, 2.0, _true_leaf_pool.shape
 ## MLE warm-start
 
 We run a quick Nelder-Mead optimisation to find the maximum-likelihood parameter
-values. The MCMC chain is initialised here so that the Adaptive Metropolis
-covariance estimate reflects the local posterior geometry from the very first step.
+values before starting the MCMC chain. Initialising at the MLE means the chain
+starts in the high-probability region from the very first step, removing the need
+for a long burn-in period and making fixed step sizes much easier to calibrate.
+
+Two features of the optimisation results are worth noting:
+
+- **The MSE does not converge to zero.** The irreducible minimum is σ² = 4,
+  the variance of the noise added to the synthetic observations. Even with the
+  exact true parameters, the model cannot fit the noise away.
+- **The MLE does not recover the exact true values.** With a finite, noisy
+  sample the optimizer finds the parameters that best explain the *noisy*
+  signal, not the true one. This is the motivation for the MCMC step: rather
+  than a point estimate, we want a posterior distribution that honestly
+  reflects the residual uncertainty.
 
 ```python {.marimo}
+# Start far from the grassland defaults (≈ 3.0, 0.035) to show the
+# optimiser earning its keep — not just confirming the initial guess.
+_x0 = [4.0, 0.02]
+opt_history = [
+    [*_x0, float(objective_function(_x0, dr, synthetic_obs, upstream))]
+]
+
+def _callback(xk):
+    opt_history.append(
+        [float(xk[0]), float(xk[1]),
+         float(objective_function(list(xk), dr, synthetic_obs, upstream))]
+    )
+
 _result = minimize(
     fun=objective_function,
-    x0=[3.0, 0.035],  # prior guess: grassland defaults
+    x0=_x0,
     args=(dr, synthetic_obs, upstream),
     method="Nelder-Mead",
-    options={"xatol": 1e-6, "fatol": 1e-6},
+    callback=_callback,
+    options={"xatol": 1e-8, "fatol": 1e-8, "maxiter": 2000},
 )
 mle_params = list(_result.x)
 mle_params
 ```
 
+```python {.marimo}
+_traj = np.array(opt_history)
+
+_fig, _axes = plt.subplots(1, 3, figsize=(16, 4))
+
+_axes[0].plot(_traj[:, 0], marker="o", markersize=3)
+_axes[0].axhline(
+    y=true_lue_max,
+    color="r",
+    linestyle="--",
+    label=f"True value ({true_lue_max:.3f})",
+)
+_axes[0].set_xlabel("Iteration")
+_axes[0].set_ylabel("lue_max (gC MJ⁻¹)")
+_axes[0].set_title("lue_max Convergence")
+_axes[0].legend()
+_axes[0].grid(True, alpha=0.3)
+
+_axes[1].plot(_traj[:, 1], marker="o", markersize=3)
+_axes[1].axhline(
+    y=true_leaf_turnover,
+    color="r",
+    linestyle="--",
+    label=f"True value ({true_leaf_turnover:.4f})",
+)
+_axes[1].set_xlabel("Iteration")
+_axes[1].set_ylabel("leaf_turnover_rate (week⁻¹)")
+_axes[1].set_title("leaf_turnover_rate Convergence")
+_axes[1].legend()
+_axes[1].grid(True, alpha=0.3)
+
+_axes[2].plot(_traj[:, 2], marker="o", markersize=3)
+_axes[2].axhline(
+    y=4, color="k", linestyle="--", alpha=0.6, label="Expected minimum (σ²=4)"
+)
+_axes[2].set_xlabel("Iteration")
+_axes[2].set_ylabel("MSE")
+_axes[2].set_title("Objective Function Convergence")
+_axes[2].legend()
+_axes[2].grid(True, alpha=0.3)
+
+_fig.tight_layout()
+_fig
+```
+
 ## Bayesian Inference
 
-We use Adaptive Metropolis (Haario et al. 2001) to sample the joint posterior of
+We use the Metropolis-Hastings algorithm to sample the joint posterior of
 `lue_max` and `leaf_turnover_rate`. Each proposal modifies the cached `pft_params`
 dataset and re-executes only the SGAM node, making each step fast.
 
@@ -198,35 +269,28 @@ The likelihood is Gaussian with σ = 2 gC m⁻² and the priors are uniform:
 These two parameters differ enormously in their effect on the model: a perturbation
 of `±0.001` in `leaf_turnover_rate` (≈ 3 % of the true value) changes the
 log-likelihood by ~300, whereas the same step in `lue_max` changes it by less than 1.
-Sensitivity analysis shows the posterior is roughly:
+Sensitivity analysis shows the posterior widths are roughly:
 
 - `lue_max`: σ ≈ 0.05 in physical units → 0.02 in normalised units
 - `leaf_turnover_rate`: σ ≈ 5 × 10⁻⁵ in physical units → 8 × 10⁻⁴ in normalised units
 
-The posterior widths still differ by ~25× even after normalisation, so the initial
-fixed-step phase uses a step size of **0.001 in normalised space** — chosen to match
-the narrower `leaf_turnover_rate` direction. The AM covariance then learns and
-expands the `lue_max` proposals during the adaptive phase.
-
-Each parameter is mapped to `[0, 1]` by
+To handle this scale mismatch, each parameter is mapped to `[0, 1]` by
 
 $$u_i = \frac{\theta_i - \theta_i^{\min}}{\theta_i^{\max} - \theta_i^{\min}}$$
 
-where `[θ_min, θ_max]` are the prior bounds. Samples are denormalised back to
-physical units before storage, so the plots below show posterior distributions in
-their original units.
+Normalisation by prior range maps *prior* widths to [0, 1], but the posterior
+widths in normalised space are still very different (~25×). A single isotropic
+step size cannot serve both directions well, so we use **per-parameter step sizes**
+matched to each posterior width (≈ 1σ per direction):
 
-### Warm-starting from the MLE
+| Parameter | Posterior σ (normalised) | Step size |
+|-----------|--------------------------|-----------|
+| `lue_max` | ≈ 0.02 | 0.02 |
+| `leaf_turnover_rate` | ≈ 8 × 10⁻⁴ | 0.001 |
 
-Starting the chain far from the posterior mode causes the Welford covariance
-estimate to be dominated by the transit trajectory rather than local posterior
-variance. This delays adaptation and produces low acceptance rates even after
-the adaptive phase begins.
-
-The fix is standard practice: find the maximum-likelihood estimate (MLE) first
-using a deterministic optimiser, then initialise the chain there. With the chain
-already at the mode, all Welford updates accumulate local posterior variance from
-the first step, so the adaptive covariance converges quickly to the right scales.
+Each step is drawn as `uniform(−step, +step)` independently per parameter.
+Samples are denormalised back to physical units before storage, so the plots
+below show posterior distributions in their original units.
 
 ```python {.marimo}
 def objective_function(params, dr, observations, upstream):
@@ -283,16 +347,8 @@ def make_log_posterior(dr, synthetic_obs, upstream, prior_bounds, likelihood_sig
 
 ```python {.marimo}
 _prior_bounds = [(2.0, 4.5), (0.01, 0.07)]
-# Burn-in is long enough for the chain to reach the mode from the 95%-of-truth
-# starting point using 0.001 steps (~60 accepted steps needed in each direction).
 n_iterations = 500
-burn_in = 400
-
-# Adaptive Metropolis constants (Haario et al. 2001)
-_d   = 2
-_s_d = 2.38**2 / _d  # optimal scaling for 2D Gaussian target
-_ε   = 1e-6
-_t0  = burn_in // 2  # switch to adaptive proposals after this many steps
+burn_in = 200
 
 log_posterior, _normalize, _denormalize = make_log_posterior(
     dr,
@@ -302,37 +358,24 @@ log_posterior, _normalize, _denormalize = make_log_posterior(
     likelihood_sigma=2.0,
 )
 
-# --- Work entirely in normalised [0, 1]^2 space ---
-#
-# Step size is chosen to match the *narrowest* posterior dimension.
-# Sensitivity analysis shows leaf_turnover_rate has σ ≈ 8e-4 in normalised space;
-# 0.001 gives ~50 % acceptance in that direction during the fixed-step phase.
-# The AM covariance then learns to scale up lue_max proposals (σ ≈ 0.02 normalised).
-_step_size_norm = 0.001
+# Per-parameter step sizes in normalised [0, 1]^2 space, each matched to
+# the corresponding posterior width (≈ 1σ per direction):
+#   lue_max:           σ ≈ 0.02 normalised  →  step 0.02
+#   leaf_turnover_rate: σ ≈ 8e-4 normalised  →  step 0.001
+_step_sizes = np.array([0.02, 0.001])
 
-# Warm-start from the MLE so the Welford estimate sees only local posterior
-# variance and adapts quickly to the correct proposal scales.
+# Warm-start from the MLE
 current = list(_normalize(mle_params))
 
 # mcmc_history stores physical params (denormalised) for readable plots
 mcmc_history = [list(_denormalize(current))]
 accepted = 0
 
-# Welford online mean/covariance state — tracked in normalised space
-_n_w    = 0
-_mean_w = np.array(current, dtype=float)
-_M2     = np.zeros((_d, _d))
-
 for _i in range(burn_in + n_iterations):
-    # Phase 1: uniform steps in normalised space
-    # Phase 2: adaptive multivariate Gaussian in normalised space
-    if _i < _t0:
-        _proposed = list(
-            np.array(current) + np.random.uniform(-_step_size_norm, _step_size_norm, _d)
-        )
-    else:
-        _C = _s_d * (_M2 / max(1, _n_w - 1) + _ε * np.eye(_d))
-        _proposed = list(np.random.multivariate_normal(current, _C))
+    _proposed = list(
+        np.array(current)
+        + np.random.uniform(-_step_sizes, _step_sizes, 2)
+    )
 
     _log_alpha = log_posterior(_proposed) - log_posterior(current)
 
@@ -341,14 +384,6 @@ for _i in range(burn_in + n_iterations):
         if _i >= burn_in:
             accepted += 1
 
-    # Welford update (normalised space)
-    _n_w   += 1
-    _x      = np.array(current)
-    _delta  = _x - _mean_w
-    _mean_w += _delta / _n_w
-    _M2    += np.outer(_delta, _x - _mean_w)
-
-    # Store denormalised (physical) params in history
     mcmc_history.append(list(_denormalize(current)))
 
 acceptance_rate = accepted / n_iterations
