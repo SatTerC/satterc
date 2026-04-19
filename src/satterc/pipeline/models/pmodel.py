@@ -54,7 +54,7 @@ def _pmodel(
     )
 
     # TODO: justify (a) the need for this and (b) why it's reasonable
-    gpp = np.nan_to_num(model.gpp, nan=0.0)
+    gpp = np.nan_to_num(model.gpp, nan=0.0) # * 0.0864 # µg C m-2 s-1 --> g C m⁻² per day  
     lue = np.nan_to_num(model.lue, nan=0.0)
     iwue = np.nan_to_num(model.iwue, nan=0.0)
 
