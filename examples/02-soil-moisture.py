@@ -6,9 +6,10 @@
 #     "scipy",
 # ]
 # ///
+
 import marimo
 
-__generated_with = "0.21.1"
+__generated_with = "0.23.4"
 app = marimo.App(width="medium")
 
 
@@ -73,28 +74,28 @@ def _(mo):
 @app.cell
 def _(Config, tomllib):
     _config_toml = """
-modules = [
-  "models.splash",
-  "inputs.daily",
-  "inputs.static",
-]
+    modules = [
+      "models.splash",
+      "inputs.daily",
+      "inputs.static",
+    ]
 
-[inputs.daily]
-path = "daily.nc"
-vars = [
-  "precipitation_mm",
-  "sunshine_fraction",
-  "temperature_celcius",
-]
+    [inputs.daily]
+    path = "daily.nc"
+    vars = [
+      "precipitation_mm",
+      "sunshine_fraction",
+      "temperature_celcius",
+    ]
 
-[inputs.static]
-path = "static.nc"
-vars = [
-  "elevation",
-  "plant_type",
-  "max_soil_moisture",
-]
-"""
+    [inputs.static]
+    path = "static.nc"
+    vars = [
+      "elevation",
+      "plant_type",
+      "max_soil_moisture",
+    ]
+    """
 
     parsed_config = Config(tomllib.loads(_config_toml)).parse()
     parsed_config
@@ -181,7 +182,6 @@ def _(
     dr,
     minimize,
     n_pixels,
-    np,
     objective_function,
     synthetic_obs,
 ):
@@ -201,12 +201,11 @@ def _(
         callback=logging_callback,
         options={"xatol": 1e-8, "fatol": 1e-8, "maxiter": 2000},
     )
-
-    return optimisation_result, optimisation_history
+    return optimisation_history, optimisation_result
 
 
 @app.cell
-def _(np, plt, optimisation_history, synthetic_obs_max_soil_moisture):
+def _(np, optimisation_history, plt, synthetic_obs_max_soil_moisture):
     # Extract history of parameter (max_soil_moisture) and objective function value
     _x, _f = np.array(optimisation_history).T
 
@@ -314,7 +313,14 @@ def _(np, objective_function):
 
 
 @app.cell
-def _(dr, make_log_posterior, n_pixels, np, optimisation_result, synthetic_obs):
+def _(
+    dr,
+    make_log_posterior,
+    n_pixels,
+    np,
+    optimisation_result,
+    synthetic_obs,
+):
     _prior_low = 150.0
     _prior_high = 250.0
     step_size = 0.5

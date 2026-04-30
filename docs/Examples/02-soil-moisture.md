@@ -1,6 +1,6 @@
 ---
 title: 02 Soil Moisture
-marimo-version: 0.23.0
+marimo-version: 0.23.4
 width: medium
 header: |-
   # /// script

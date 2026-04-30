@@ -9,7 +9,7 @@
 
 import marimo
 
-__generated_with = "0.21.1"
+__generated_with = "0.23.4"
 app = marimo.App(width="medium")
 
 
@@ -106,36 +106,36 @@ def _(mo):
 @app.cell
 def _():
     config_toml = """
-modules = [
-  "models.splash",
-  "inputs.daily",
-  "inputs.static",
-  "outputs.daily",
-]
+    modules = [
+      "models.splash",
+      "inputs.daily",
+      "inputs.static",
+      "outputs.daily",
+    ]
 
-[inputs.daily]
-path = "daily.nc"
-vars = [
-  "precipitation_mm",
-  "sunshine_fraction",
-  "temperature_celcius",
-]
+    [inputs.daily]
+    path = "daily.nc"
+    vars = [
+      "precipitation_mm",
+      "sunshine_fraction",
+      "temperature_celcius",
+    ]
 
-[inputs.static]
-path = "static.nc"
-vars = [
-  "elevation",
-  "max_soil_moisture",
-]
+    [inputs.static]
+    path = "static.nc"
+    vars = [
+      "elevation",
+      "max_soil_moisture",
+    ]
 
-[outputs.daily]
-path = "results/daily.nc"
-vars = [
-  "actual_evapotranspiration",
-  "soil_moisture",
-  "runoff",
-]
-"""
+    [outputs.daily]
+    path = "results/daily.nc"
+    vars = [
+      "actual_evapotranspiration",
+      "soil_moisture",
+      "runoff",
+    ]
+    """
     return (config_toml,)
 
 
@@ -158,7 +158,7 @@ def _(mo):
 
 
 @app.cell
-def _(Config, Path, generate_synthetic_data, config_toml, tempfile, tomllib):
+def _(Config, Path, config_toml, generate_synthetic_data, tempfile, tomllib):
     # Parse the embedded config string
     _tmpdir = Path(tempfile.mkdtemp())
     parsed_config = Config(tomllib.loads(config_toml)).parse()
@@ -227,7 +227,7 @@ def _(mo):
 def _(dr):
     outputs = dr.execute(["merged_daily_outputs"])
     outputs
-    return (outputs,)
+    return
 
 
 @app.cell(hide_code=True)
@@ -274,7 +274,7 @@ def _(mo):
 
 
 @app.cell
-def _(Path, config_toml):
+def _(Path):
     _output_path = Path("my_pipeline.toml")
 
     # Uncomment this line!

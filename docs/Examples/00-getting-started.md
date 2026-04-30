@@ -1,6 +1,6 @@
 ---
 title: 00 Getting Started
-marimo-version: 0.23.0
+marimo-version: 0.23.4
 width: medium
 header: |-
   # /// script

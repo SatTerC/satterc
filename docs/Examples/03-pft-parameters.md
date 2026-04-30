@@ -1,6 +1,6 @@
 ---
 title: 03 Pft Parameters
-marimo-version: 0.23.0
+marimo-version: 0.23.4
 width: medium
 header: |-
   # /// script
