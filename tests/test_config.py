@@ -14,6 +14,7 @@ EXPECTED_MODULES = [
     "inputs.weekly",
     "inputs.monthly",
     "inputs.static",
+    "inputs.grid",
     "resample",
     # outputs.daily/weekly/monthly are absent — all have empty vars in test_config.toml
 ]

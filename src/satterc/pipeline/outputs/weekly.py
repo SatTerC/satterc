@@ -3,7 +3,7 @@ from hamilton.function_modifiers import group, inject, source
 from hamilton.function_modifiers.delayed import ResolveAt
 
 from .._hamilton_fixes import FixedResolve, NoOpDecorator
-from ._utils import _save_dataset
+from ._utils import _save_dataset, unstack_if_grid
 
 
 @FixedResolve(
@@ -52,7 +52,7 @@ def unstacked_weekly_outputs(merged_weekly_outputs: xr.Dataset) -> xr.Dataset:
     xr.Dataset
         Weekly outputs with original spatial dimensions restored.
     """
-    return merged_weekly_outputs.unstack("pixel")
+    return unstack_if_grid(merged_weekly_outputs)
 
 
 def save_weekly_outputs(

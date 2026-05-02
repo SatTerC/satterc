@@ -39,9 +39,6 @@ def build_driver(
             mod = import_module(mod_path)
             modules_.append(mod)
 
-    # TODO: fix this
-    modules_ += [MODULES["inputs.grid"]]
-
     dr = driver.Builder().with_modules(*modules_).with_config(config)
 
     if allow_module_overrides:

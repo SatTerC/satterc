@@ -3,7 +3,7 @@ from os import PathLike
 import xarray as xr
 from hamilton.function_modifiers import extract_fields, ResolveAt
 
-from ._utils import load_dataset, stack_spatial_dims
+from ._utils import load_dataset, stack_if_spatial
 from .._hamilton_fixes import FixedResolve, NoOpDecorator
 
 
@@ -36,7 +36,7 @@ def stacked_static_inputs(loaded_static_inputs: xr.Dataset) -> xr.Dataset:
     xr.Dataset
         Dataset with spatial dimensions stacked into 'pixel' dimension.
     """
-    return stack_spatial_dims(loaded_static_inputs)
+    return stack_if_spatial(loaded_static_inputs)
 
 
 @FixedResolve(

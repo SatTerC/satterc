@@ -1,13 +1,12 @@
 """
 Tests for input/output shape handling across spatial configurations.
 
-The stack_spatial_dims utility — called by every temporal input module —
-uses rioxarray to identify spatial dimensions and requires CRS metadata.
-These tests probe three spatial configurations:
+Three spatial configurations are supported via shape-aware helpers
+stack_if_spatial (inputs) and unstack_if_grid (outputs):
 
-  grid_2d (time, y, x)      — current production case: fully supported
-  single_point (time,)      — documents current behaviour (not yet supported)
-  multi_point (time, pixel) — documents current behaviour (not yet supported)
+  grid_2d (time, y, x)      — CRS-bearing 2D grid: stacked to (time, pixel) and back
+  single_point (time,)      — no spatial dims: passed through unchanged
+  multi_point (time, pixel) — integer pixel index: passed through unchanged
 
 The static (no-time) equivalents of each shape are not tested here.
 """
@@ -17,7 +16,8 @@ import pandas as pd
 import pytest
 import xarray as xr
 
-from satterc.pipeline.inputs._utils import stack_spatial_dims
+from satterc.pipeline.inputs._utils import stack_if_spatial, stack_spatial_dims
+from satterc.pipeline.outputs._utils import unstack_if_grid
 
 
 N_TIMES = 10
@@ -158,46 +158,53 @@ class TestGrid2DPipelineSimulation:
 
 
 # ---------------------------------------------------------------------------
-# Single point (time,) — documents current limitation
+# Single point (time,) — passes through unchanged
 # ---------------------------------------------------------------------------
 
 
 class TestSinglePoint:
     """(time,) — single-location time series with no spatial dimensions.
 
-    stack_spatial_dims delegates to rioxarray to discover spatial dims; a
-    dataset with no spatial structure cannot be stacked. These tests document
-    the current failure mode and will need to be revised when single-point
-    support is added (likely via a separate input module).
+    stack_if_spatial detects the absence of CRS and 'pixel' dim and returns
+    the dataset unchanged. unstack_if_grid similarly passes through because
+    there is no pixel MultiIndex to expand.
     """
 
-    def test_stack_raises(self, single_point_ds):
-        with pytest.raises(Exception):
-            stack_spatial_dims(single_point_ds)
+    def test_stack_is_identity(self, single_point_ds):
+        result = stack_if_spatial(single_point_ds)
+        assert result is single_point_ds
+
+    def test_unstack_is_identity(self, single_point_ds):
+        result = unstack_if_grid(single_point_ds)
+        assert result is single_point_ds
+
+    def test_dims_unchanged(self, single_point_ds):
+        result = stack_if_spatial(single_point_ds)
+        assert set(result.dims) == {"time"}
 
 
 # ---------------------------------------------------------------------------
-# Multi-point (time, pixel) — documents current limitation
+# Multi-point (time, pixel) — passes through unchanged
 # ---------------------------------------------------------------------------
 
 
 class TestMultiPoint:
     """(time, pixel) — unstructured multi-point data with an integer pixel index.
 
-    rioxarray cannot identify spatial dims on a dataset whose non-time
-    dimension is an ordinary integer index rather than a (y, x) MultiIndex.
-    These tests document the current failure mode.
-
-    Note: even if stacking were skipped, the output unstack("pixel") step
-    also requires a (y, x) MultiIndex — a plain integer index cannot be
-    unpacked into a 2D grid.
+    stack_if_spatial detects the existing 'pixel' dim and returns the dataset
+    unchanged. unstack_if_grid detects the plain integer index (not a
+    MultiIndex) and also returns unchanged.
     """
 
-    def test_stack_raises(self, multi_point_ds):
-        with pytest.raises(Exception):
-            stack_spatial_dims(multi_point_ds)
+    def test_stack_is_identity(self, multi_point_ds):
+        result = stack_if_spatial(multi_point_ds)
+        assert result is multi_point_ds
 
-    def test_unstack_integer_pixel_raises(self, multi_point_ds):
-        """Unstacking a plain integer pixel index raises because there is no (y, x) MultiIndex to expand."""
-        with pytest.raises(Exception):
-            multi_point_ds.unstack("pixel")
+    def test_unstack_is_identity(self, multi_point_ds):
+        result = unstack_if_grid(multi_point_ds)
+        assert result is multi_point_ds
+
+    def test_dims_unchanged(self, multi_point_ds):
+        result = stack_if_spatial(multi_point_ds)
+        assert set(result.dims) == {"time", "pixel"}
+        assert result.sizes["pixel"] == N_POINTS

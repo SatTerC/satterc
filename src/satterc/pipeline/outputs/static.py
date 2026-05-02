@@ -3,7 +3,7 @@ from hamilton.function_modifiers import group, inject, source
 from hamilton.function_modifiers.delayed import ResolveAt
 
 from .._hamilton_fixes import FixedResolve, NoOpDecorator
-from ._utils import _save_dataset
+from ._utils import _save_dataset, unstack_if_grid
 
 
 @FixedResolve(
@@ -48,7 +48,7 @@ def unstacked_static_outputs(merged_static_outputs: xr.Dataset) -> xr.Dataset:
     xr.Dataset
         Static outputs with original spatial dimensions restored.
     """
-    return merged_static_outputs.unstack("pixel")
+    return unstack_if_grid(merged_static_outputs)
 
 
 def save_static_outputs(

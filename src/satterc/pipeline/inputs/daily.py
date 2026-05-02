@@ -5,7 +5,7 @@ import pandas as pd
 import xarray as xr
 from hamilton.function_modifiers import check_output_custom, extract_fields, ResolveAt
 
-from ._utils import load_dataset, stack_spatial_dims, DatetimeIndexValidator
+from ._utils import load_dataset, stack_if_spatial, DatetimeIndexValidator
 from .._hamilton_fixes import FixedResolve, NoOpDecorator
 
 
@@ -38,7 +38,7 @@ def stacked_daily_inputs(loaded_daily_inputs: xr.Dataset) -> xr.Dataset:
     xr.Dataset
         Dataset with spatial dimensions stacked into 'pixel' dimension.
     """
-    return stack_spatial_dims(loaded_daily_inputs)
+    return stack_if_spatial(loaded_daily_inputs)
 
 
 @FixedResolve(

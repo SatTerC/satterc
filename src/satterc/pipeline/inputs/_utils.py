@@ -5,6 +5,7 @@ from typing import Any
 from hamilton.data_quality.base import DataValidator, ValidationResult
 import pandas as pd
 import xarray as xr
+import rioxarray as rioxarray  # noqa: F401 — registers the .rio accessor
 
 
 def load_dataset(path: str | PathLike) -> xr.Dataset:
@@ -37,6 +38,21 @@ def load_dataset(path: str | PathLike) -> xr.Dataset:
         raise ValueError(f"Unsupported file extension: {p.suffix}.")
 
     return xr.open_dataset(path, engine=engine, decode_coords="all")
+
+
+def stack_if_spatial(ds: xr.Dataset) -> xr.Dataset:
+    """Stack spatial dims if the dataset is a CRS-bearing 2D grid; pass through otherwise.
+
+    Three cases:
+    - Already has a 'pixel' dim (pre-stacked multi-point): return unchanged.
+    - Has a CRS (2D grid): stack (y, x) → pixel via stack_spatial_dims.
+    - No CRS, no pixel (single-point or non-spatial): return unchanged.
+    """
+    if "pixel" in ds.dims:
+        return ds
+    if ds.rio.crs is not None:
+        return stack_spatial_dims(ds)
+    return ds
 
 
 def stack_spatial_dims(ds: xr.Dataset) -> xr.Dataset:

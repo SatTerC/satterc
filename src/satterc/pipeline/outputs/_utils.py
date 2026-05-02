@@ -1,7 +1,21 @@
 from pathlib import Path
 from os import PathLike
 
+import pandas as pd
 import xarray as xr
+
+
+def unstack_if_grid(ds: xr.Dataset) -> xr.Dataset:
+    """Unstack pixel → (y, x) if pixel is a (y, x) MultiIndex; pass through otherwise.
+
+    Three cases:
+    - No 'pixel' dim (single-point): return unchanged.
+    - 'pixel' is a plain integer index (multi-point): return unchanged.
+    - 'pixel' is a (y, x) MultiIndex (2D grid after stacking): unstack to grid.
+    """
+    if "pixel" in ds.dims and isinstance(ds.indexes.get("pixel"), pd.MultiIndex):
+        return ds.unstack("pixel")
+    return ds
 
 
 def _save_dataset(ds: xr.Dataset, path: str | PathLike) -> None:

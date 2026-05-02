@@ -3,6 +3,7 @@ modules = [
   "inputs.weekly",
   "inputs.monthly",
   "inputs.static",
+  "inputs.grid",
   "resample",
   "outputs.daily",
   "outputs.weekly",
