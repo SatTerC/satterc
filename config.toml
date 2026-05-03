@@ -1,18 +1,3 @@
-modules = [
-  "models.pmodel",
-  "models.splash",
-  "models.sgam",
-  "models.rothc",
-  "inputs.daily",
-  "inputs.weekly",
-  "inputs.monthly",
-  "inputs.static",
-  "resample",
-  "outputs.daily",
-  "outputs.weekly",
-  "outputs.monthly",
-]
-
 [extra_config]
 n_years_spinup = 1
 

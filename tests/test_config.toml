@@ -1,19 +1,9 @@
-modules = [
-  "inputs.daily",
-  "inputs.weekly",
-  "inputs.monthly",
-  "inputs.static",
-  "inputs.grid",
-  "resample",
-  "outputs.daily",
-  "outputs.weekly",
-  "outputs.monthly",
-]
-
 [extra_config]
 method_kphio = "sandoval"
 method_optchi = "lavergne20_c3"
 n_years_spinup = 1
+
+[inputs.grid]
 
 [inputs.daily]
 path = "daily.nc"

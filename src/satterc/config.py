@@ -9,16 +9,6 @@ from typing import Any
 class Config:
     """Configuration class with loading, parsing, and serialization."""
 
-    PATH_DEFAULTS = {
-        "inputs_daily": "inputs/daily.nc",
-        "inputs_weekly": "inputs/weekly.nc",
-        "inputs_monthly": "inputs/monthly.nc",
-        "inputs_static": "inputs/static.nc",
-        "outputs_daily": "outputs/daily.nc",
-        "outputs_weekly": "outputs/weekly.nc",
-        "outputs_monthly": "outputs/monthly.nc",
-    }
-
     def __init__(self, data: dict[str, Any]) -> None:
         """Initialize with a config dict."""
         self._data = data
@@ -33,55 +23,90 @@ class Config:
         return cls(data)
 
     def parse(self) -> dict[str, Any]:
-        """Parse config into {modules, driver_config, targets}."""
-        data = dict(self._data)
+        """Parse config into {modules, driver_config, targets}.
 
-        modules = data.pop("modules")
-        extra_modules = data.pop("extra_modules", [])
+        Every TOML section implies a module to load:
+        - [inputs.*]  and [outputs.*] — I/O modules, derived from file extension
+        - [models.*]  — built-in model modules
+        - [resample]  — temporal resampling module
+        - [extra_config] — reserved: merges keys into driver_config, no module loaded
+        - [pkg.mod]   — external importable module (max 2-component path for now)
+        """
+        data = dict(self._data)
         extra_config = data.pop("extra_config", {})
 
         config_flat = _flatten_config(data)
 
-        for section in config_flat:
-            if section not in modules:
-                raise ValueError(f"Section [{section}] not defined in modules list")
-
-        driver_config = {}
-        targets = []
+        driver_config: dict[str, Any] = {}
+        targets: list[str] = []
+        modules: list[str] = []
 
         for section_name, params in config_flat.items():
+            depth = section_name.count(".") + 1
+
             if section_name.startswith("inputs."):
-                _, freq = section_name.split(".", 1)
-                driver_config[f"{freq}_inputs_path"] = params.get("path")
-                driver_config[f"{freq}_inputs_vars"] = params.get("vars")
+                freq = section_name.split(".", 1)[1]
+                if "path" in params:
+                    fmt = _infer_format(params["path"])
+                    driver_config[f"{freq}_inputs_path"] = params["path"]
+                    driver_config[f"{freq}_inputs_vars"] = params.get("vars") or []
+                    driver_config[f"{freq}_inputs_format"] = fmt
+                    modules.append(f"inputs.{freq}")
+                else:
+                    # Helper section with no file path (e.g. [inputs.grid])
+                    modules.append(section_name)
+
             elif section_name.startswith("outputs."):
-                _, freq = section_name.split(".", 1)
+                freq = section_name.split(".", 1)[1]
                 vars_ = params.get("vars") or []
                 if vars_:
-                    driver_config[f"{freq}_outputs_path"] = params.get("path")
+                    fmt = _infer_format(params["path"])
+                    driver_config[f"{freq}_outputs_path"] = params["path"]
                     driver_config[f"{freq}_outputs_vars"] = vars_
+                    driver_config[f"{freq}_outputs_format"] = fmt
                     targets.append(f"save_{freq}_outputs")
-                else:
-                    # Remove any output module whose last dotted component matches
-                    # freq (e.g. both "outputs.daily" and "outputs.single_point.daily"
-                    # for freq="daily") so that FixedResolve is not evaluated against
-                    # a missing config key.
-                    modules = [
-                        m
-                        for m in modules
-                        if not (m.startswith("outputs.") and m.split(".")[-1] == freq)
-                    ]
-            else:
+                    modules.append(f"outputs.{freq}")
+                # else: empty vars → skip (no module, no target, no config keys)
+
+            elif section_name.startswith("models."):
+                conflicts = set(params.keys()) & set(driver_config.keys())
+                if conflicts:
+                    raise ValueError(
+                        f"Parameter(s) {sorted(conflicts)} in [{section_name}] conflict "
+                        f"with an already-defined key. Use a model-specific prefix to "
+                        f"disambiguate (e.g. pmodel_method_kphio)."
+                    )
                 driver_config |= params
+                modules.append(section_name)
+
+            elif section_name == "resample":
+                driver_config |= params
+                modules.append("resample")
+
+            else:
+                # External module: section name is an importable path.
+                # NOTE: Only 2-component paths (pkg.mod) are supported for now.
+                # Support for deeper paths (pkg.sub.mod) may be added in future.
+                has_nested = any(isinstance(v, dict) for v in params.values())
+                if depth > 2 or has_nested:
+                    raise ValueError(
+                        f"[{section_name}] has {depth} path components or contains "
+                        f"sub-sections. External module paths must be 2 components "
+                        f"(e.g. mypackage.mymodule). "
+                        f"Support for deeper paths may be added in future."
+                    )
+                conflicts = set(params.keys()) & set(driver_config.keys())
+                if conflicts:
+                    raise ValueError(
+                        f"Parameter(s) {sorted(conflicts)} in [{section_name}] conflict "
+                        f"with an already-defined key."
+                    )
+                driver_config |= params
+                modules.append(section_name)
 
         driver_config |= extra_config
 
-        return {
-            "modules": modules,
-            "extra_modules": extra_modules,
-            "driver_config": driver_config,
-            "targets": targets,
-        }
+        return {"modules": modules, "driver_config": driver_config, "targets": targets}
 
     def dump(self, path: str | os.PathLike, overwrite_ok: bool = False) -> None:
         """Write config to a TOML file."""
@@ -102,21 +127,7 @@ class Config:
         d = self._data
         lines = []
 
-        if "modules" in d:
-            lines.append("modules = [")
-            for m in d["modules"]:
-                lines.append(f'  "{m}",')
-            lines.append("]")
-
-        if "extra_modules" in d:
-            lines.append("")
-            lines.append("extra_modules = [")
-            for m in d["extra_modules"]:
-                lines.append(f'  "{m}",')
-            lines.append("]")
-
         if "extra_config" in d:
-            lines.append("")
             lines.append("[extra_config]")
             for k, v in d["extra_config"].items():
                 lines.append(f"{k} = {_format_value(v)}")
@@ -130,13 +141,12 @@ class Config:
                         lines.append(f"{k} = {_format_value(v)}")
 
         if "inputs" in d:
-            for section in ["daily", "weekly", "monthly", "static"]:
-                if section in d["inputs"]:
-                    data = d["inputs"][section]
-                    lines.append("")
-                    lines.append(f"[inputs.{section}]")
+            for section, data in d["inputs"].items():
+                lines.append("")
+                lines.append(f"[inputs.{section}]")
+                if "path" in data:
                     lines.append(f'path = "{data["path"]}"')
-                    lines.append(f"vars = {_format_list(data['vars'])}")
+                    lines.append(f"vars = {_format_list(data.get('vars', []))}")
 
         if "resample" in d:
             lines.append("")
@@ -146,30 +156,18 @@ class Config:
                     lines.append(f"{key} = {_format_list(d['resample'][key])}")
 
         if "outputs" in d:
-            for section in ["daily", "weekly", "monthly", "static"]:
-                if section in d["outputs"]:
-                    data = d["outputs"][section]
+            for section, data in d["outputs"].items():
+                if "path" in data:
                     lines.append("")
                     lines.append(f"[outputs.{section}]")
                     lines.append(f'path = "{data["path"]}"')
-                    lines.append(f"vars = {_format_list(data['vars'])}")
+                    lines.append(f"vars = {_format_list(data.get('vars', []))}")
 
         return "\n".join(lines)
 
 
 def load_config(config_path: str | Path) -> dict[str, Any]:
-    """Load and parse a TOML config file.
-
-    Parameters
-    ----------
-    config_path : str | Path
-        Path to the TOML config file.
-
-    Returns
-    -------
-    dict
-        Parsed config with modules, driver_config, and targets keys.
-    """
+    """Load and parse a TOML config file."""
     return Config.load(config_path).parse()
 
 
@@ -182,17 +180,43 @@ def _resolve_paths(data: dict, base: Path) -> None:
 
 
 def _flatten_config(config: dict) -> dict[str, Any]:
-    """Flatten nested TOML sections into dot-notation keys."""
+    """Flatten nested TOML sections into dot-notation keys.
+
+    Dicts whose values are all dicts are treated as namespaces and flattened
+    one level (e.g. {inputs: {daily: {path, vars}}} → {"inputs.daily": {path, vars}}).
+    Dicts with any non-dict value are kept as-is (e.g. resample, model params).
+    """
     flat = {}
     for key, value in config.items():
-        if key in ("modules", "extra_config"):
-            continue
-        if isinstance(value, dict) and all(isinstance(v, dict) for v in value.values()):
+        if (
+            isinstance(value, dict)
+            and value
+            and all(isinstance(v, dict) for v in value.values())
+        ):
             for subkey, subvalue in value.items():
                 flat[f"{key}.{subkey}"] = subvalue
         else:
             flat[key] = value
     return flat
+
+
+def _infer_format(path: str) -> str:
+    """Derive 'netcdf' or 'flat' from file extension.
+
+    netcdf: .nc, .netcdf, .zarr, or no extension (bare zarr directory)
+    flat:   .csv, .parquet, .pq, .json, .yaml, .yml, .toml
+    """
+    p = Path(path)
+    ext = p.suffix.lower()
+    if ext in (".nc", ".netcdf", ".zarr") or not ext:
+        return "netcdf"
+    if ext in (".csv", ".parquet", ".pq", ".json", ".yaml", ".yml", ".toml"):
+        return "flat"
+    raise ValueError(
+        f"Cannot determine format from extension '{ext}' in path '{path}'. "
+        f"Expected .nc/.netcdf/.zarr (netcdf) or "
+        f".csv/.parquet/.json/.yaml/.yml/.toml (flat)."
+    )
 
 
 def _format_list(items: list[Any], indent: int = 2) -> str:

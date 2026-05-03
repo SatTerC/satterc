@@ -1,9 +1,14 @@
 import xarray as xr
-from hamilton.function_modifiers import group, inject, source
+from hamilton.function_modifiers import config, group, inject, source
 from hamilton.function_modifiers.delayed import ResolveAt
 
 from .._hamilton_fixes import FixedResolve, NoOpDecorator
-from ._utils import _save_dataset, unstack_if_grid
+from ._utils import (
+    _save_dataset,
+    dataset_to_dataframe,
+    save_timeseries,
+    unstack_if_grid,
+)
 
 
 @FixedResolve(
@@ -51,16 +56,17 @@ def unstacked_static_outputs(merged_static_outputs: xr.Dataset) -> xr.Dataset:
     return unstack_if_grid(merged_static_outputs)
 
 
-def save_static_outputs(
+@config.when(static_outputs_format="netcdf")
+def save_static_outputs__netcdf(
     unstacked_static_outputs: xr.Dataset, static_outputs_path: str
 ) -> None:
-    """Save static outputs to file.
-
-    Parameters
-    ----------
-    unstacked_static_outputs : xr.Dataset
-        Static outputs dataset.
-    static_outputs_path : str
-        Path to save the dataset.
-    """
+    """Save static outputs to a NetCDF or Zarr file."""
     _save_dataset(unstacked_static_outputs, static_outputs_path)
+
+
+@config.when(static_outputs_format="flat")
+def save_static_outputs__flat(
+    unstacked_static_outputs: xr.Dataset, static_outputs_path: str
+) -> None:
+    """Save static outputs to a CSV or Parquet file."""
+    save_timeseries(dataset_to_dataframe(unstacked_static_outputs), static_outputs_path)

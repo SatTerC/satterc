@@ -1,26 +1,22 @@
 from os import PathLike
 
 import xarray as xr
-from hamilton.function_modifiers import extract_fields, ResolveAt
+from hamilton.function_modifiers import config, extract_fields, ResolveAt
 
-from ._utils import load_dataset, stack_if_spatial
+from ._utils import load_dataset, load_static, stack_if_spatial
 from .._hamilton_fixes import FixedResolve, NoOpDecorator
 
 
-def loaded_static_inputs(static_inputs_path: str | PathLike) -> xr.Dataset:
-    """Load static input dataset from file.
-
-    Parameters
-    ----------
-    static_inputs_path : Path
-        Path to the NetCDF or Zarr dataset.
-
-    Returns
-    -------
-    xr.Dataset
-        The loaded dataset.
-    """
+@config.when(static_inputs_format="netcdf")
+def loaded_static_inputs__netcdf(static_inputs_path: str | PathLike) -> xr.Dataset:
+    """Load static inputs from a NetCDF or Zarr file."""
     return load_dataset(static_inputs_path)
+
+
+@config.when(static_inputs_format="flat")
+def loaded_static_inputs__flat(static_inputs_path: str | PathLike) -> xr.Dataset:
+    """Load static inputs from a JSON, YAML, or TOML file."""
+    return load_static(static_inputs_path)
 
 
 def stacked_static_inputs(loaded_static_inputs: xr.Dataset) -> xr.Dataset:

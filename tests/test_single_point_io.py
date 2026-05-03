@@ -8,11 +8,8 @@ import pandas as pd
 import pytest
 import xarray as xr
 
-from satterc.pipeline.inputs.single_point._utils import load_timeseries, load_static
-from satterc.pipeline.outputs.single_point._utils import (
-    dataset_to_dataframe,
-    save_timeseries,
-)
+from satterc.pipeline.inputs._utils import load_timeseries, load_static
+from satterc.pipeline.outputs._utils import dataset_to_dataframe, save_timeseries
 from satterc.driver import build_driver
 
 
@@ -278,11 +275,13 @@ class TestHamiltonInputNodes:
         driver_config = {
             "daily_inputs_path": str(daily_path),
             "daily_inputs_vars": ["temperature", "precipitation"],
+            "daily_inputs_format": "flat",
             "static_inputs_path": str(static_path),
             "static_inputs_vars": ["elevation", "land_cover"],
+            "static_inputs_format": "flat",
         }
         return build_driver(
-            modules=["inputs.single_point.daily", "inputs.single_point.static"],
+            modules=["inputs.daily", "inputs.static"],
             config=driver_config,
         )
 

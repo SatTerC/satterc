@@ -3,26 +3,32 @@ from typing import cast
 
 import pandas as pd
 import xarray as xr
-from hamilton.function_modifiers import check_output_custom, extract_fields, ResolveAt
+from hamilton.function_modifiers import (
+    check_output_custom,
+    config,
+    extract_fields,
+    ResolveAt,
+)
 
-from ._utils import load_dataset, stack_if_spatial, DatetimeIndexValidator
+from ._utils import (
+    load_dataset,
+    load_timeseries,
+    stack_if_spatial,
+    DatetimeIndexValidator,
+)
 from .._hamilton_fixes import FixedResolve, NoOpDecorator
 
 
-def loaded_weekly_inputs(weekly_inputs_path: str | PathLike) -> xr.Dataset:
-    """Load weekly input dataset from file.
-
-    Parameters
-    ----------
-    weekly_inputs_path : Path
-        Path to the NetCDF or Zarr dataset.
-
-    Returns
-    -------
-    xr.Dataset
-        The loaded dataset.
-    """
+@config.when(weekly_inputs_format="netcdf")
+def loaded_weekly_inputs__netcdf(weekly_inputs_path: str | PathLike) -> xr.Dataset:
+    """Load weekly inputs from a NetCDF or Zarr file."""
     return load_dataset(weekly_inputs_path)
+
+
+@config.when(weekly_inputs_format="flat")
+def loaded_weekly_inputs__flat(weekly_inputs_path: str | PathLike) -> xr.Dataset:
+    """Load weekly inputs from a CSV or Parquet file."""
+    return load_timeseries(weekly_inputs_path)
 
 
 def stacked_weekly_inputs(loaded_weekly_inputs: xr.Dataset) -> xr.Dataset:
