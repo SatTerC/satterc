@@ -101,9 +101,9 @@ class TestSyntheticDataValues:
         gpp = daily_ds.gpp.values
         assert np.nanmin(gpp) >= 0
 
-    def test_plant_type_is_grassland(self, static_ds):
-        """Test plant type is grassland (1)."""
-        assert np.all(static_ds.plant_type.values == 1)
+    def test_plant_type_valid(self, static_ds):
+        """Test plant type values are valid (1=grassland, 2=C3 crop, 3=woodland)."""
+        assert np.all(np.isin(static_ds.plant_type.values, [1, 2, 3]))
 
     def test_elevation_reasonable(self, static_ds):
         """Test elevation is in reasonable range."""

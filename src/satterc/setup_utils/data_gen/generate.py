@@ -1,5 +1,6 @@
 """Generate synthetic input data using Hamilton DAG."""
 
+import inspect
 from os import PathLike
 from pathlib import Path
 from typing import Any
@@ -10,7 +11,11 @@ from hamilton import driver
 from hamilton.settings import ENABLE_POWER_USER_MODE
 
 from . import daily, static
+from .fallback import build_fallback_module
 from ...pipeline import outputs, resample
+from ...pipeline.outputs._utils import dataset_to_dataframe, save_timeseries
+
+_FLAT_SUFFIXES = {".csv", ".parquet", ".pq"}
 
 
 def _set_random_seed(seed: int) -> None:
@@ -19,30 +24,54 @@ def _set_random_seed(seed: int) -> None:
 
 
 def _save_dataset_with_crs(ds: xr.Dataset, path: str | PathLike) -> None:
-    """Save dataset with CRS metadata to a NetCDF file or Zarr store.
+    """Save dataset to NetCDF, Zarr, CSV, or Parquet.
+
+    CSV and Parquet are written as flat time-indexed tables (CRS not stored).
+    NetCDF and Zarr receive a crs='EPSG:4326' global attribute.
 
     Parameters
     ----------
     ds : xr.Dataset
         The dataset to save.
     path : str | PathLike
-        The destination path.
+        The destination path. Format is inferred from the file extension.
     """
     p = Path(path)
     suffix = p.suffix.lower()
 
+    if suffix in _FLAT_SUFFIXES:
+        save_timeseries(dataset_to_dataframe(ds), path)
+        return
+
     ds.attrs["crs"] = "EPSG:4326"
 
-    if suffix in [".nc", ".netcdf"]:
+    if suffix in (".nc", ".netcdf"):
         ds.to_netcdf(path, engine="netcdf4")
-
     elif suffix == ".zarr" or (not suffix and p.is_dir()):
         ds.to_zarr(path)
-
     else:
         raise ValueError(
-            f"Unsupported file extension: '{suffix}'. Use '.nc', '.netcdf', or '.zarr'."
+            f"Unsupported file extension: '{suffix}'. "
+            "Use '.nc', '.netcdf', '.zarr', '.csv', or '.parquet'."
         )
+
+
+def _known_daily_fns() -> set[str]:
+    """Names of daily generator functions available in the daily module."""
+    return {
+        name
+        for name, obj in inspect.getmembers(daily, inspect.isfunction)
+        if not name.startswith("_")
+    }
+
+
+def _known_static_fns() -> set[str]:
+    """Names of static generator functions available in the static module."""
+    return {
+        name
+        for name, obj in inspect.getmembers(static, inspect.isfunction)
+        if not name.startswith("_")
+    }
 
 
 def generate_synthetic_data(
@@ -82,7 +111,8 @@ def generate_synthetic_data(
     generating the input data files.
 
     After the DAG runs, CRS metadata (EPSG:4326) is added to all output
-    netCDF files.
+    netCDF files. Variables not found in the built-in generators fall back
+    to Gaussian noise with a logged warning.
     """
     _set_random_seed(seed)
 
@@ -90,6 +120,7 @@ def generate_synthetic_data(
     daily_vars = set(config["driver_config"].get("daily_inputs_vars", []))
     weekly_vars = set(config["driver_config"].get("weekly_inputs_vars", []))
     monthly_vars = set(config["driver_config"].get("monthly_inputs_vars", []))
+    static_vars = list(config["driver_config"].get("static_inputs_vars", []))
 
     daily_to_weekly = list(weekly_vars)
     daily_to_monthly = list(daily_vars | weekly_vars | monthly_vars)
@@ -112,13 +143,24 @@ def generate_synthetic_data(
         "monthly_outputs_path": config["driver_config"].get("monthly_inputs_path"),
         "monthly_outputs_vars": monthly_outputs_vars,
         "static_outputs_path": config["driver_config"].get("static_inputs_path"),
-        "static_outputs_vars": config["driver_config"].get("static_inputs_vars", []),
+        "static_outputs_vars": static_vars,
         "daily_to_weekly": daily_to_weekly,
         "daily_to_monthly": daily_to_monthly,
         "weekly_to_monthly": weekly_to_monthly,
     }
 
+    # Detect variables that have no explicit generator and inject fallbacks.
+    all_temporal_vars = daily_vars | weekly_vars | monthly_vars
+    known_daily = _known_daily_fns()
+    known_static = _known_static_fns()
+    unknown_daily = [v for v in all_temporal_vars if f"{v}_daily" not in known_daily]
+    unknown_static = [v for v in static_vars if v not in known_static]
+
     modules = [daily, static, resample]
+
+    if unknown_daily or unknown_static:
+        modules.append(build_fallback_module(unknown_daily, unknown_static))
+
     targets = []
 
     if daily_vars:
