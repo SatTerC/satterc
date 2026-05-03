@@ -62,7 +62,15 @@ class Config:
                     driver_config[f"{freq}_outputs_vars"] = vars_
                     targets.append(f"save_{freq}_outputs")
                 else:
-                    modules = [m for m in modules if m != f"outputs.{freq}"]
+                    # Remove any output module whose last dotted component matches
+                    # freq (e.g. both "outputs.daily" and "outputs.single_point.daily"
+                    # for freq="daily") so that FixedResolve is not evaluated against
+                    # a missing config key.
+                    modules = [
+                        m
+                        for m in modules
+                        if not (m.startswith("outputs.") and m.split(".")[-1] == freq)
+                    ]
             else:
                 driver_config |= params
 
