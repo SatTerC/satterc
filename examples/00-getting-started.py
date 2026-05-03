@@ -86,11 +86,9 @@ def _(mo):
 
     A SatTerC pipeline is described by a configuration file written in
     [TOML](https://toml.io/en/) — a simple, human-readable format.
-    The config tells SatTerC:
-
-    - **`modules`** — which model components to activate
-    - **`inputs`** — where to find the input data files and which variables to load from them
-    - **`outputs`** — which computed variables to save, and where to write them
+    Every section in the config activates a pipeline component — `[models.splash]` runs the
+    SPLASH water-balance model, `[inputs.daily]` loads daily climate data from the given path,
+    and `[outputs.daily]` saves the named variables to disk when the pipeline finishes.
 
     In this example we run only the **SPLASH** water balance model, which simulates
     how precipitation is partitioned into evapotranspiration, soil moisture, and runoff.
@@ -106,12 +104,7 @@ def _(mo):
 @app.cell
 def _():
     config_toml = """
-    modules = [
-      "models.splash",
-      "inputs.daily",
-      "inputs.static",
-      "outputs.daily",
-    ]
+    [models.splash]
 
     [inputs.daily]
     path = "daily.nc"
@@ -127,6 +120,8 @@ def _():
       "elevation",
       "max_soil_moisture",
     ]
+
+    [inputs.grid]
 
     [outputs.daily]
     path = "results/daily.nc"

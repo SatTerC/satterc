@@ -75,19 +75,13 @@ def _(mo):
 @app.cell
 def _(Config, tomllib):
     _config_toml = """
-    modules = [
-      "models.splash",
-      "models.pmodel",
-      "models.sgam",
-      "inputs.daily",
-      "inputs.weekly",
-      "inputs.static",
-      "resample",
-    ]
+    [models.splash]
 
     [models.pmodel]
     method_kphio = "sandoval"
     method_optchi = "lavergne20_c3"
+
+    [models.sgam]
 
     [inputs.daily]
     path = "daily.nc"
@@ -128,6 +122,8 @@ def _(Config, tomllib):
     ]
     daily_to_monthly = []
     weekly_to_monthly = []
+
+    [inputs.grid]
     """
 
     parsed_config = Config(tomllib.loads(_config_toml)).parse()

@@ -48,19 +48,13 @@ all results are kept in memory.
 
 ```python {.marimo}
 _config_toml = """
-modules = [
-  "models.splash",
-  "models.pmodel",
-  "models.sgam",
-  "inputs.daily",
-  "inputs.weekly",
-  "inputs.static",
-  "resample",
-]
+[models.splash]
 
 [models.pmodel]
 method_kphio = "sandoval"
 method_optchi = "lavergne20_c3"
+
+[models.sgam]
 
 [inputs.daily]
 path = "daily.nc"
@@ -101,6 +95,8 @@ daily_to_weekly = [
 ]
 daily_to_monthly = []
 weekly_to_monthly = []
+
+[inputs.grid]
 """
 
 parsed_config = Config(tomllib.loads(_config_toml)).parse()

@@ -66,27 +66,20 @@ def _(mo):
 @app.cell
 def _(Config, tomllib):
     _config_toml = """
-    modules = [
-      "models.pmodel",
-      "models.splash",
-      "models.sgam",
-      "models.rothc",
-      "inputs.daily",
-      "inputs.weekly",
-      "inputs.monthly",
-      "inputs.static",
-      "resample",
-      "outputs.daily",
-      "outputs.weekly",
-      "outputs.monthly",
-    ]
-
     [extra_config]
     n_years_spinup = 1
+
+    [models.splash]
 
     [models.pmodel]
     method_kphio = "sandoval"
     method_optchi = "lavergne20_c3"
+
+    [models.sgam]
+
+    [models.rothc]
+
+    [inputs.grid]
 
     [inputs.daily]
     path = "daily.nc"

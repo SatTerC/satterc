@@ -74,11 +74,7 @@ def _(mo):
 @app.cell
 def _(Config, tomllib):
     _config_toml = """
-    modules = [
-      "models.splash",
-      "inputs.daily",
-      "inputs.static",
-    ]
+    [models.splash]
 
     [inputs.daily]
     path = "daily.nc"
@@ -95,6 +91,8 @@ def _(Config, tomllib):
       "plant_type",
       "max_soil_moisture",
     ]
+
+    [inputs.grid]
     """
 
     parsed_config = Config(tomllib.loads(_config_toml)).parse()
