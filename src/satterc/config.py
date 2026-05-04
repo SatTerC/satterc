@@ -8,6 +8,55 @@ from pathlib import Path
 from typing import Any
 
 
+_RESAMPLE_FREQ_MAP: dict[tuple[str, str], str] = {
+    ("daily", "weekly"): "7D",
+    ("daily", "monthly"): "1ME",
+    ("weekly", "monthly"): "1ME",
+    # TODO: expose frequency strings as config options to support e.g. "W" (week-ending
+    # Sunday) vs "7D" (rolling 7-day), or "MS" (month-start) vs "1ME" (month-end)
+}
+
+_VALID_AGGFUNCS: frozenset[str] = frozenset({"mean", "sum"})
+# TODO: extend to allow any valid xarray DataArrayResample method:
+#   min, max, std, var, first, last, median, count
+
+
+@dataclass
+class ResampleSpec:
+    """Specification for a single [[resample]] entry."""
+
+    vars: list[str]
+    from_: str  # trailing underscore avoids clash with Python keyword 'from'
+    to: str
+    aggfunc: str = "mean"
+
+    @property
+    def freq(self) -> str:
+        """xarray resample frequency string derived from from_/to pair."""
+        return _RESAMPLE_FREQ_MAP[(self.from_, self.to)]
+
+    @classmethod
+    def from_config(cls, entry: dict) -> "ResampleSpec":
+        """Construct and validate from a raw [[resample]] TOML entry."""
+        from_freq = entry["from"]
+        to_freq = entry["to"]
+        aggfunc = entry.get("aggfunc", "mean")
+        vars_ = entry["vars"]
+
+        if (from_freq, to_freq) not in _RESAMPLE_FREQ_MAP:
+            raise ValueError(
+                f"Unsupported resample direction '{from_freq}' → '{to_freq}'. "
+                f"Supported: {sorted(_RESAMPLE_FREQ_MAP)}"
+            )
+        if aggfunc not in _VALID_AGGFUNCS:
+            raise ValueError(
+                f"Unsupported aggfunc '{aggfunc}'. "
+                f"Supported: {sorted(_VALID_AGGFUNCS)}"
+            )
+
+        return cls(vars=vars_, from_=from_freq, to=to_freq, aggfunc=aggfunc)
+
+
 @dataclass
 class ParsedConfig:
     """Parsed pipeline configuration, ready to pass to build_driver."""
@@ -91,7 +140,20 @@ class Config:
                 modules.append(section_name)
 
             elif section_name == "resample":
-                driver_config |= params
+                # params is a list from [[resample]] array-of-tables
+                seen_outputs: set[str] = set()
+                specs: list[ResampleSpec] = []
+                for entry in params:
+                    spec = ResampleSpec.from_config(entry)
+                    for var in spec.vars:
+                        out = f"{var}_{spec.to}"
+                        if out in seen_outputs:
+                            raise ValueError(
+                                f"Duplicate resample output '{out}' in [[resample]]"
+                            )
+                        seen_outputs.add(out)
+                    specs.append(spec)
+                driver_config["resample_specs"] = specs
                 modules.append("resample")
 
             else:

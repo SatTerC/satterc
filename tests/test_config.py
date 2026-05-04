@@ -17,8 +17,8 @@ EXPECTED_MODULES = [
     "inputs.weekly",
     "inputs.monthly",
     "inputs.static",
-    "resample",
-    # outputs.daily/weekly/monthly are absent — all have empty vars in test_config.toml
+    # resample absent — no [[resample]] entries in test_config.toml
+    # outputs.daily/weekly/monthly absent — all have empty vars in test_config.toml
 ]
 
 EXPECTED_TARGETS = []  # no output vars → no targets

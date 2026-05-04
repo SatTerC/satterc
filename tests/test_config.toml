@@ -47,11 +47,6 @@ vars = [
   "stem_pool_init",
 ]
 
-[resample]
-daily_to_weekly = []
-daily_to_monthly = []
-weekly_to_monthly = []
-
 [outputs.daily]
 path = "daily.nc"
 vars = []

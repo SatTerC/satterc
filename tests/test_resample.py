@@ -1,7 +1,7 @@
 """Unit tests for the resample pipeline module.
 
-The resample functions are wrapped by @FixedResolve (a Hamilton class-based
-decorator) and cannot be called as plain Python functions. Tests exercise them
+The resample function is wrapped by @FixedResolve (a Hamilton class-based
+decorator) and cannot be called as a plain Python function. Tests exercise it
 via a minimal Hamilton driver with DataArrays injected directly as inputs.
 """
 
@@ -12,6 +12,7 @@ import xarray as xr
 from hamilton import driver
 from hamilton.settings import ENABLE_POWER_USER_MODE
 
+from satterc.config import ResampleSpec
 from satterc.pipeline import resample
 
 
@@ -39,49 +40,32 @@ def _make_weekly_da(n_weeks: int = 52, n_pixel: int = 4, seed: int = 1) -> xr.Da
     )
 
 
-def _resample_config(**kwargs) -> dict:
-    base = {
-        "daily_to_weekly": [],
-        "daily_to_monthly": [],
-        "weekly_to_monthly": [],
-        ENABLE_POWER_USER_MODE: True,
-    }
-    base.update(kwargs)
-    return base
+def _build_driver(*specs: ResampleSpec) -> driver.Driver:
+    return (
+        driver.Builder()
+        .with_modules(resample)
+        .with_config({"resample_specs": list(specs), ENABLE_POWER_USER_MODE: True})
+        .build()
+    )
 
 
 @pytest.fixture(scope="module")
 def daily_to_weekly_driver():
-    return (
-        driver.Builder()
-        .with_modules(resample)
-        .with_config(_resample_config(daily_to_weekly=["temperature"]))
-        .build()
-    )
+    return _build_driver(ResampleSpec(vars=["temperature"], from_="daily", to="weekly"))
 
 
 @pytest.fixture(scope="module")
 def daily_to_monthly_driver():
-    return (
-        driver.Builder()
-        .with_modules(resample)
-        .with_config(_resample_config(daily_to_monthly=["temperature"]))
-        .build()
-    )
+    return _build_driver(ResampleSpec(vars=["temperature"], from_="daily", to="monthly"))
 
 
 @pytest.fixture(scope="module")
 def weekly_to_monthly_driver():
-    return (
-        driver.Builder()
-        .with_modules(resample)
-        .with_config(_resample_config(weekly_to_monthly=["temperature"]))
-        .build()
-    )
+    return _build_driver(ResampleSpec(vars=["temperature"], from_="weekly", to="monthly"))
 
 
-class TestDailyToWeekly:
-    """Tests for daily → weekly resampling."""
+class TestDailyToWeeklyMean:
+    """Tests for daily → weekly mean resampling."""
 
     @pytest.fixture(scope="class")
     def result(self, daily_to_weekly_driver):
@@ -108,20 +92,56 @@ class TestDailyToWeekly:
         assert inferred.startswith(("W", "7D"))
 
     def test_values_are_means(self):
-        """Verify resampled values match manually computed weekly means."""
         da = _make_daily_da(n_days=14, n_pixel=1)
-        result = (
-            driver.Builder()
-            .with_modules(resample)
-            .with_config(_resample_config(daily_to_weekly=["temperature"]))
-            .build()
-            .execute(
-                ["temperature_weekly"],
-                inputs={"temperature_daily": da},
-            )["temperature_weekly"]
-        )
+        result = _build_driver(
+            ResampleSpec(vars=["temperature"], from_="daily", to="weekly")
+        ).execute(
+            ["temperature_weekly"],
+            inputs={"temperature_daily": da},
+        )["temperature_weekly"]
         expected_week1 = da.isel(time=slice(0, 7)).mean("time").values
         np.testing.assert_allclose(result.isel(time=0).values, expected_week1)
+
+
+class TestDailyToWeeklySum:
+    """Tests for daily → weekly sum resampling."""
+
+    @pytest.fixture(scope="class")
+    def result(self):
+        da = _make_daily_da(n_days=14, n_pixel=1)
+        return _build_driver(
+            ResampleSpec(vars=["precipitation"], from_="daily", to="weekly", aggfunc="sum")
+        ).execute(
+            ["precipitation_weekly"],
+            inputs={"precipitation_daily": da},
+        )["precipitation_weekly"]
+
+    def test_output_is_dataarray(self, result):
+        assert isinstance(result, xr.DataArray)
+
+    def test_values_are_sums(self, result):
+        da = _make_daily_da(n_days=14, n_pixel=1)
+        expected_week1 = da.isel(time=slice(0, 7)).sum("time").values
+        np.testing.assert_allclose(result.isel(time=0).values, expected_week1)
+
+
+class TestMixedAggfuncs:
+    """Multiple variables with different aggfuncs in a single driver."""
+
+    def test_mean_and_sum_coexist(self):
+        dr = _build_driver(
+            ResampleSpec(vars=["temperature"], from_="daily", to="weekly", aggfunc="mean"),
+            ResampleSpec(vars=["precipitation"], from_="daily", to="weekly", aggfunc="sum"),
+        )
+        da = _make_daily_da(n_days=14, n_pixel=1)
+        result = dr.execute(
+            ["temperature_weekly", "precipitation_weekly"],
+            inputs={"temperature_daily": da, "precipitation_daily": da},
+        )
+        expected_mean = da.isel(time=slice(0, 7)).mean("time").values
+        expected_sum = da.isel(time=slice(0, 7)).sum("time").values
+        np.testing.assert_allclose(result["temperature_weekly"].isel(time=0).values, expected_mean)
+        np.testing.assert_allclose(result["precipitation_weekly"].isel(time=0).values, expected_sum)
 
 
 class TestDailyToMonthly:
@@ -171,3 +191,25 @@ class TestWeeklyToMonthly:
 
     def test_monthly_output_shape(self, result):
         assert result.sizes["time"] == 12
+
+
+class TestResampleSpecValidation:
+    """Tests for ResampleSpec.from_config validation."""
+
+    def test_unsupported_direction_raises(self):
+        with pytest.raises(ValueError, match="Unsupported resample direction"):
+            ResampleSpec.from_config({"vars": ["x"], "from": "monthly", "to": "daily"})
+
+    def test_unsupported_aggfunc_raises(self):
+        with pytest.raises(ValueError, match="Unsupported aggfunc"):
+            ResampleSpec.from_config({"vars": ["x"], "from": "daily", "to": "weekly", "aggfunc": "banana"})
+
+    def test_default_aggfunc_is_mean(self):
+        spec = ResampleSpec.from_config({"vars": ["x"], "from": "daily", "to": "weekly"})
+        assert spec.aggfunc == "mean"
+
+    def test_freq_property(self):
+        spec = ResampleSpec(vars=["x"], from_="daily", to="weekly")
+        assert spec.freq == "7D"
+        spec2 = ResampleSpec(vars=["x"], from_="daily", to="monthly")
+        assert spec2.freq == "1ME"
