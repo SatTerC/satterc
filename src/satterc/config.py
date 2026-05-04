@@ -2,6 +2,7 @@
 
 import os
 import tomllib
+import tomli_w
 from pathlib import Path
 from typing import Any
 
@@ -122,60 +123,8 @@ class Config:
         """Return TOML string representation."""
         return self._dump()
 
-    _KNOWN_SECTIONS = frozenset(
-        {"extra_config", "models", "inputs", "resample", "outputs"}
-    )
-
     def _dump(self) -> str:
-        """Serialize config dict to TOML string."""
-        d = self._data
-        lines = []
-
-        if "extra_config" in d:
-            lines.append("[extra_config]")
-            for k, v in d["extra_config"].items():
-                lines.append(f"{k} = {_format_value(v)}")
-
-        if "models" in d:
-            for model_name, params in d["models"].items():
-                if params:
-                    lines.append("")
-                    lines.append(f"[models.{model_name}]")
-                    for k, v in params.items():
-                        lines.append(f"{k} = {_format_value(v)}")
-
-        if "inputs" in d:
-            for section, data in d["inputs"].items():
-                lines.append("")
-                lines.append(f"[inputs.{section}]")
-                if "path" in data:
-                    lines.append(f'path = "{data["path"]}"')
-                    lines.append(f"vars = {_format_list(data.get('vars', []))}")
-
-        if "resample" in d:
-            lines.append("")
-            lines.append("[resample]")
-            for key in ["daily_to_weekly", "daily_to_monthly", "weekly_to_monthly"]:
-                if key in d["resample"]:
-                    lines.append(f"{key} = {_format_list(d['resample'][key])}")
-
-        if "outputs" in d:
-            for section, data in d["outputs"].items():
-                if "path" in data:
-                    lines.append("")
-                    lines.append(f"[outputs.{section}]")
-                    lines.append(f'path = "{data["path"]}"')
-                    lines.append(f"vars = {_format_list(data.get('vars', []))}")
-
-        for key, value in d.items():
-            if key not in self._KNOWN_SECTIONS and isinstance(value, dict):
-                for subkey, params in value.items():
-                    lines.append("")
-                    lines.append(f"[{key}.{subkey}]")
-                    for k, v in params.items():
-                        lines.append(f"{k} = {_format_value(v)}")
-
-        return "\n".join(lines)
+        return tomli_w.dumps(self._data)
 
 
 def load_config(config_path: str | Path) -> dict[str, Any]:
@@ -231,23 +180,3 @@ def _infer_format(path: str) -> str:
     )
 
 
-def _format_list(items: list[Any], indent: int = 2) -> str:
-    """Format a list as a TOML array."""
-    prefix = " " * indent
-    if not items:
-        return "[]"
-    lines = ["["]
-    for item in items:
-        if isinstance(item, str):
-            lines.append(f'{prefix}  "{item}",')
-        else:
-            lines.append(f"{prefix}  {item},")
-    lines.append(f"{prefix}]")
-    return "\n".join(lines)
-
-
-def _format_value(value: Any) -> str:
-    """Format a simple value for TOML."""
-    if isinstance(value, str):
-        return f'"{value}"'
-    return str(value)
