@@ -330,8 +330,8 @@ def _(
     synthetic_obs,
 ):
     # @output: acceptance
-    _prior_low = 150.0
-    _prior_high = 250.0
+    _prior_low = 100.0
+    _prior_high = 300.0
     step_size = 0.5
     n_iterations = 200
     burn_in = 100
@@ -397,7 +397,7 @@ def _(burn_in, mcmc_history, np, plt, synthetic_obs_max_soil_moisture):
         posterior_samples, bins=20, density=True, alpha=0.7, label="Posterior"
     )
     _x = np.linspace(min(posterior_samples), max(posterior_samples), 100)
-    prior_pdf = np.ones_like(_x) / (250 - 150)  # uniform prior on [150, 250]
+    prior_pdf = np.ones_like(_x) / (300 - 100)  # uniform prior on [100, 300]
     _axes[1].plot(_x, prior_pdf, "r--", linewidth=2, label="Uniform Prior")
     _axes[1].axvline(
         x=synthetic_obs_max_soil_moisture,
