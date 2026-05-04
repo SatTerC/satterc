@@ -10,6 +10,8 @@ from satterc.config import Config, load_config, ParsedConfig
 TEST_CONFIG_PATH = Path(__file__).parent / "test_config.toml"
 
 EXPECTED_MODULES = [
+    "models.pmodel",
+    "models.rothc",
     "inputs.grid",
     "inputs.daily",
     "inputs.weekly",
@@ -97,7 +99,7 @@ class TestDriverConfig:
         assert "elevation" in vars_
         assert "clay_content" in vars_
 
-    def test_extra_config_merged_into_driver_config(self, parsed_config):
+    def test_model_params_merged_into_driver_config(self, parsed_config):
         dc = parsed_config.driver_config
         assert dc["method_kphio"] == "sandoval"
         assert dc["method_optchi"] == "lavergne20_c3"
