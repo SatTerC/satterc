@@ -66,8 +66,8 @@ def graph(
     graphviz_kwargs = config.get("graphviz", None)
 
     dr = build_driver(
-        modules=parsed["modules"],
-        config=parsed["driver_config"],
+        modules=parsed.modules,
+        config=parsed.driver_config,
         allow_module_overrides=allow_overrides,
     )
 

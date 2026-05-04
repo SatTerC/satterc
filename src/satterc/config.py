@@ -3,8 +3,18 @@
 import os
 import tomllib
 import tomli_w
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
+
+
+@dataclass
+class ParsedConfig:
+    """Parsed pipeline configuration, ready to pass to build_driver."""
+
+    modules: list[str]
+    driver_config: dict[str, Any]
+    targets: list[str] = field(default_factory=list)
 
 
 class Config:
@@ -23,8 +33,8 @@ class Config:
         _resolve_paths(data, base=path.parent)
         return cls(data)
 
-    def parse(self) -> dict[str, Any]:
-        """Parse config into {modules, driver_config, targets}.
+    def parse(self) -> ParsedConfig:
+        """Parse config into a ParsedConfig.
 
         Every TOML section implies a module to load:
         - [inputs.*]  and [outputs.*] — I/O modules, derived from file extension
@@ -107,7 +117,7 @@ class Config:
 
         driver_config |= extra_config
 
-        return {"modules": modules, "driver_config": driver_config, "targets": targets}
+        return ParsedConfig(modules=modules, driver_config=driver_config, targets=targets)
 
     def dump(self, path: str | os.PathLike, overwrite_ok: bool = False) -> None:
         """Write config to a TOML file."""
@@ -127,7 +137,7 @@ class Config:
         return tomli_w.dumps(self._data)
 
 
-def load_config(config_path: str | Path) -> dict[str, Any]:
+def load_config(config_path: str | Path) -> ParsedConfig:
     """Load and parse a TOML config file."""
     return Config.load(config_path).parse()
 

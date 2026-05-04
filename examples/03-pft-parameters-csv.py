@@ -136,9 +136,9 @@ def _(Config, tomllib):
 def _(Path, json, np, parsed_config, pd, tempfile):
     _tmpdir = Path(tempfile.mkdtemp())
 
-    parsed_config["driver_config"]["daily_inputs_path"] = str(_tmpdir / "daily.csv")
-    parsed_config["driver_config"]["weekly_inputs_path"] = str(_tmpdir / "weekly.csv")
-    parsed_config["driver_config"]["static_inputs_path"] = str(_tmpdir / "static.json")
+    parsed_config.driver_config["daily_inputs_path"] = str(_tmpdir / "daily.csv")
+    parsed_config.driver_config["weekly_inputs_path"] = str(_tmpdir / "weekly.csv")
+    parsed_config.driver_config["static_inputs_path"] = str(_tmpdir / "static.json")
 
     np.random.seed(42)
     _n_days = 730
@@ -260,8 +260,8 @@ def _(Path, json, np, parsed_config, pd, tempfile):
 @app.cell
 def _(build_driver, parsed_config):
     dr = build_driver(
-        modules=parsed_config["modules"],
-        config=parsed_config["driver_config"],
+        modules=parsed_config.modules,
+        config=parsed_config.driver_config,
     )
     return (dr,)
 

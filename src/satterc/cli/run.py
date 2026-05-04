@@ -26,10 +26,9 @@ def run(
     parsed = load_config(config_file)
 
     dr = build_driver(
-        modules=parsed["modules"],
-        config=parsed["driver_config"],
-        extra_modules=parsed.get("extra_modules"),
+        modules=parsed.modules,
+        config=parsed.driver_config,
         allow_module_overrides=allow_overrides,
     )
 
-    dr.execute(parsed["targets"])
+    dr.execute(parsed.targets)

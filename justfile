@@ -27,7 +27,10 @@ export example:
 # Export all notebooks in examples/ to docs/Examples/.
 export-all:
   just export 00-getting-started
+  just export 00-getting-started-csv
   just export 01-demo
   just export 02-soil-moisture
+  just export 02-soil-moisture-csv
   just export 03-pft-parameters
+  just export 03-pft-parameters-csv
   

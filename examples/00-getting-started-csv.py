@@ -71,18 +71,7 @@ def _():
     from satterc import build_driver
     from satterc.config import Config
 
-    return (
-        Config,
-        Path,
-        build_driver,
-        json,
-        mo,
-        np,
-        pd,
-        plt,
-        tempfile,
-        tomllib,
-    )
+    return Config, Path, build_driver, json, mo, np, pd, plt, tempfile, tomllib
 
 
 @app.cell(hide_code=True)
@@ -165,8 +154,8 @@ def _(Config, Path, config_toml, json, np, pd, tempfile, tomllib):
     parsed_config = Config(tomllib.loads(config_toml)).parse()
 
     # Redirect input paths to files we will generate in the temporary directory
-    parsed_config["driver_config"]["daily_inputs_path"] = str(_tmpdir / "daily.csv")
-    parsed_config["driver_config"]["static_inputs_path"] = str(_tmpdir / "static.json")
+    parsed_config.driver_config["daily_inputs_path"] = str(_tmpdir / "daily.csv")
+    parsed_config.driver_config["static_inputs_path"] = str(_tmpdir / "static.json")
 
     # --- Daily CSV ---
     np.random.seed(42)
@@ -232,8 +221,8 @@ def _(mo):
 @app.cell
 def _(build_driver, parsed_config):
     dr = build_driver(
-        modules=parsed_config["modules"],
-        config=parsed_config["driver_config"],
+        modules=parsed_config.modules,
+        config=parsed_config.driver_config,
     )
     return (dr,)
 

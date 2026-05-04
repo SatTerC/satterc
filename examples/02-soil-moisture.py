@@ -105,8 +105,8 @@ def _(Path, generate_synthetic_data, parsed_config, tempfile):
     # Generate synthetic input data into a temporary directory
     _tmpdir = Path(tempfile.mkdtemp())
 
-    parsed_config["driver_config"]["daily_inputs_path"] = str(_tmpdir / "daily.nc")
-    parsed_config["driver_config"]["static_inputs_path"] = str(_tmpdir / "static.nc")
+    parsed_config.driver_config["daily_inputs_path"] = str(_tmpdir / "daily.nc")
+    parsed_config.driver_config["static_inputs_path"] = str(_tmpdir / "static.nc")
 
     generate_synthetic_data(config=parsed_config, grid=(2, 2), n_days=730, seed=42)
     return
@@ -115,8 +115,8 @@ def _(Path, generate_synthetic_data, parsed_config, tempfile):
 @app.cell
 def _(build_driver, parsed_config):
     dr = build_driver(
-        modules=parsed_config["modules"],
-        config=parsed_config["driver_config"],
+        modules=parsed_config.modules,
+        config=parsed_config.driver_config,
     )
     return (dr,)
 

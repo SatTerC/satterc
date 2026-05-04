@@ -159,8 +159,8 @@ def _(Config, Path, config_toml, generate_synthetic_data, tempfile, tomllib):
     parsed_config = Config(tomllib.loads(config_toml)).parse()
 
     # Redirect the input paths to files we will generate in a temporary directory
-    parsed_config["driver_config"]["daily_inputs_path"] = str(_tmpdir / "daily.nc")
-    parsed_config["driver_config"]["static_inputs_path"] = str(_tmpdir / "static.nc")
+    parsed_config.driver_config["daily_inputs_path"] = str(_tmpdir / "daily.nc")
+    parsed_config.driver_config["static_inputs_path"] = str(_tmpdir / "static.nc")
 
     # Generate synthetic data — this may take a few seconds
     generate_synthetic_data(config=parsed_config, grid=(4, 4), n_days=730, seed=42)
@@ -187,8 +187,8 @@ def _(mo):
 @app.cell
 def _(build_driver, parsed_config):
     dr = build_driver(
-        modules=parsed_config["modules"],
-        config=parsed_config["driver_config"],
+        modules=parsed_config.modules,
+        config=parsed_config.driver_config,
     )
     return (dr,)
 

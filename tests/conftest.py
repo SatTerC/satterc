@@ -28,10 +28,10 @@ def synthetic_data_dir(tmp_path_factory):
     monthly_path = str(data_dir / "monthly.nc")
     static_path = str(data_dir / "static.nc")
 
-    config["driver_config"]["daily_inputs_path"] = daily_path
-    config["driver_config"]["weekly_inputs_path"] = weekly_path
-    config["driver_config"]["monthly_inputs_path"] = monthly_path
-    config["driver_config"]["static_inputs_path"] = static_path
+    config.driver_config["daily_inputs_path"] = daily_path
+    config.driver_config["weekly_inputs_path"] = weekly_path
+    config.driver_config["monthly_inputs_path"] = monthly_path
+    config.driver_config["static_inputs_path"] = static_path
 
     generate_synthetic_data(
         config=config,
@@ -88,23 +88,17 @@ def stacked_grid_ds(common_grid_ds):
 def pipeline_config(synthetic_data_dir):
     """Load test config with all paths pointing to the synthetic data dir."""
     config = load_config(TEST_CONFIG_PATH)
-    config["driver_config"]["daily_inputs_path"] = str(synthetic_data_dir / "daily.nc")
-    config["driver_config"]["weekly_inputs_path"] = str(
-        synthetic_data_dir / "weekly.nc"
-    )
-    config["driver_config"]["monthly_inputs_path"] = str(
-        synthetic_data_dir / "monthly.nc"
-    )
-    config["driver_config"]["static_inputs_path"] = str(
-        synthetic_data_dir / "static.nc"
-    )
-    config["driver_config"]["daily_outputs_path"] = str(
+    config.driver_config["daily_inputs_path"] = str(synthetic_data_dir / "daily.nc")
+    config.driver_config["weekly_inputs_path"] = str(synthetic_data_dir / "weekly.nc")
+    config.driver_config["monthly_inputs_path"] = str(synthetic_data_dir / "monthly.nc")
+    config.driver_config["static_inputs_path"] = str(synthetic_data_dir / "static.nc")
+    config.driver_config["daily_outputs_path"] = str(
         synthetic_data_dir / "out_daily.nc"
     )
-    config["driver_config"]["weekly_outputs_path"] = str(
+    config.driver_config["weekly_outputs_path"] = str(
         synthetic_data_dir / "out_weekly.nc"
     )
-    config["driver_config"]["monthly_outputs_path"] = str(
+    config.driver_config["monthly_outputs_path"] = str(
         synthetic_data_dir / "out_monthly.nc"
     )
     return config
@@ -114,6 +108,6 @@ def pipeline_config(synthetic_data_dir):
 def pipeline_driver(pipeline_config):
     """Build Hamilton driver for integration tests."""
     return build_driver(
-        pipeline_config["modules"],
-        pipeline_config["driver_config"],
+        pipeline_config.modules,
+        pipeline_config.driver_config,
     )

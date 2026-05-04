@@ -5,7 +5,7 @@ from typing import Annotated
 import typer
 from typer import Abort
 
-from ..config import load_config
+from ..config import load_config, ParsedConfig
 from ..setup_utils.data_gen import generate_synthetic_data
 
 
@@ -32,7 +32,7 @@ def _parse_duration(duration: str) -> int:
 
 
 def _validate_output_paths(
-    config: dict,
+    config: ParsedConfig,
 ) -> tuple[list[Path], list[Path], list[Path]]:
     """Validate/create directories, prompt for overwrite if files exist. Returns paths."""
     frequencies = ["daily", "weekly", "monthly", "static"]
@@ -42,7 +42,7 @@ def _validate_output_paths(
     files_to_overwrite = []
 
     for freq in frequencies:
-        path_str = config["driver_config"].get(f"{freq}_inputs_path")
+        path_str = config.driver_config.get(f"{freq}_inputs_path")
         if path_str is None:
             continue
 

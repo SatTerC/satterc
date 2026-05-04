@@ -14,6 +14,7 @@ from . import daily, static
 from .fallback import build_fallback_module
 from ...pipeline import outputs, resample
 from ...pipeline.outputs._utils import dataset_to_dataframe, save_timeseries
+from ...config import ParsedConfig
 
 _FLAT_SUFFIXES = {".csv", ".parquet", ".pq"}
 
@@ -75,7 +76,7 @@ def _known_static_fns() -> set[str]:
 
 
 def generate_synthetic_data(
-    config: dict[str, Any],
+    config: ParsedConfig,
     grid: tuple[int, int],
     n_days: int,
     seed: int = 42,
@@ -84,11 +85,8 @@ def generate_synthetic_data(
 
     Parameters
     ----------
-    config : dict[str, Any]
-        Configuration dict from load_config(). Should contain:
-        - inputs: dict with daily, weekly, monthly, static sections
-          each having 'path' and 'vars' keys.
-        - resample: optional dict with daily_to_weekly, daily_to_monthly, etc.
+    config : ParsedConfig
+        Parsed configuration from load_config().
     grid : tuple[int, int]
         Grid dimensions as (n_lat, n_lon).
     n_days : int
@@ -117,10 +115,10 @@ def generate_synthetic_data(
     _set_random_seed(seed)
 
     n_lat, n_lon = grid
-    daily_vars = set(config["driver_config"].get("daily_inputs_vars", []))
-    weekly_vars = set(config["driver_config"].get("weekly_inputs_vars", []))
-    monthly_vars = set(config["driver_config"].get("monthly_inputs_vars", []))
-    static_vars = list(config["driver_config"].get("static_inputs_vars", []))
+    daily_vars = set(config.driver_config.get("daily_inputs_vars", []))
+    weekly_vars = set(config.driver_config.get("weekly_inputs_vars", []))
+    monthly_vars = set(config.driver_config.get("monthly_inputs_vars", []))
+    static_vars = list(config.driver_config.get("static_inputs_vars", []))
 
     daily_to_weekly = list(weekly_vars)
     daily_to_monthly = list(daily_vars | weekly_vars | monthly_vars)
@@ -136,13 +134,13 @@ def generate_synthetic_data(
         "n_days": n_days,
         "start_date": "2020-01-01",
         "seed": seed,
-        "daily_outputs_path": config["driver_config"].get("daily_inputs_path"),
+        "daily_outputs_path": config.driver_config.get("daily_inputs_path"),
         "daily_outputs_vars": list(daily_vars),
-        "weekly_outputs_path": config["driver_config"].get("weekly_inputs_path"),
+        "weekly_outputs_path": config.driver_config.get("weekly_inputs_path"),
         "weekly_outputs_vars": weekly_outputs_vars,
-        "monthly_outputs_path": config["driver_config"].get("monthly_inputs_path"),
+        "monthly_outputs_path": config.driver_config.get("monthly_inputs_path"),
         "monthly_outputs_vars": monthly_outputs_vars,
-        "static_outputs_path": config["driver_config"].get("static_inputs_path"),
+        "static_outputs_path": config.driver_config.get("static_inputs_path"),
         "static_outputs_vars": static_vars,
         "daily_to_weekly": daily_to_weekly,
         "daily_to_monthly": daily_to_monthly,
