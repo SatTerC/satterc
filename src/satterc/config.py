@@ -122,6 +122,8 @@ class Config:
         """Return TOML string representation."""
         return self._dump()
 
+    _KNOWN_SECTIONS = frozenset({"extra_config", "models", "inputs", "resample", "outputs"})
+
     def _dump(self) -> str:
         """Serialize config dict to TOML string."""
         d = self._data
@@ -162,6 +164,14 @@ class Config:
                     lines.append(f"[outputs.{section}]")
                     lines.append(f'path = "{data["path"]}"')
                     lines.append(f"vars = {_format_list(data.get('vars', []))}")
+
+        for key, value in d.items():
+            if key not in self._KNOWN_SECTIONS and isinstance(value, dict):
+                for subkey, params in value.items():
+                    lines.append("")
+                    lines.append(f"[{key}.{subkey}]")
+                    for k, v in params.items():
+                        lines.append(f"{k} = {_format_value(v)}")
 
         return "\n".join(lines)
 

@@ -221,29 +221,11 @@ def generate_config(
         Configuration object.
     """
     required_data = infer_required_data(builtin_models)
-    rothc_params = get_model_params("rothc")
 
-    modules = [f"models.{m}" for m in builtin_models]
-    modules += [
-        "inputs.daily",
-        "inputs.weekly",
-        "inputs.monthly",
-        "inputs.static",
-        "resample",
-        "outputs.daily",
-        "outputs.weekly",
-        "outputs.monthly",
-    ]
-
-    config_data: dict[str, Any] = {
-        "modules": modules,
-    }
-
-    if custom_modules:
-        config_data["extra_modules"] = custom_modules
+    config_data: dict[str, Any] = {}
 
     config_data["extra_config"] = {
-        "n_years_spinup": rothc_params.get("n_years_spinup", 1)
+        "n_years_spinup": get_model_params("rothc").get("n_years_spinup", 1)
         if "rothc" in builtin_models
         else 1
     }
@@ -290,5 +272,9 @@ def generate_config(
             "vars": required_data["outputs_monthly"],
         },
     }
+
+    for mod_path in custom_modules:
+        pkg, mod = mod_path.split(".", 1)
+        config_data.setdefault(pkg, {})[mod] = {}
 
     return Config(config_data)

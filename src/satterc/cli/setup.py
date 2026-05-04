@@ -13,6 +13,16 @@ app = typer.Typer(help="Generate a configuration file for SatTerC.")
 
 DURATION_PATTERN = re.compile(r"^(\d+)([ymd])$")
 
+PATH_DEFAULTS = {
+    "inputs_daily": "inputs/daily.nc",
+    "inputs_weekly": "inputs/weekly.nc",
+    "inputs_monthly": "inputs/monthly.nc",
+    "inputs_static": "inputs/static.nc",
+    "outputs_daily": "outputs/daily.nc",
+    "outputs_weekly": "outputs/weekly.nc",
+    "outputs_monthly": "outputs/monthly.nc",
+}
+
 
 def _parse_duration(duration: str) -> int:
     match = DURATION_PATTERN.match(duration.lower())
@@ -195,7 +205,7 @@ def setup(
 
     if defaults:
         custom_modules: list[str] = []
-        paths = dict(Config.PATH_DEFAULTS)
+        paths = dict(PATH_DEFAULTS)
     else:
         custom_modules = _select_custom_modules()
 
@@ -205,39 +215,39 @@ def setup(
         )
 
         if use_defaults:
-            paths = dict(Config.PATH_DEFAULTS)
+            paths = dict(PATH_DEFAULTS)
         else:
             typer.echo("\nInput file paths:")
             paths = {}
             paths["inputs_daily"] = typer.prompt(
                 "Daily input path",
-                default=Config.PATH_DEFAULTS["inputs_daily"],
+                default=PATH_DEFAULTS["inputs_daily"],
             )
             paths["inputs_weekly"] = typer.prompt(
                 "Weekly input path",
-                default=Config.PATH_DEFAULTS["inputs_weekly"],
+                default=PATH_DEFAULTS["inputs_weekly"],
             )
             paths["inputs_monthly"] = typer.prompt(
                 "Monthly input path",
-                default=Config.PATH_DEFAULTS["inputs_monthly"],
+                default=PATH_DEFAULTS["inputs_monthly"],
             )
             paths["inputs_static"] = typer.prompt(
                 "Static input path",
-                default=Config.PATH_DEFAULTS["inputs_static"],
+                default=PATH_DEFAULTS["inputs_static"],
             )
 
             typer.echo("\nOutput file paths:")
             paths["outputs_daily"] = typer.prompt(
                 "Daily output path",
-                default=Config.PATH_DEFAULTS["outputs_daily"],
+                default=PATH_DEFAULTS["outputs_daily"],
             )
             paths["outputs_weekly"] = typer.prompt(
                 "Weekly output path",
-                default=Config.PATH_DEFAULTS["outputs_weekly"],
+                default=PATH_DEFAULTS["outputs_weekly"],
             )
             paths["outputs_monthly"] = typer.prompt(
                 "Monthly output path",
-                default=Config.PATH_DEFAULTS["outputs_monthly"],
+                default=PATH_DEFAULTS["outputs_monthly"],
             )
 
         typer.echo()
