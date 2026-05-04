@@ -117,14 +117,14 @@ def _(Config, tomllib):
       "stem_pool_init",
     ]
 
-    [resample]
-    daily_to_weekly = [
+    [[resample]]
+    vars = [
       "temperature_celcius",
       "soil_moisture",
       "aridity_index",
     ]
-    daily_to_monthly = []
-    weekly_to_monthly = []
+    from = "daily"
+    to = "weekly"
     """
 
     parsed_config = Config(tomllib.loads(_config_toml)).parse()

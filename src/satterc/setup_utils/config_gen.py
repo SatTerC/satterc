@@ -241,18 +241,24 @@ def generate_config(
     }
 
     resample_list = []
-    for k in ("resample_daily_to_weekly", "resample_daily_to_monthly", "resample_weekly_to_monthly"):
+    for k in (
+        "resample_daily_to_weekly",
+        "resample_daily_to_monthly",
+        "resample_weekly_to_monthly",
+    ):
         vars_ = required_data[k]
         if vars_:
             direction = k.removeprefix("resample_")
             from_freq, to_freq = direction.split("_to_")
-            resample_list.append({
-                "vars": vars_,
-                "from": from_freq,
-                "to": to_freq,
-                # aggfunc omitted → defaults to "mean" at parse time
-                # TODO: support per-variable aggfunc (e.g. auto-classify precipitation as sum)
-            })
+            resample_list.append(
+                {
+                    "vars": vars_,
+                    "from": from_freq,
+                    "to": to_freq,
+                    # aggfunc omitted → defaults to "mean" at parse time
+                    # TODO: support per-variable aggfunc (e.g. auto-classify precipitation as sum)
+                }
+            )
     if resample_list:
         config_data["resample"] = resample_list
 

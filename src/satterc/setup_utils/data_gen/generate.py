@@ -14,7 +14,7 @@ from . import daily, static
 from .fallback import build_fallback_module
 from ...pipeline import outputs, resample
 from ...pipeline.outputs._utils import dataset_to_dataframe, save_timeseries
-from ...config import ParsedConfig
+from ...config import ParsedConfig, ResampleSpec
 
 _FLAT_SUFFIXES = {".csv", ".parquet", ".pq"}
 
@@ -120,12 +120,22 @@ def generate_synthetic_data(
     monthly_vars = set(config.driver_config.get("monthly_inputs_vars", []))
     static_vars = list(config.driver_config.get("static_inputs_vars", []))
 
-    daily_to_weekly = list(weekly_vars)
-    daily_to_monthly = list(daily_vars | weekly_vars | monthly_vars)
-    weekly_to_monthly: list[str] = []
+    resample_specs: list[ResampleSpec] = []
 
-    weekly_outputs_vars = list(weekly_vars | set(daily_to_weekly))
-    monthly_outputs_vars = list(set(daily_to_monthly) | monthly_vars)
+    if weekly_vars:
+        resample_specs.append(
+            ResampleSpec(vars=sorted(weekly_vars), from_="daily", to="weekly")
+        )
+    daily_to_monthly_vars = daily_vars | weekly_vars | monthly_vars
+    if daily_to_monthly_vars:
+        resample_specs.append(
+            ResampleSpec(
+                vars=sorted(daily_to_monthly_vars), from_="daily", to="monthly"
+            )
+        )
+
+    weekly_outputs_vars = sorted(weekly_vars)
+    monthly_outputs_vars = sorted(daily_to_monthly_vars | monthly_vars)
 
     driver_config: dict[str, Any] = {
         ENABLE_POWER_USER_MODE: True,
@@ -142,9 +152,7 @@ def generate_synthetic_data(
         "monthly_outputs_vars": monthly_outputs_vars,
         "static_outputs_path": config.driver_config.get("static_inputs_path"),
         "static_outputs_vars": static_vars,
-        "daily_to_weekly": daily_to_weekly,
-        "daily_to_monthly": daily_to_monthly,
-        "weekly_to_monthly": weekly_to_monthly,
+        "resample_specs": resample_specs,
     }
 
     # Detect variables that have no explicit generator and inject fallbacks.

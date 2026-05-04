@@ -56,12 +56,16 @@ def daily_to_weekly_driver():
 
 @pytest.fixture(scope="module")
 def daily_to_monthly_driver():
-    return _build_driver(ResampleSpec(vars=["temperature"], from_="daily", to="monthly"))
+    return _build_driver(
+        ResampleSpec(vars=["temperature"], from_="daily", to="monthly")
+    )
 
 
 @pytest.fixture(scope="module")
 def weekly_to_monthly_driver():
-    return _build_driver(ResampleSpec(vars=["temperature"], from_="weekly", to="monthly"))
+    return _build_driver(
+        ResampleSpec(vars=["temperature"], from_="weekly", to="monthly")
+    )
 
 
 class TestDailyToWeeklyMean:
@@ -110,7 +114,9 @@ class TestDailyToWeeklySum:
     def result(self):
         da = _make_daily_da(n_days=14, n_pixel=1)
         return _build_driver(
-            ResampleSpec(vars=["precipitation"], from_="daily", to="weekly", aggfunc="sum")
+            ResampleSpec(
+                vars=["precipitation"], from_="daily", to="weekly", aggfunc="sum"
+            )
         ).execute(
             ["precipitation_weekly"],
             inputs={"precipitation_daily": da},
@@ -130,8 +136,12 @@ class TestMixedAggfuncs:
 
     def test_mean_and_sum_coexist(self):
         dr = _build_driver(
-            ResampleSpec(vars=["temperature"], from_="daily", to="weekly", aggfunc="mean"),
-            ResampleSpec(vars=["precipitation"], from_="daily", to="weekly", aggfunc="sum"),
+            ResampleSpec(
+                vars=["temperature"], from_="daily", to="weekly", aggfunc="mean"
+            ),
+            ResampleSpec(
+                vars=["precipitation"], from_="daily", to="weekly", aggfunc="sum"
+            ),
         )
         da = _make_daily_da(n_days=14, n_pixel=1)
         result = dr.execute(
@@ -140,8 +150,12 @@ class TestMixedAggfuncs:
         )
         expected_mean = da.isel(time=slice(0, 7)).mean("time").values
         expected_sum = da.isel(time=slice(0, 7)).sum("time").values
-        np.testing.assert_allclose(result["temperature_weekly"].isel(time=0).values, expected_mean)
-        np.testing.assert_allclose(result["precipitation_weekly"].isel(time=0).values, expected_sum)
+        np.testing.assert_allclose(
+            result["temperature_weekly"].isel(time=0).values, expected_mean
+        )
+        np.testing.assert_allclose(
+            result["precipitation_weekly"].isel(time=0).values, expected_sum
+        )
 
 
 class TestDailyToMonthly:
@@ -202,10 +216,14 @@ class TestResampleSpecValidation:
 
     def test_unsupported_aggfunc_raises(self):
         with pytest.raises(ValueError, match="Unsupported aggfunc"):
-            ResampleSpec.from_config({"vars": ["x"], "from": "daily", "to": "weekly", "aggfunc": "banana"})
+            ResampleSpec.from_config(
+                {"vars": ["x"], "from": "daily", "to": "weekly", "aggfunc": "banana"}
+            )
 
     def test_default_aggfunc_is_mean(self):
-        spec = ResampleSpec.from_config({"vars": ["x"], "from": "daily", "to": "weekly"})
+        spec = ResampleSpec.from_config(
+            {"vars": ["x"], "from": "daily", "to": "weekly"}
+        )
         assert spec.aggfunc == "mean"
 
     def test_freq_property(self):

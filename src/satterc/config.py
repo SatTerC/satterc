@@ -50,8 +50,7 @@ class ResampleSpec:
             )
         if aggfunc not in _VALID_AGGFUNCS:
             raise ValueError(
-                f"Unsupported aggfunc '{aggfunc}'. "
-                f"Supported: {sorted(_VALID_AGGFUNCS)}"
+                f"Unsupported aggfunc '{aggfunc}'. Supported: {sorted(_VALID_AGGFUNCS)}"
             )
 
         return cls(vars=vars_, from_=from_freq, to=to_freq, aggfunc=aggfunc)

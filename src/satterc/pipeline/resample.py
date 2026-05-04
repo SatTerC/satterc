@@ -2,12 +2,11 @@ import xarray as xr
 from hamilton.function_modifiers import parameterize, source, value, ResolveAt
 
 from ._hamilton_fixes import FixedResolve, NoOpDecorator
-from ..config import ResampleSpec
 
 
 @FixedResolve(
     when=ResolveAt.CONFIG_AVAILABLE,
-    decorate_with=lambda resample_specs: (
+    decorate_with=lambda resample_specs=None: (
         parameterize(
             **{
                 f"{var}_{spec.to}": {

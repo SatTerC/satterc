@@ -121,23 +121,31 @@ def _(Config, tomllib):
       "stem_pool_init",
     ]
 
-    [resample]
-    daily_to_weekly = [
+    [[resample]]
+    vars = [
       "temperature_celcius",
       "precipitation_mm",
       "soil_moisture",
       "aridity_index",
     ]
+    from = "daily"
+    to = "weekly"
 
-    daily_to_monthly = [
+    [[resample]]
+    vars = [
       "temperature_celcius",
       "precipitation_mm",
       "actual_evapotranspiration",
     ]
+    from = "daily"
+    to = "monthly"
 
-    weekly_to_monthly = [
+    [[resample]]
+    vars = [
       "litter_pool",
     ]
+    from = "weekly"
+    to = "monthly"
 
     [outputs.daily]
     path = "results/daily.nc"

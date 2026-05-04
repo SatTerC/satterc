@@ -114,14 +114,14 @@ def _(Config, tomllib):
       "root_pool_init",
     ]
 
-    [resample]
-    daily_to_weekly = [
+    [[resample]]
+    vars = [
       "temperature_celcius",
       "soil_moisture",
       "aridity_index",
     ]
-    daily_to_monthly = []
-    weekly_to_monthly = []
+    from = "daily"
+    to = "weekly"
 
     [inputs.grid]
     """
