@@ -6,7 +6,12 @@ from pathlib import Path
 import typer
 
 from ..config import Config
-from ..setup_utils import BuiltinModels, generate_config, get_builtin_models
+from ..setup_utils import (
+    BuiltinModels,
+    generate_config,
+    get_builtin_models,
+    get_model_params,
+)
 from ..setup_utils.data_gen import generate_synthetic_data
 
 app = typer.Typer(help="Generate a configuration file for SatTerC.")
@@ -139,26 +144,40 @@ def _select_custom_modules() -> list[str]:
     """
     selected: list[str] = []
 
+    typer.echo(
+        "  Enter one module path per prompt (empty to finish, re-enter to remove)."
+    )
+
     while True:
-        typer.echo(f"\nSelected: {', '.join(selected) or '(none)'}")
+        typer.echo(f"\n  Selected: {', '.join(selected) or '(none)'}")
 
         choice = typer.prompt(
-            "Enter module paths (comma or space separated, 0 when done)",
+            "  Module path",
             default="",
             show_default=False,
-            prompt_suffix="\n> ",
+            prompt_suffix="\n  > ",
         ).strip()
 
-        if choice == "" or choice == "0":
+        if not choice:
             break
 
-        selections = _parse_selections(choice)
+        if choice in selected:
+            selected.remove(choice)
+            typer.echo(f"  Removed: {choice}")
+            continue
 
-        for item in selections:
-            action = "Removed" if item in selected else "Added"
-            typer.echo(f"  {action}: {item}")
+        try:
+            params = get_model_params(choice)
+        except Exception:
+            params = {}
 
-        _toggle_selections(selected, selections)
+        if params:
+            param_str = ", ".join(f"{k}={v!r}" for k, v in params.items())
+            typer.echo(f"  Added: {choice}  (defaults: {param_str})")
+        else:
+            typer.echo(f"  Added: {choice}  (no _parameters() function found)")
+
+        selected.append(choice)
 
     return selected
 
@@ -187,6 +206,18 @@ def setup(
     """Generate a configuration file for SatTerC."""
     if defaults and models is None:
         raise typer.BadParameter("--defaults requires --models to be specified")
+
+    overwrite_ok = False
+    if output.exists():
+        if defaults:
+            typer.echo(
+                f"Error: {output} already exists. Use --output to specify a different path.",
+                err=True,
+            )
+            raise typer.Exit(1)
+        if not typer.confirm(f"\n{output} already exists. Overwrite?", default=False):
+            raise typer.Exit()
+        overwrite_ok = True
 
     if models is not None:
         model_names = _parse_selections(models)
@@ -259,7 +290,7 @@ def setup(
 
     typer.echo(f"\nGenerating {output}... ", nl=False)
     config = generate_config(builtin_models, custom_modules, paths)
-    config.dump(output)
+    config.dump(output, overwrite_ok=overwrite_ok)
     typer.echo("Done!")
 
     if not defaults:

@@ -17,7 +17,7 @@ from ..config import Config
 from ..pipeline import models
 
 
-def analyze_model_module(
+def _analyze_model_module(
     module: ModuleType, config: dict[str, Any]
 ) -> tuple[list[str], list[str], list[str]]:
     """Analyze a model module to discover its inputs and outputs.
@@ -97,7 +97,7 @@ def get_model_params(model_name: str) -> dict[str, Any]:
     except ImportError:
         return {}
 
-    param_func_name = f"{model_name}_parameters"
+    param_func_name = f"{model_name.split('.')[-1]}_parameters"
     if hasattr(module, param_func_name):
         param_func = getattr(module, param_func_name)
         sig = inspect.signature(param_func)
@@ -109,7 +109,7 @@ def get_model_params(model_name: str) -> dict[str, Any]:
     return {}
 
 
-def infer_required_data(model_names: list[str]) -> dict[str, list[str]]:
+def _infer_required_data(model_names: list[str]) -> dict[str, list[str]]:
     """Infer required data using analyze_model_module.
 
     Uses data_inputs from each model to construct input lists,
@@ -124,7 +124,7 @@ def infer_required_data(model_names: list[str]) -> dict[str, list[str]]:
 
     for model_name in model_names:
         module = getattr(models, model_name)
-        data_inputs, _, data_outputs = analyze_model_module(module, base_config)
+        data_inputs, _, data_outputs = _analyze_model_module(module, base_config)
 
         # Store full input names (with suffix) for categorization
         all_data_inputs.update(data_inputs)
@@ -162,14 +162,17 @@ def infer_required_data(model_names: list[str]) -> dict[str, list[str]]:
         else:
             static.add(base)
 
-    # Determine resample lists (priority: daily -> weekly -> monthly)
-    daily_to_weekly = daily & weekly
-    weekly_to_monthly = weekly & monthly
-    daily_to_monthly = (daily & monthly) - weekly
+    # Variables available at a finer frequency are resampled rather than loaded
+    # from the coarser file. Priority: daily → weekly → monthly.
+    resample_daily_to_weekly = daily & weekly
+    resample_weekly_to_monthly = weekly & monthly
+    resample_daily_to_monthly = (
+        daily & monthly
+    ) - weekly  # direct hop; no weekly intermediate
 
-    # Remove resampled variables from input lists
-    weekly = weekly - daily_to_weekly - weekly_to_monthly
-    monthly = monthly - daily_to_monthly - weekly_to_monthly
+    inputs_daily = daily
+    inputs_weekly = weekly - resample_daily_to_weekly - resample_weekly_to_monthly
+    inputs_monthly = monthly - resample_daily_to_monthly - resample_weekly_to_monthly
 
     # Categorize model outputs for output file lists
     outputs_daily: list[str] = []
@@ -186,13 +189,13 @@ def infer_required_data(model_names: list[str]) -> dict[str, list[str]]:
             outputs_monthly.append(base)
 
     return {
-        "inputs_daily": sorted(daily),
-        "inputs_weekly": sorted(weekly),
-        "inputs_monthly": sorted(monthly),
+        "inputs_daily": sorted(inputs_daily),
+        "inputs_weekly": sorted(inputs_weekly),
+        "inputs_monthly": sorted(inputs_monthly),
         "inputs_static": sorted(static),
-        "resample_daily_to_weekly": sorted(daily_to_weekly),
-        "resample_daily_to_monthly": sorted(daily_to_monthly),
-        "resample_weekly_to_monthly": sorted(weekly_to_monthly),
+        "resample_daily_to_weekly": sorted(resample_daily_to_weekly),
+        "resample_daily_to_monthly": sorted(resample_daily_to_monthly),
+        "resample_weekly_to_monthly": sorted(resample_weekly_to_monthly),
         "outputs_daily": sorted(set(outputs_daily)),
         "outputs_weekly": sorted(set(outputs_weekly)),
         "outputs_monthly": sorted(set(outputs_monthly)),
@@ -220,15 +223,9 @@ def generate_config(
     Config
         Configuration object.
     """
-    required_data = infer_required_data(builtin_models)
+    required_data = _infer_required_data(builtin_models)
 
     config_data: dict[str, Any] = {}
-
-    config_data["extra_config"] = {
-        "n_years_spinup": get_model_params("rothc").get("n_years_spinup", 1)
-        if "rothc" in builtin_models
-        else 1
-    }
 
     config_data["models"] = {}
     for model in builtin_models:
@@ -275,6 +272,6 @@ def generate_config(
 
     for mod_path in custom_modules:
         pkg, mod = mod_path.split(".", 1)
-        config_data.setdefault(pkg, {})[mod] = {}
+        config_data.setdefault(pkg, {})[mod] = get_model_params(mod_path)
 
     return Config(config_data)

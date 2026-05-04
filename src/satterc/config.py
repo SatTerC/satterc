@@ -122,7 +122,9 @@ class Config:
         """Return TOML string representation."""
         return self._dump()
 
-    _KNOWN_SECTIONS = frozenset({"extra_config", "models", "inputs", "resample", "outputs"})
+    _KNOWN_SECTIONS = frozenset(
+        {"extra_config", "models", "inputs", "resample", "outputs"}
+    )
 
     def _dump(self) -> str:
         """Serialize config dict to TOML string."""
