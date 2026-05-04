@@ -35,6 +35,6 @@ export-all:
   #just export 01-demo
   just export 02-soil-moisture
   just export 02-soil-moisture-csv
-  #just export 03-pft-parameters
-  #just export 03-pft-parameters-csv
+  just export 03-pft-parameters
+  just export 03-pft-parameters-csv
   
