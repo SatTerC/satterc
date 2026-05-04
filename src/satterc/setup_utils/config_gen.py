@@ -233,41 +233,28 @@ def generate_config(
         if params:
             config_data["models"][model] = params
 
+    freq_keys = ("daily", "weekly", "monthly", "static")
     config_data["inputs"] = {
-        "daily": {"path": paths["inputs_daily"], "vars": required_data["inputs_daily"]},
-        "weekly": {
-            "path": paths["inputs_weekly"],
-            "vars": required_data["inputs_weekly"],
-        },
-        "monthly": {
-            "path": paths["inputs_monthly"],
-            "vars": required_data["inputs_monthly"],
-        },
-        "static": {
-            "path": paths["inputs_static"],
-            "vars": required_data["inputs_static"],
-        },
+        freq: {"path": paths[f"inputs_{freq}"], "vars": required_data[f"inputs_{freq}"]}
+        for freq in freq_keys
+        if required_data[f"inputs_{freq}"]
     }
 
-    config_data["resample"] = {
-        "daily_to_weekly": required_data["resample_daily_to_weekly"],
-        "daily_to_monthly": required_data["resample_daily_to_monthly"],
-        "weekly_to_monthly": required_data["resample_weekly_to_monthly"],
+    resample_entries = {
+        k: required_data[k]
+        for k in ("resample_daily_to_weekly", "resample_daily_to_monthly", "resample_weekly_to_monthly")
+        if required_data[k]
     }
+    if resample_entries:
+        config_data["resample"] = {
+            k.removeprefix("resample_"): v for k, v in resample_entries.items()
+        }
 
+    output_freqs = ("daily", "weekly", "monthly")
     config_data["outputs"] = {
-        "daily": {
-            "path": paths["outputs_daily"],
-            "vars": required_data["outputs_daily"],
-        },
-        "weekly": {
-            "path": paths["outputs_weekly"],
-            "vars": required_data["outputs_weekly"],
-        },
-        "monthly": {
-            "path": paths["outputs_monthly"],
-            "vars": required_data["outputs_monthly"],
-        },
+        freq: {"path": paths[f"outputs_{freq}"], "vars": required_data[f"outputs_{freq}"]}
+        for freq in output_freqs
+        if required_data[f"outputs_{freq}"]
     }
 
     for mod_path in custom_modules:
