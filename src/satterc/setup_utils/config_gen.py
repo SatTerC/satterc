@@ -242,7 +242,11 @@ def generate_config(
 
     resample_entries = {
         k: required_data[k]
-        for k in ("resample_daily_to_weekly", "resample_daily_to_monthly", "resample_weekly_to_monthly")
+        for k in (
+            "resample_daily_to_weekly",
+            "resample_daily_to_monthly",
+            "resample_weekly_to_monthly",
+        )
         if required_data[k]
     }
     if resample_entries:
@@ -252,7 +256,10 @@ def generate_config(
 
     output_freqs = ("daily", "weekly", "monthly")
     config_data["outputs"] = {
-        freq: {"path": paths[f"outputs_{freq}"], "vars": required_data[f"outputs_{freq}"]}
+        freq: {
+            "path": paths[f"outputs_{freq}"],
+            "vars": required_data[f"outputs_{freq}"],
+        }
         for freq in output_freqs
         if required_data[f"outputs_{freq}"]
     }

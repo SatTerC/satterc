@@ -5,13 +5,18 @@ _:
 # Format and lint the package using ruff, and lint the examples using marimo.
 lint:
   ruff format
+  ruff check --fix
+  marimo check examples/
+
+# Variant of `lint` that doesn't cause any changes to files.
+lint-check:
+  ruff format --check
   ruff check
   marimo check examples/
 
 # Run the full test suite.
 test: lint
   pytest
-  # TODO: integration test
 
 # Build the documentation using Zensical.
 docs:

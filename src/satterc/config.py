@@ -117,7 +117,9 @@ class Config:
 
         driver_config |= extra_config
 
-        return ParsedConfig(modules=modules, driver_config=driver_config, targets=targets)
+        return ParsedConfig(
+            modules=modules, driver_config=driver_config, targets=targets
+        )
 
     def dump(self, path: str | os.PathLike, overwrite_ok: bool = False) -> None:
         """Write config to a TOML file."""
@@ -188,5 +190,3 @@ def _infer_format(path: str) -> str:
         f"Expected .nc/.netcdf/.zarr (netcdf) or "
         f".csv/.parquet/.json/.yaml/.yml/.toml (flat)."
     )
-
-
