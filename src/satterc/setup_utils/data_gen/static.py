@@ -140,6 +140,29 @@ def elevation(n_lat: int, n_lon: int, pixel_coords: pd.MultiIndex) -> xr.DataArr
     )
 
 
+def latitude(pixel_coords: pd.MultiIndex) -> xr.DataArray:
+    """Static latitude for each pixel, taken from the grid's y-coordinate.
+
+    Parameters
+    ----------
+    pixel_coords : pd.MultiIndex
+        MultiIndex with 'y' and 'x' levels.
+
+    Returns
+    -------
+    xr.DataArray
+        Latitude data array with dims=["pixel"].
+    """
+    lat_vals = pixel_coords.get_level_values("y").values
+    return xr.DataArray(
+        data=lat_vals,
+        dims=["pixel"],
+        coords={"pixel": pixel_coords},
+        attrs={"units": "degrees_north", "long_name": "latitude"},
+        name="latitude",
+    )
+
+
 def plant_type(n_lat: int, n_lon: int, pixel_coords: pd.MultiIndex) -> xr.DataArray:
     """Static plant type (1=grassland, 2=C3 crop, 3=woodland).
 

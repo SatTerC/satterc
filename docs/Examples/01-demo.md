@@ -96,23 +96,31 @@ vars = [
   "stem_pool_init",
 ]
 
-[resample]
-daily_to_weekly = [
+[[resample]]
+vars = [
   "temperature_celcius",
   "precipitation_mm",
   "soil_moisture",
   "aridity_index",
 ]
+from = "daily"
+to = "weekly"
 
-daily_to_monthly = [
+[[resample]]
+vars = [
   "temperature_celcius",
   "precipitation_mm",
   "actual_evapotranspiration",
 ]
+from = "daily"
+to = "monthly"
 
-weekly_to_monthly = [
+[[resample]]
+vars = [
   "litter_pool",
 ]
+from = "weekly"
+to = "monthly"
 
 [outputs.daily]
 path = "results/daily.nc"
@@ -155,10 +163,10 @@ parsed_config
 # Generate synthetic input data into a temporary directory
 _tmpdir = Path(tempfile.mkdtemp())
 
-parsed_config["driver_config"]["daily_inputs_path"] = str(_tmpdir / "daily.nc")
-parsed_config["driver_config"]["weekly_inputs_path"] = str(_tmpdir / "weekly.nc")
-parsed_config["driver_config"]["monthly_inputs_path"] = str(_tmpdir / "monthly.nc")
-parsed_config["driver_config"]["static_inputs_path"] = str(_tmpdir / "static.nc")
+parsed_config.driver_config["daily_inputs_path"] = str(_tmpdir / "daily.nc")
+parsed_config.driver_config["weekly_inputs_path"] = str(_tmpdir / "weekly.nc")
+parsed_config.driver_config["monthly_inputs_path"] = str(_tmpdir / "monthly.nc")
+parsed_config.driver_config["static_inputs_path"] = str(_tmpdir / "static.nc")
 
 generate_synthetic_data(config=parsed_config, grid=(4, 4), n_days=730, seed=42)
 ```
@@ -176,8 +184,8 @@ Since the entire pipeline is very large, we can focus on visualising sub-DAGs be
 ```python {.marimo}
 # Build the driver object
 dr = build_driver(
-    modules=parsed_config["modules"],
-    config=parsed_config["driver_config"],
+    modules=parsed_config.modules,
+    config=parsed_config.driver_config,
 )
 
 # This produces a visualisation of the entire DAG, which is too large..

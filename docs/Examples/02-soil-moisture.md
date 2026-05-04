@@ -74,16 +74,16 @@ parsed_config
 # Generate synthetic input data into a temporary directory
 _tmpdir = Path(tempfile.mkdtemp())
 
-parsed_config["driver_config"]["daily_inputs_path"] = str(_tmpdir / "daily.nc")
-parsed_config["driver_config"]["static_inputs_path"] = str(_tmpdir / "static.nc")
+parsed_config.driver_config["daily_inputs_path"] = str(_tmpdir / "daily.nc")
+parsed_config.driver_config["static_inputs_path"] = str(_tmpdir / "static.nc")
 
 generate_synthetic_data(config=parsed_config, grid=(2, 2), n_days=730, seed=42)
 ```
 
 ```python {.marimo}
 dr = build_driver(
-    modules=parsed_config["modules"],
-    config=parsed_config["driver_config"],
+    modules=parsed_config.modules,
+    config=parsed_config.driver_config,
 )
 ```
 

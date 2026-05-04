@@ -33,7 +33,6 @@ def _(mo):
 
 @app.cell
 def _():
-    import json
     import tempfile
     import tomllib
     from pathlib import Path
@@ -41,21 +40,20 @@ def _():
     import marimo as mo
     import matplotlib.pyplot as plt
     import numpy as np
-    import pandas as pd
     from scipy.optimize import minimize
 
     from satterc import build_driver
     from satterc.config import Config
+    from satterc.setup_utils.data_gen import generate_synthetic_data
 
     return (
         Config,
         Path,
         build_driver,
-        json,
+        generate_synthetic_data,
         minimize,
         mo,
         np,
-        pd,
         plt,
         tempfile,
         tomllib,
@@ -133,127 +131,14 @@ def _(Config, tomllib):
 
 
 @app.cell
-def _(Path, json, np, parsed_config, pd, tempfile):
+def _(Path, generate_synthetic_data, parsed_config, tempfile):
     _tmpdir = Path(tempfile.mkdtemp())
 
     parsed_config.driver_config["daily_inputs_path"] = str(_tmpdir / "daily.csv")
     parsed_config.driver_config["weekly_inputs_path"] = str(_tmpdir / "weekly.csv")
     parsed_config.driver_config["static_inputs_path"] = str(_tmpdir / "static.json")
 
-    np.random.seed(42)
-    _n_days = 730
-    _t = np.arange(_n_days)
-    _dates_daily = pd.date_range("2020-01-01", periods=_n_days, freq="D")
-
-    # --- Daily CSV ---
-    _temperature = (
-        10.0
-        + 10.0 * np.sin(2 * np.pi * _t / 365.25 - np.pi / 2)
-        + np.random.uniform(-3, 3, _n_days)
-    )
-    _daily_precip = np.random.exponential(
-        3.1 + np.sin(2 * np.pi * _t / 365.25), _n_days
-    )
-    _precipitation = np.where(np.random.random(_n_days) < 0.6, _daily_precip, 0.0)
-    _sunshine_fraction = np.clip(
-        0.5
-        + 0.3 * np.sin(2 * np.pi * _t / 365.25)
-        + np.random.uniform(-0.15, 0.15, _n_days),
-        0.0,
-        1.0,
-    )
-    _lai = np.clip(
-        3.0
-        + 2.5 * np.sin(2 * np.pi * _t / 365.25 - np.pi / 3)
-        + np.random.uniform(-0.3, 0.3, _n_days),
-        0.1,
-        6.0,
-    )
-    _temp_factor = np.maximum(_temperature - 5, 0) / 15.0
-    _gpp = np.maximum(
-        8.0
-        + 5.0 * np.sin(2 * np.pi * _t / 365.25 - np.pi / 3) * _temp_factor
-        + np.random.uniform(-1, 1, _n_days),
-        0.1,
-    )
-
-    pd.DataFrame(
-        {
-            "precipitation_mm": _precipitation,
-            "sunshine_fraction": _sunshine_fraction,
-            "temperature_celcius": _temperature,
-            "lai": _lai,
-            "gpp": _gpp,
-        },
-        index=_dates_daily,
-    ).rename_axis("time").to_csv(_tmpdir / "daily.csv")
-
-    # --- Weekly CSV ---
-    _n_weeks = (
-        105  # ceil(730 / 7) — matches the weekly bins produced by daily resampling
-    )
-    _tw = np.arange(_n_weeks)
-    _dates_weekly = pd.date_range("2020-01-01", periods=_n_weeks, freq="7D")
-
-    _temp_weekly = (
-        10.0
-        + 10.0 * np.sin(2 * np.pi * _tw / 52.18 - np.pi / 2)
-        + np.random.uniform(-3, 3, _n_weeks)
-    )
-    _co2_ppm = (
-        412.0
-        + np.linspace(0, 5, _n_weeks)
-        + 3.0 * np.sin(2 * np.pi * _tw / 52.18)
-        + np.random.normal(0, 1, _n_weeks)
-    )
-    _fapar = np.clip(
-        0.55
-        + 0.25 * np.sin(2 * np.pi * _tw / 52.18)
-        + np.random.uniform(-0.1, 0.1, _n_weeks),
-        0.05,
-        0.95,
-    )
-    _day_of_week = _tw * 7 % 365.25
-    _ppfd = (
-        1200
-        * np.abs(np.sin(np.pi * _day_of_week / 182.6))
-        * (0.4 + np.random.uniform(0.2, 0.6, _n_weeks))
-    )
-    _svp = 610.78 * np.exp(_temp_weekly / (_temp_weekly + 237.3) * 17.27)
-    _rh = np.clip(0.5 + np.random.uniform(-0.2, 0.2, _n_weeks), 0.1, 0.95)
-    _vpd_pa = np.clip(_svp * (1 - _rh), 50, 3000)
-    _pressure_pa = (
-        100325.0
-        + 500.0 * np.sin(2 * np.pi * _tw / 52.18)
-        + np.random.normal(0, 300, _n_weeks)
-    )
-
-    pd.DataFrame(
-        {
-            "co2_ppm": _co2_ppm,
-            "fapar": _fapar,
-            "ppfd_umol_m2_s1": _ppfd,
-            "pressure_pa": _pressure_pa,
-            "vpd_pa": _vpd_pa,
-        },
-        index=_dates_weekly,
-    ).rename_axis("time").to_csv(_tmpdir / "weekly.csv")
-
-    # --- Static JSON ---
-    with open(_tmpdir / "static.json", "w") as _f:
-        json.dump(
-            {
-                "elevation": 100.0,
-                "latitude": 52.0,
-                "leaf_pool_init": 1.0,
-                "max_soil_moisture": 200.0,
-                "plant_type": 1.0,
-                "root_pool_init": 5.0,
-                "stem_pool_init": 10.0,
-            },
-            _f,
-            indent=2,
-        )
+    generate_synthetic_data(config=parsed_config, grid=(1, 1), n_days=730, seed=42)
     return
 
 

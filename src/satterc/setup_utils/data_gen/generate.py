@@ -25,9 +25,10 @@ def _set_random_seed(seed: int) -> None:
 
 
 def _save_dataset_with_crs(ds: xr.Dataset, path: str | PathLike) -> None:
-    """Save dataset to NetCDF, Zarr, CSV, or Parquet.
+    """Save dataset to NetCDF, Zarr, CSV, Parquet, or JSON.
 
     CSV and Parquet are written as flat time-indexed tables (CRS not stored).
+    JSON is written as a {variable: value} dict for static single-pixel data.
     NetCDF and Zarr receive a crs='EPSG:4326' global attribute.
 
     Parameters
@@ -37,8 +38,16 @@ def _save_dataset_with_crs(ds: xr.Dataset, path: str | PathLike) -> None:
     path : str | PathLike
         The destination path. Format is inferred from the file extension.
     """
+    import json
+
     p = Path(path)
     suffix = p.suffix.lower()
+
+    if suffix == ".json":
+        data = {str(var): float(ds[var].values.flat[0]) for var in ds.data_vars}
+        with open(p, "w") as f:
+            json.dump(data, f, indent=2)
+        return
 
     if suffix in _FLAT_SUFFIXES:
         save_timeseries(dataset_to_dataframe(ds), path)
@@ -53,7 +62,7 @@ def _save_dataset_with_crs(ds: xr.Dataset, path: str | PathLike) -> None:
     else:
         raise ValueError(
             f"Unsupported file extension: '{suffix}'. "
-            "Use '.nc', '.netcdf', '.zarr', '.csv', or '.parquet'."
+            "Use '.nc', '.netcdf', '.zarr', '.csv', '.parquet', or '.json'."
         )
 
 

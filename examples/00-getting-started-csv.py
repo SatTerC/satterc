@@ -58,20 +58,27 @@ def _(mo):
 
 @app.cell
 def _():
-    import json
     import tempfile
     import tomllib
     from pathlib import Path
 
     import marimo as mo
     import matplotlib.pyplot as plt
-    import numpy as np
-    import pandas as pd
 
     from satterc import build_driver
     from satterc.config import Config
+    from satterc.setup_utils.data_gen import generate_synthetic_data
 
-    return Config, Path, build_driver, json, mo, np, pd, plt, tempfile, tomllib
+    return (
+        Config,
+        Path,
+        build_driver,
+        generate_synthetic_data,
+        mo,
+        plt,
+        tempfile,
+        tomllib,
+    )
 
 
 @app.cell(hide_code=True)
@@ -132,72 +139,34 @@ def _(mo):
     mo.md(r"""
     ## Step 2: Generate synthetic input data
 
-    SatTerC's built-in data generator produces gridded NetCDF files, which is ideal
-    for spatial workflows.  For single-site CSV inputs we instead create the flat files
-    directly with [pandas](https://pandas.pydata.org/) and write them to a temporary
-    directory.
+    SatTerC reads input data from files — the format is detected automatically from
+    the file extension listed in the configuration. SatTerC's built-in synthetic
+    data generator supports NetCDF, Zarr, CSV, Parquet, and JSON output, making
+    it easy to produce realistic stand-in inputs in whatever format you need.
 
-    The data covers **one site** over a **two-year period**, using the same seasonal-cycle
-    logic as the built-in generator.
+    Since we do not have real data to hand, we will use the generator to produce
+    single-site CSV and JSON inputs. The generated data covers one virtual site
+    over a two-year period.
 
-    > **If you have real data**, skip ahead to the *Using your own data* section at the
-    > bottom of this notebook before running the pipeline.
+    > **If you have real data**, skip ahead to the *Using your own data* section at the bottom
+    > of this notebook before running the pipeline.
     """)
     return
 
 
 @app.cell
-def _(Config, Path, config_toml, json, np, pd, tempfile, tomllib):
+def _(Config, Path, config_toml, generate_synthetic_data, tempfile, tomllib):
     _tmpdir = Path(tempfile.mkdtemp())
 
     # Parse the embedded config string
     parsed_config = Config(tomllib.loads(config_toml)).parse()
 
-    # Redirect input paths to files we will generate in the temporary directory
+    # Redirect the input paths to files we will generate in a temporary directory
     parsed_config.driver_config["daily_inputs_path"] = str(_tmpdir / "daily.csv")
     parsed_config.driver_config["static_inputs_path"] = str(_tmpdir / "static.json")
 
-    # --- Daily CSV ---
-    np.random.seed(42)
-    _n_days = 730
-    _t = np.arange(_n_days)
-    _dates = pd.date_range("2020-01-01", periods=_n_days, freq="D")
-
-    _temperature = (
-        10.0
-        + 10.0 * np.sin(2 * np.pi * _t / 365.25 - np.pi / 2)
-        + np.random.uniform(-3, 3, _n_days)
-    )
-    _daily_precip = np.random.exponential(
-        3.1 + np.sin(2 * np.pi * _t / 365.25), _n_days
-    )
-    _precipitation = np.where(np.random.random(_n_days) < 0.6, _daily_precip, 0.0)
-    _sunshine_fraction = np.clip(
-        0.5
-        + 0.3 * np.sin(2 * np.pi * _t / 365.25)
-        + np.random.uniform(-0.15, 0.15, _n_days),
-        0.0,
-        1.0,
-    )
-
-    _df = pd.DataFrame(
-        {
-            "precipitation_mm": _precipitation,
-            "sunshine_fraction": _sunshine_fraction,
-            "temperature_celcius": _temperature,
-        },
-        index=_dates,
-    )
-    _df.index.name = "time"
-    _df.to_csv(_tmpdir / "daily.csv")
-
-    # --- Static JSON ---
-    with open(_tmpdir / "static.json", "w") as _f:
-        json.dump(
-            {"elevation": 100.0, "latitude": 52.0, "max_soil_moisture": 200.0},
-            _f,
-            indent=2,
-        )
+    # Generate synthetic data — this may take a few seconds
+    generate_synthetic_data(config=parsed_config, grid=(1, 1), n_days=730, seed=42)
 
     print(f"Synthetic data written to: {_tmpdir}")
     return (parsed_config,)

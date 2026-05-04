@@ -29,7 +29,6 @@ def _(mo):
 
 @app.cell
 def _():
-    import json
     import tempfile
     import tomllib
     from pathlib import Path
@@ -37,23 +36,22 @@ def _():
     import marimo as mo
     import matplotlib.pyplot as plt
     import numpy as np
-    import pandas as pd
     import xarray as xr
     from scipy.optimize import minimize, OptimizeResult
 
     from satterc import build_driver
     from satterc.config import Config
+    from satterc.setup_utils.data_gen import generate_synthetic_data
 
     return (
         Config,
         OptimizeResult,
         Path,
         build_driver,
-        json,
+        generate_synthetic_data,
         minimize,
         mo,
         np,
-        pd,
         plt,
         tempfile,
         tomllib,
@@ -102,58 +100,13 @@ def _(Config, tomllib):
 
 
 @app.cell
-def _(Path, json, np, parsed_config, pd, tempfile):
+def _(Path, generate_synthetic_data, parsed_config, tempfile):
     _tmpdir = Path(tempfile.mkdtemp())
 
     parsed_config.driver_config["daily_inputs_path"] = str(_tmpdir / "daily.csv")
     parsed_config.driver_config["static_inputs_path"] = str(_tmpdir / "static.json")
 
-    # --- Daily CSV ---
-    np.random.seed(42)
-    _n_days = 730
-    _t = np.arange(_n_days)
-    _dates = pd.date_range("2020-01-01", periods=_n_days, freq="D")
-
-    _temperature = (
-        10.0
-        + 10.0 * np.sin(2 * np.pi * _t / 365.25 - np.pi / 2)
-        + np.random.uniform(-3, 3, _n_days)
-    )
-    _daily_precip = np.random.exponential(
-        3.1 + np.sin(2 * np.pi * _t / 365.25), _n_days
-    )
-    _precipitation = np.where(np.random.random(_n_days) < 0.6, _daily_precip, 0.0)
-    _sunshine_fraction = np.clip(
-        0.5
-        + 0.3 * np.sin(2 * np.pi * _t / 365.25)
-        + np.random.uniform(-0.15, 0.15, _n_days),
-        0.0,
-        1.0,
-    )
-
-    _df = pd.DataFrame(
-        {
-            "precipitation_mm": _precipitation,
-            "sunshine_fraction": _sunshine_fraction,
-            "temperature_celcius": _temperature,
-        },
-        index=_dates,
-    )
-    _df.index.name = "time"
-    _df.to_csv(_tmpdir / "daily.csv")
-
-    # --- Static JSON ---
-    with open(_tmpdir / "static.json", "w") as _f:
-        json.dump(
-            {
-                "elevation": 100.0,
-                "latitude": 52.0,
-                "max_soil_moisture": 200.0,
-                "plant_type": 1.0,
-            },
-            _f,
-            indent=2,
-        )
+    generate_synthetic_data(config=parsed_config, grid=(1, 1), n_days=730, seed=42)
     return
 
 
