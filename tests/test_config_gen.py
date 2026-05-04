@@ -67,5 +67,5 @@ class TestGenerateConfigCustomModules:
             paths=PATH_DEFAULTS,
         )
         toml_str = str(config)
-        assert "[satterc.pipeline.models.rothc]" in toml_str
+        assert '[satterc."pipeline.models.rothc"]' in toml_str
         assert "n_years_spinup" in toml_str
