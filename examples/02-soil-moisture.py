@@ -2,8 +2,11 @@
 # requires-python = ">=3.13"
 # dependencies = [
 #     "marimo",
-#     "matplotlib",
-#     "scipy",
+#     "matplotlib==3.10.9",
+#     "numpy==2.4.4",
+#     "satterc==0.3.0",
+#     "scipy==1.17.1",
+#     "xarray==2026.4.0",
 # ]
 # ///
 
@@ -73,6 +76,9 @@ def _(mo):
 
 @app.cell
 def _(Config, tomllib):
+    # @output: config
+    from pprint import pprint
+
     _config_toml = """
     [models.splash]
 
@@ -96,7 +102,7 @@ def _(Config, tomllib):
     """
 
     parsed_config = Config(tomllib.loads(_config_toml)).parse()
-    parsed_config
+    pprint(parsed_config)
     return (parsed_config,)
 
 
@@ -204,6 +210,7 @@ def _(
 
 @app.cell
 def _(np, optimisation_history, plt, synthetic_obs_max_soil_moisture):
+    # @output: fig-optim
     # Extract history of parameter (max_soil_moisture) and objective function value
     _x, _f = np.array(optimisation_history).T
 
@@ -303,7 +310,10 @@ def _(np, objective_function):
             return -np.inf
 
         def log_posterior(params):
-            return log_prior(params) + log_likelihood(params)
+            lp = log_prior(params)
+            if np.isneginf(lp):
+                return lp
+            return lp + log_likelihood(params)
 
         return log_posterior
 
@@ -319,6 +329,7 @@ def _(
     optimisation_result,
     synthetic_obs,
 ):
+    # @output: acceptance
     _prior_low = 150.0
     _prior_high = 250.0
     step_size = 0.5
@@ -338,14 +349,17 @@ def _(
         prior_high=_prior_high,
         likelihood_sigma=5.0,
     )
+    current_log_post = log_posterior([current])
 
     for i in range(burn_in + n_iterations):
         proposed = current + np.random.uniform(-step_size, step_size)
 
-        log_acceptance_prob = log_posterior([proposed]) - log_posterior([current])
+        proposed_log_post = log_posterior([proposed])
+        log_acceptance_prob = proposed_log_post - current_log_post
 
         if np.log(np.random.uniform()) < log_acceptance_prob:
             current = proposed
+            current_log_post = proposed_log_post
 
             if i >= burn_in:
                 accepted += 1
@@ -354,12 +368,13 @@ def _(
 
     acceptance_rate = accepted / n_iterations
 
-    acceptance_rate
+    print(acceptance_rate)
     return burn_in, mcmc_history
 
 
 @app.cell
 def _(burn_in, mcmc_history, np, plt, synthetic_obs_max_soil_moisture):
+    # @output: fig-mcmc
     posterior_samples = mcmc_history[burn_in:]
 
     _fig, _axes = plt.subplots(1, 2, figsize=(12, 4))

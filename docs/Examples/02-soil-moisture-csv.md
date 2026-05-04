@@ -230,7 +230,10 @@ def make_log_posterior(
         return -np.inf
 
     def log_posterior(params):
-        return log_prior(params) + log_likelihood(params)
+        lp = log_prior(params)
+        if np.isneginf(lp):
+            return lp
+        return lp + log_likelihood(params)
 
     return log_posterior
 ```
@@ -255,14 +258,17 @@ log_posterior = make_log_posterior(
     prior_high=_prior_high,
     likelihood_sigma=5.0,
 )
+current_log_post = log_posterior([current])
 
 for i in range(burn_in + n_iterations):
     proposed = current + np.random.uniform(-step_size, step_size)
 
-    log_acceptance_prob = log_posterior([proposed]) - log_posterior([current])
+    proposed_log_post = log_posterior([proposed])
+    log_acceptance_prob = proposed_log_post - current_log_post
 
     if np.log(np.random.uniform()) < log_acceptance_prob:
         current = proposed
+        current_log_post = proposed_log_post
 
         if i >= burn_in:
             accepted += 1

@@ -25,17 +25,16 @@ docs:
 # Export a single example notebook to docs/Examples/.
 export example:
   # Export to Markdown file
-  marimo export md "examples/{{example}}.py" --output "docs/Examples/{{example}}.md" --no-sandbox --force
-  # Export to static HTML
-  marimo export html "examples/{{example}}.py" --output "docs/Examples/{{example}}-notebook.html" --no-sandbox --force
+  marimo-md-export "examples/{{example}}.py" "docs/Examples/{{example}}.md" \
+    --html-output docs/Examples/{{example}}-notebook.html
 
 # Export all notebooks in examples/ to docs/Examples/.
 export-all:
-  just export 00-getting-started
-  just export 00-getting-started-csv
-  just export 01-demo
+  #just export 00-getting-started
+  #just export 00-getting-started-csv
+  #just export 01-demo
   just export 02-soil-moisture
-  just export 02-soil-moisture-csv
-  just export 03-pft-parameters
-  just export 03-pft-parameters-csv
+  #just export 02-soil-moisture-csv
+  #just export 03-pft-parameters
+  #just export 03-pft-parameters-csv
   
