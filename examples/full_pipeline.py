@@ -80,7 +80,7 @@ def _(Config, tomllib):
 
     [models.rothc]
 
-    [inputs.grid]
+    [grid]
 
     [inputs.daily]
     path = "daily.nc"

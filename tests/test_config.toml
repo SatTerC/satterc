@@ -5,7 +5,7 @@ method_optchi = "lavergne20_c3"
 [models.rothc]
 n_years_spinup = 1
 
-[inputs.grid]
+[grid]
 
 [inputs.daily]
 path = "daily.nc"

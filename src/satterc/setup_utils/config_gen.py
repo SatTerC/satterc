@@ -136,7 +136,7 @@ def _infer_required_data(model_names: list[str]) -> dict[str, list[str]]:
             model_output_bases.add(base)
 
     # Filter out inputs that are model outputs (compare bases)
-    # Also filter out grid variables (provided by inputs.grid, not from files)
+    # Also filter out grid variables (provided by the grid module, not from files)
     grid_vars = {"latitude", "longitude"}
 
     inputs_to_keep: set[str] = set()

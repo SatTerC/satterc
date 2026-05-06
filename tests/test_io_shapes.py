@@ -16,7 +16,8 @@ import pandas as pd
 import pytest
 import xarray as xr
 
-from satterc.pipeline.inputs._utils import stack_if_spatial, stack_spatial_dims
+from satterc.pipeline._utils import stack_spatial_dims
+from satterc.pipeline.inputs._utils import stack_if_spatial
 from satterc.pipeline.outputs._utils import unstack_if_grid
 
 

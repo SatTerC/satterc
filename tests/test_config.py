@@ -10,7 +10,7 @@ from satterc.config import Config, load_config, ParsedConfig
 TEST_CONFIG_PATH = Path(__file__).parent / "test_config.toml"
 
 EXPECTED_MODULES = [
-    "inputs.grid",
+    "grid",
     "inputs.daily",
     "inputs.weekly",
     "inputs.monthly",

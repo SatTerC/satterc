@@ -5,7 +5,7 @@ import xarray as xr
 
 from satterc.config import load_config
 from satterc.driver import build_driver
-from satterc.pipeline.inputs import grid
+from satterc.pipeline import grid
 from satterc.setup_utils.data_gen import generate_synthetic_data
 
 

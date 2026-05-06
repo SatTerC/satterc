@@ -113,6 +113,10 @@ class Config:
         targets: list[str] = []
         modules: list[str] = []
 
+        if "grid" in data:
+            data.pop("grid")
+            modules.append("grid")
+
         for freq, params in data.pop("inputs", {}).items():
             modules.append(f"inputs.{freq}")
             if "path" in params:

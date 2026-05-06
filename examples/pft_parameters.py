@@ -125,7 +125,7 @@ def _(Config, tomllib):
     from_freq = "daily"
     to_freq = "weekly"
 
-    [inputs.grid]
+    [grid]
     """
 
     parsed_config = Config(tomllib.loads(_config_toml)).parse()

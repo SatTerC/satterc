@@ -4,14 +4,14 @@ from typing import Any
 from hamilton import driver
 from hamilton.settings import ENABLE_POWER_USER_MODE
 
-from .pipeline import inputs, outputs, models, resample
+from .pipeline import inputs, outputs, models, resample, grid
 
 MODULES = {
     "inputs.daily": inputs.daily,
     "inputs.weekly": inputs.weekly,
     "inputs.monthly": inputs.monthly,
     "inputs.static": inputs.static,
-    "inputs.grid": inputs.grid,
+    "grid": grid,
     "outputs.daily": outputs.daily,
     "outputs.weekly": outputs.weekly,
     "outputs.monthly": outputs.monthly,
