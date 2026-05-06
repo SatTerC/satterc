@@ -1,15 +1,15 @@
 # /// script
 # requires-python = ">=3.13"
 # dependencies = [
-#   "satterc",
+#   "satterc==0.3.0",
 #   "marimo",
-#   "matplotlib",
+#   "matplotlib==3.10.9",
 # ]
 # ///
 
 import marimo
 
-__generated_with = "0.23.4"
+__generated_with = "0.23.5"
 app = marimo.App(width="medium")
 
 
@@ -221,7 +221,7 @@ def _(mo):
 @app.cell
 def _(dr):
     outputs = dr.execute(["merged_daily_outputs"])
-    outputs
+    outputs["merged_daily_outputs"].info()
     return
 
 

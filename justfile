@@ -26,12 +26,12 @@ docs:
 export example:
   # Export to Markdown file
   marimo-md-export "examples/{{example}}.py" "docs/Examples/{{example}}.md" \
-    --html-output docs/Examples/{{example}}-notebook.html
+    --html-output docs/Examples/{{example}}-notebook.html --overflow scroll
 
 # Export all notebooks in examples/ to docs/Examples/.
 export-all:
-  #just export 00-getting-started
-  #just export 00-getting-started-csv
+  just export 00-getting-started
+  just export 00-getting-started-csv
   #just export 01-demo
   just export 02-soil-moisture
   just export 02-soil-moisture-csv
