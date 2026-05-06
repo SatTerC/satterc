@@ -5,7 +5,7 @@ import tomllib
 import tomli_w
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any
+from typing import Any, Self
 
 
 _RESAMPLE_FREQ_MAP: dict[tuple[str, str], str] = {
@@ -73,13 +73,20 @@ class Config:
         self._data = data
 
     @classmethod
-    def load(cls, path: str | os.PathLike) -> "Config":
+    def load(cls, path: str | os.PathLike) -> Self:
         """Load config from a TOML file."""
         path = Path(path).resolve()
         with open(path, "rb") as f:
             data = tomllib.load(f)
         _resolve_paths(data, base=path.parent)
         return cls(data)
+
+    @classmethod
+    def loads(cls, toml_str: str) -> Self:
+        """Load config from a TOML string."""
+        return cls(
+            tomllib.loads(toml_str)
+        )  # TODO: should we resolve paths relative to cwd?
 
     def parse(self) -> ParsedConfig:
         """Parse config into a ParsedConfig.
@@ -184,7 +191,7 @@ class Config:
 
     def dump(self, path: str | os.PathLike, overwrite_ok: bool = False) -> None:
         """Write config to a TOML file."""
-        toml_str = self._dump()
+        toml_str = self.dumps()
         path = Path(path)
         if path.exists() and not overwrite_ok:
             raise FileExistsError(
@@ -194,9 +201,10 @@ class Config:
 
     def __str__(self) -> str:
         """Return TOML string representation."""
-        return self._dump()
+        return self.dumps()
 
-    def _dump(self) -> str:
+    def dumps(self) -> str:
+        """Dump config to a TOML str."""
         return tomli_w.dumps(self._data)
 
 
