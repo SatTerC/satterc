@@ -51,20 +51,22 @@ def _build_driver(*specs: ResampleSpec) -> driver.Driver:
 
 @pytest.fixture(scope="module")
 def daily_to_weekly_driver():
-    return _build_driver(ResampleSpec(vars=["temperature"], from_="daily", to="weekly"))
+    return _build_driver(
+        ResampleSpec(vars=["temperature"], source_freq="daily", target_freq="weekly")
+    )
 
 
 @pytest.fixture(scope="module")
 def daily_to_monthly_driver():
     return _build_driver(
-        ResampleSpec(vars=["temperature"], from_="daily", to="monthly")
+        ResampleSpec(vars=["temperature"], source_freq="daily", target_freq="monthly")
     )
 
 
 @pytest.fixture(scope="module")
 def weekly_to_monthly_driver():
     return _build_driver(
-        ResampleSpec(vars=["temperature"], from_="weekly", to="monthly")
+        ResampleSpec(vars=["temperature"], source_freq="weekly", target_freq="monthly")
     )
 
 
@@ -98,7 +100,9 @@ class TestDailyToWeeklyMean:
     def test_values_are_means(self):
         da = _make_daily_da(n_days=14, n_pixel=1)
         result = _build_driver(
-            ResampleSpec(vars=["temperature"], from_="daily", to="weekly")
+            ResampleSpec(
+                vars=["temperature"], source_freq="daily", target_freq="weekly"
+            )
         ).execute(
             ["temperature_weekly"],
             inputs={"temperature_daily": da},
@@ -115,7 +119,10 @@ class TestDailyToWeeklySum:
         da = _make_daily_da(n_days=14, n_pixel=1)
         return _build_driver(
             ResampleSpec(
-                vars=["precipitation"], from_="daily", to="weekly", aggfunc="sum"
+                vars=["precipitation"],
+                source_freq="daily",
+                target_freq="weekly",
+                aggfunc="sum",
             )
         ).execute(
             ["precipitation_weekly"],
@@ -137,10 +144,16 @@ class TestMixedAggfuncs:
     def test_mean_and_sum_coexist(self):
         dr = _build_driver(
             ResampleSpec(
-                vars=["temperature"], from_="daily", to="weekly", aggfunc="mean"
+                vars=["temperature"],
+                source_freq="daily",
+                target_freq="weekly",
+                aggfunc="mean",
             ),
             ResampleSpec(
-                vars=["precipitation"], from_="daily", to="weekly", aggfunc="sum"
+                vars=["precipitation"],
+                source_freq="daily",
+                target_freq="weekly",
+                aggfunc="sum",
             ),
         )
         da = _make_daily_da(n_days=14, n_pixel=1)
@@ -212,22 +225,29 @@ class TestResampleSpecValidation:
 
     def test_unsupported_direction_raises(self):
         with pytest.raises(ValueError, match="Unsupported resample direction"):
-            ResampleSpec.from_config({"vars": ["x"], "from": "monthly", "to": "daily"})
+            ResampleSpec.from_config(
+                {"vars": ["x"], "from_freq": "monthly", "to_freq": "daily"}
+            )
 
     def test_unsupported_aggfunc_raises(self):
         with pytest.raises(ValueError, match="Unsupported aggfunc"):
             ResampleSpec.from_config(
-                {"vars": ["x"], "from": "daily", "to": "weekly", "aggfunc": "banana"}
+                {
+                    "vars": ["x"],
+                    "from_freq": "daily",
+                    "to_freq": "weekly",
+                    "aggfunc": "banana",
+                }
             )
 
     def test_default_aggfunc_is_mean(self):
         spec = ResampleSpec.from_config(
-            {"vars": ["x"], "from": "daily", "to": "weekly"}
+            {"vars": ["x"], "from_freq": "daily", "to_freq": "weekly"}
         )
         assert spec.aggfunc == "mean"
 
     def test_freq_property(self):
-        spec = ResampleSpec(vars=["x"], from_="daily", to="weekly")
+        spec = ResampleSpec(vars=["x"], source_freq="daily", target_freq="weekly")
         assert spec.freq == "7D"
-        spec2 = ResampleSpec(vars=["x"], from_="daily", to="monthly")
+        spec2 = ResampleSpec(vars=["x"], source_freq="daily", target_freq="monthly")
         assert spec2.freq == "1ME"

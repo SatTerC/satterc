@@ -129,8 +129,8 @@ def _(Config, tomllib):
       "soil_moisture",
       "aridity_index",
     ]
-    from = "daily"
-    to = "weekly"
+    from_freq = "daily"
+    to_freq = "weekly"
 
     [[resample]]
     vars = [
@@ -138,15 +138,15 @@ def _(Config, tomllib):
       "precipitation_mm",
       "actual_evapotranspiration",
     ]
-    from = "daily"
-    to = "monthly"
+    from_freq = "daily"
+    to_freq = "monthly"
 
     [[resample]]
     vars = [
       "litter_pool",
     ]
-    from = "weekly"
-    to = "monthly"
+    from_freq = "weekly"
+    to_freq = "monthly"
 
     [outputs.daily]
     path = "results/daily.nc"

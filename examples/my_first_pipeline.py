@@ -58,7 +58,6 @@ def _(mo):
 @app.cell
 def _():
     import tempfile
-    import tomllib
     from pathlib import Path
 
     import marimo as mo

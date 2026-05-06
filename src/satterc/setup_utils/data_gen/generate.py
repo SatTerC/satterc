@@ -133,13 +133,17 @@ def generate_synthetic_data(
 
     if weekly_vars:
         resample_specs.append(
-            ResampleSpec(vars=sorted(weekly_vars), from_="daily", to="weekly")
+            ResampleSpec(
+                vars=sorted(weekly_vars), source_freq="daily", target_freq="weekly"
+            )
         )
     daily_to_monthly_vars = daily_vars | weekly_vars | monthly_vars
     if daily_to_monthly_vars:
         resample_specs.append(
             ResampleSpec(
-                vars=sorted(daily_to_monthly_vars), from_="daily", to="monthly"
+                vars=sorted(daily_to_monthly_vars),
+                source_freq="daily",
+                target_freq="monthly",
             )
         )
 

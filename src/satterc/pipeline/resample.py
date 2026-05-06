@@ -9,8 +9,8 @@ from ._hamilton_fixes import FixedResolve, NoOpDecorator
     decorate_with=lambda resample_specs=None: (
         parameterize(
             **{
-                f"{var}_{spec.to}": {
-                    "var_in": source(f"{var}_{spec.from_}"),
+                f"{var}_{spec.target_freq}": {
+                    "var_in": source(f"{var}_{spec.source_freq}"),
                     "aggfunc": value(spec.aggfunc),
                     "freq": value(spec.freq),
                 }

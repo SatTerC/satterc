@@ -253,8 +253,8 @@ def generate_config(
             resample_list.append(
                 {
                     "vars": vars_,
-                    "from": from_freq,
-                    "to": to_freq,
+                    "from_freq": from_freq,
+                    "to_freq": to_freq,
                     # aggfunc omitted → defaults to "mean" at parse time
                     # TODO: support per-variable aggfunc (e.g. auto-classify precipitation as sum)
                 }

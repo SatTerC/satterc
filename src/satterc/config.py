@@ -26,26 +26,26 @@ class ResampleSpec:
     """Specification for a single [[resample]] entry."""
 
     vars: list[str]
-    from_: str  # trailing underscore avoids clash with Python keyword 'from'
-    to: str
+    source_freq: str
+    target_freq: str
     aggfunc: str = "mean"
 
     @property
     def freq(self) -> str:
-        """xarray resample frequency string derived from from_/to pair."""
-        return _RESAMPLE_FREQ_MAP[(self.from_, self.to)]
+        """xarray resample frequency string derived from source_freq/target_freq pair."""
+        return _RESAMPLE_FREQ_MAP[(self.source_freq, self.target_freq)]
 
     @classmethod
     def from_config(cls, entry: dict) -> "ResampleSpec":
         """Construct and validate from a raw [[resample]] TOML entry."""
-        from_freq = entry["from"]
-        to_freq = entry["to"]
+        source_freq = entry["from_freq"]
+        target_freq = entry["to_freq"]
         aggfunc = entry.get("aggfunc", "mean")
         vars_ = entry["vars"]
 
-        if (from_freq, to_freq) not in _RESAMPLE_FREQ_MAP:
+        if (source_freq, target_freq) not in _RESAMPLE_FREQ_MAP:
             raise ValueError(
-                f"Unsupported resample direction '{from_freq}' → '{to_freq}'. "
+                f"Unsupported resample direction '{source_freq}' → '{target_freq}'. "
                 f"Supported: {sorted(_RESAMPLE_FREQ_MAP)}"
             )
         if aggfunc not in _VALID_AGGFUNCS:
@@ -53,7 +53,12 @@ class ResampleSpec:
                 f"Unsupported aggfunc '{aggfunc}'. Supported: {sorted(_VALID_AGGFUNCS)}"
             )
 
-        return cls(vars=vars_, from_=from_freq, to=to_freq, aggfunc=aggfunc)
+        return cls(
+            vars=vars_,
+            source_freq=source_freq,
+            target_freq=target_freq,
+            aggfunc=aggfunc,
+        )
 
 
 @dataclass
@@ -91,99 +96,75 @@ class Config:
     def parse(self) -> ParsedConfig:
         """Parse config into a ParsedConfig.
 
-        Every TOML section implies a module to load:
-        - [inputs.*]  and [outputs.*] — I/O modules, derived from file extension
-        - [models.*]  — built-in model modules
-        - [resample]  — temporal resampling module
-        - [extra_config] — reserved: merges keys into driver_config, no module loaded
-        - [pkg.mod]   — external importable module (max 2-component path for now)
+        Recognised top-level sections (processed directly):
+        - [inputs.*]      — I/O modules; freq derived from subsection key
+        - [outputs.*]     — I/O modules; freq derived from subsection key
+        - [models.*]      — built-in model modules
+        - [[resample]]    — temporal resampling module
+
+        All other top-level sections are treated as external modules and must
+        include a '_import_path = "pkg.module"' key specifying the importable
+        module path. The key is stripped before merging remaining params into
+        driver_config.
         """
         data = dict(self._data)
-        extra_config = data.pop("extra_config", {})
-
-        config_flat = _flatten_config(data)
 
         driver_config: dict[str, Any] = {}
         targets: list[str] = []
         modules: list[str] = []
 
-        for section_name, params in config_flat.items():
-            depth = section_name.count(".") + 1
+        for freq, params in data.pop("inputs", {}).items():
+            modules.append(f"inputs.{freq}")
+            if "path" in params:
+                driver_config[f"{freq}_inputs_path"] = params["path"]
+                driver_config[f"{freq}_inputs_vars"] = params.get("vars") or []
+                driver_config[f"{freq}_inputs_format"] = _infer_format(params["path"])
 
-            if section_name.startswith("inputs."):
-                freq = section_name.split(".", 1)[1]
-                if "path" in params:
-                    fmt = _infer_format(params["path"])
-                    driver_config[f"{freq}_inputs_path"] = params["path"]
-                    driver_config[f"{freq}_inputs_vars"] = params.get("vars") or []
-                    driver_config[f"{freq}_inputs_format"] = fmt
-                    modules.append(f"inputs.{freq}")
-                else:
-                    # Helper section with no file path (e.g. [inputs.grid])
-                    modules.append(section_name)
+        for freq, params in data.pop("outputs", {}).items():
+            vars_ = params.get("vars") or []
+            if vars_:
+                driver_config[f"{freq}_outputs_path"] = params["path"]
+                driver_config[f"{freq}_outputs_vars"] = vars_
+                driver_config[f"{freq}_outputs_format"] = _infer_format(params["path"])
+                targets.append(f"save_{freq}_outputs")
+                modules.append(f"outputs.{freq}")
 
-            elif section_name.startswith("outputs."):
-                freq = section_name.split(".", 1)[1]
-                vars_ = params.get("vars") or []
-                if vars_:
-                    fmt = _infer_format(params["path"])
-                    driver_config[f"{freq}_outputs_path"] = params["path"]
-                    driver_config[f"{freq}_outputs_vars"] = vars_
-                    driver_config[f"{freq}_outputs_format"] = fmt
-                    targets.append(f"save_{freq}_outputs")
-                    modules.append(f"outputs.{freq}")
-                # else: empty vars → skip (no module, no target, no config keys)
+        for model_name, params in data.pop("models", {}).items():
+            _merge_params(f"models.{model_name}", params, driver_config)
+            modules.append(f"models.{model_name}")
 
-            elif section_name.startswith("models."):
-                conflicts = set(params.keys()) & set(driver_config.keys())
-                if conflicts:
+        seen_outputs: set[str] = set()
+        specs: list[ResampleSpec] = []
+        for entry in data.pop("resample", []):
+            spec = ResampleSpec.from_config(entry)
+            for var in spec.vars:
+                out = f"{var}_{spec.target_freq}"
+                if out in seen_outputs:
                     raise ValueError(
-                        f"Parameter(s) {sorted(conflicts)} in [{section_name}] conflict "
-                        f"with an already-defined key. Use a model-specific prefix to "
-                        f"disambiguate (e.g. pmodel_method_kphio)."
+                        f"Duplicate resample output '{out}' in [[resample]]"
                     )
-                driver_config |= params
-                modules.append(section_name)
+                seen_outputs.add(out)
+            specs.append(spec)
+        if specs:
+            driver_config["resample_specs"] = specs
+            modules.append("resample")
 
-            elif section_name == "resample":
-                # params is a list from [[resample]] array-of-tables
-                seen_outputs: set[str] = set()
-                specs: list[ResampleSpec] = []
-                for entry in params:
-                    spec = ResampleSpec.from_config(entry)
-                    for var in spec.vars:
-                        out = f"{var}_{spec.to}"
-                        if out in seen_outputs:
-                            raise ValueError(
-                                f"Duplicate resample output '{out}' in [[resample]]"
-                            )
-                        seen_outputs.add(out)
-                    specs.append(spec)
-                driver_config["resample_specs"] = specs
-                modules.append("resample")
-
-            else:
-                # External module: section name is an importable path.
-                # NOTE: Only 2-component paths (pkg.mod) are supported for now.
-                # Support for deeper paths (pkg.sub.mod) may be added in future.
-                has_nested = any(isinstance(v, dict) for v in params.values())
-                if depth > 2 or has_nested:
-                    raise ValueError(
-                        f"[{section_name}] has {depth} path components or contains "
-                        f"sub-sections. External module paths must be 2 components "
-                        f"(e.g. mypackage.mymodule). "
-                        f"Support for deeper paths may be added in future."
-                    )
-                conflicts = set(params.keys()) & set(driver_config.keys())
-                if conflicts:
-                    raise ValueError(
-                        f"Parameter(s) {sorted(conflicts)} in [{section_name}] conflict "
-                        f"with an already-defined key."
-                    )
-                driver_config |= params
-                modules.append(section_name)
-
-        driver_config |= extra_config
+        for section_label, params in data.items():
+            params = dict(params)
+            import_path = params.pop("_import_path", None)
+            if import_path is None:
+                raise ValueError(
+                    f"Section [{section_label!r}] is missing '_import_path'. "
+                    f"All non-built-in sections must include "
+                    f"'_import_path = \"pkg.module\"'."
+                )
+            if not _is_valid_module_path(import_path):
+                raise ValueError(
+                    f"'_import_path = {import_path!r}' in [{section_label!r}] "
+                    f"is not a valid dotted module path."
+                )
+            _merge_params(section_label, params, driver_config)
+            modules.append(import_path)
 
         return ParsedConfig(
             modules=modules, driver_config=driver_config, targets=targets
@@ -221,25 +202,21 @@ def _resolve_paths(data: dict, base: Path) -> None:
                 params["path"] = str(base / params["path"])
 
 
-def _flatten_config(config: dict) -> dict[str, Any]:
-    """Flatten nested TOML sections into dot-notation keys.
+def _is_valid_module_path(path: str) -> bool:
+    """Return True if path is a non-empty dotted Python identifier."""
+    return bool(path) and all(part.isidentifier() for part in path.split("."))
 
-    Dicts whose values are all dicts are treated as namespaces and flattened
-    one level (e.g. {inputs: {daily: {path, vars}}} → {"inputs.daily": {path, vars}}).
-    Dicts with any non-dict value are kept as-is (e.g. resample, model params).
-    """
-    flat = {}
-    for key, value in config.items():
-        if (
-            isinstance(value, dict)
-            and value
-            and all(isinstance(v, dict) for v in value.values())
-        ):
-            for subkey, subvalue in value.items():
-                flat[f"{key}.{subkey}"] = subvalue
-        else:
-            flat[key] = value
-    return flat
+
+def _merge_params(section: str, params: dict, driver_config: dict) -> None:
+    """Merge params into driver_config, raising ValueError on key conflicts."""
+    conflicts = set(params) & set(driver_config)
+    if conflicts:
+        raise ValueError(
+            f"Parameter(s) {sorted(conflicts)} in [{section}] conflict "
+            f"with an already-defined key. Use a module-specific prefix to "
+            f"disambiguate (e.g. pmodel_method_kphio)."
+        )
+    driver_config |= params
 
 
 def _infer_format(path: str) -> str:

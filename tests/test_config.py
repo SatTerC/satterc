@@ -10,13 +10,13 @@ from satterc.config import Config, load_config, ParsedConfig
 TEST_CONFIG_PATH = Path(__file__).parent / "test_config.toml"
 
 EXPECTED_MODULES = [
-    "models.pmodel",
-    "models.rothc",
     "inputs.grid",
     "inputs.daily",
     "inputs.weekly",
     "inputs.monthly",
     "inputs.static",
+    "models.pmodel",
+    "models.rothc",
     # resample absent — no [[resample]] entries in test_config.toml
     # outputs.daily/weekly/monthly absent — all have empty vars in test_config.toml
 ]
@@ -209,12 +209,23 @@ class TestValidation:
         with pytest.raises(ValueError, match="shared_param"):
             config.parse()
 
-    def test_deep_external_module_path_raises(self, tmp_path):
-        config = Config({"mypackage": {"subpkg": {"mymodule": {"param": "value"}}}})
-        with pytest.raises(
-            ValueError, match="External module paths must be 2 components"
-        ):
+    def test_external_module_missing_import_path_raises(self):
+        config = Config({"my_section": {"param": "value"}})
+        with pytest.raises(ValueError, match="_import_path"):
             config.parse()
+
+    def test_external_module_invalid_import_path_raises(self):
+        config = Config({"my_section": {"_import_path": "not a.valid..path"}})
+        with pytest.raises(ValueError, match="not a valid dotted module path"):
+            config.parse()
+
+    def test_external_module_import_path_accepted(self):
+        config = Config(
+            {"my_section": {"_import_path": "mypackage.mymodule", "param": 42}}
+        )
+        parsed = config.parse()
+        assert "mypackage.mymodule" in parsed.modules
+        assert parsed.driver_config["param"] == 42
 
 
 class TestDump:

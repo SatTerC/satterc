@@ -122,8 +122,8 @@ def _(Config, tomllib):
       "soil_moisture",
       "aridity_index",
     ]
-    from = "daily"
-    to = "weekly"
+    from_freq = "daily"
+    to_freq = "weekly"
 
     [inputs.grid]
     """
