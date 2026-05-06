@@ -67,8 +67,6 @@ def _(mo):
 @app.cell
 def _(Config, tomllib):
     _config_toml = """
-    [extra_config]
-    n_years_spinup = 1
 
     [models.splash]
 
@@ -79,6 +77,7 @@ def _(Config, tomllib):
     [models.sgam]
 
     [models.rothc]
+    n_years_spinup = 1
 
     [grid]
 
