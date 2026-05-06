@@ -47,14 +47,3 @@ vars = [
   "stem_pool_init",
 ]
 
-[outputs.daily]
-path = "daily.nc"
-vars = []
-
-[outputs.weekly]
-path = "weekly.nc"
-vars = []
-
-[outputs.monthly]
-path = "monthly.nc"
-vars = []

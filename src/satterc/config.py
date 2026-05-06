@@ -118,20 +118,34 @@ class Config:
             modules.append("grid")
 
         for freq, params in data.pop("inputs", {}).items():
-            if "path" in params:
-                driver_config[f"{freq}_inputs_path"] = params["path"]
-                driver_config[f"{freq}_inputs_vars"] = params.get("vars") or []
-                driver_config[f"{freq}_inputs_format"] = _infer_format(params["path"])
-                modules.append(f"inputs.{freq}")
+            if "path" not in params:
+                raise ValueError(
+                    f"[inputs.{freq}] is missing a 'path' key. "
+                    f"Input sections must specify a file path."
+                )
+            driver_config[f"{freq}_inputs_path"] = params["path"]
+            driver_config[f"{freq}_inputs_vars"] = params.get("vars") or []
+            driver_config[f"{freq}_inputs_format"] = _infer_format(params["path"])
+            modules.append(f"inputs.{freq}")
 
         for freq, params in data.pop("outputs", {}).items():
             vars_ = params.get("vars") or []
-            if vars_:
-                driver_config[f"{freq}_outputs_path"] = params["path"]
-                driver_config[f"{freq}_outputs_vars"] = vars_
-                driver_config[f"{freq}_outputs_format"] = _infer_format(params["path"])
-                targets.append(f"save_{freq}_outputs")
-                modules.append(f"outputs.{freq}")
+            if not vars_:
+                raise ValueError(
+                    f"[outputs.{freq}] has no 'vars'. "
+                    f"Output sections must list at least one variable, "
+                    f"or be removed from the config."
+                )
+            if "path" not in params:
+                raise ValueError(
+                    f"[outputs.{freq}] is missing a 'path' key. "
+                    f"Output sections must specify a file path."
+                )
+            driver_config[f"{freq}_outputs_path"] = params["path"]
+            driver_config[f"{freq}_outputs_vars"] = vars_
+            driver_config[f"{freq}_outputs_format"] = _infer_format(params["path"])
+            targets.append(f"save_{freq}_outputs")
+            modules.append(f"outputs.{freq}")
 
         for model_name, params in data.pop("models", {}).items():
             _merge_params(f"models.{model_name}", params, driver_config)

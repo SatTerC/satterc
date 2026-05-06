@@ -18,10 +18,10 @@ EXPECTED_MODULES = [
     "models.pmodel",
     "models.rothc",
     # resample absent — no [[resample]] entries in test_config.toml
-    # outputs.daily/weekly/monthly absent — all have empty vars in test_config.toml
+    # outputs absent — no [outputs.*] sections in test_config.toml
 ]
 
-EXPECTED_TARGETS = []  # no output vars → no targets
+EXPECTED_TARGETS = []  # no output sections → no targets
 
 
 @pytest.fixture(scope="module")
@@ -47,12 +47,6 @@ class TestModules:
     def test_modules_list(self, parsed_config):
         assert parsed_config.modules == EXPECTED_MODULES
 
-    def test_no_output_modules_when_vars_empty(self, parsed_config):
-        for mod in parsed_config.modules:
-            assert not mod.startswith("outputs."), (
-                f"Output module '{mod}' should not appear when all output vars are empty"
-            )
-
 
 class TestDriverConfig:
     """Tests for driver_config keys and values."""
@@ -70,16 +64,6 @@ class TestDriverConfig:
         assert dc["weekly_inputs_format"] == "netcdf"
         assert dc["monthly_inputs_format"] == "netcdf"
         assert dc["static_inputs_format"] == "netcdf"
-
-    def test_output_path_keys_absent_when_vars_empty(self, parsed_config):
-        dc = parsed_config.driver_config
-        assert "daily_outputs_path" not in dc
-        assert "weekly_outputs_path" not in dc
-        assert "monthly_outputs_path" not in dc
-
-    def test_output_format_keys_absent_when_vars_empty(self, parsed_config):
-        dc = parsed_config.driver_config
-        assert "daily_outputs_format" not in dc
 
     def test_input_vars_keys_present(self, parsed_config):
         dc = parsed_config.driver_config
@@ -152,8 +136,8 @@ class TestFlatFormat:
 class TestTargets:
     """Tests for the targets list."""
 
-    def test_targets(self, parsed_config):
-        assert parsed_config.targets == EXPECTED_TARGETS
+    def test_targets_empty_when_no_output_sections(self, parsed_config):
+        assert parsed_config.targets == []
 
     def test_targets_populated_when_vars_present(self, tmp_path):
         config = Config(
@@ -182,7 +166,9 @@ class TestPathResolution:
 
     def test_direct_construction_paths_unchanged(self):
         """Config() constructed directly should not modify paths."""
-        config = Config({"inputs": {"daily": {"path": "relative/path.nc", "vars": []}}})
+        config = Config(
+            {"inputs": {"daily": {"path": "relative/path.nc", "vars": ["x"]}}}
+        )
         assert config._data["inputs"]["daily"]["path"] == "relative/path.nc"
 
 
@@ -226,6 +212,28 @@ class TestValidation:
         parsed = config.parse()
         assert "mypackage.mymodule" in parsed.modules
         assert parsed.driver_config["param"] == 42
+
+    def test_input_section_missing_path_raises(self):
+        config = Config({"inputs": {"daily": {"vars": ["x"]}}})
+        with pytest.raises(ValueError, match=r"\[inputs\.daily\].*'path'"):
+            config.parse()
+
+    def test_output_section_empty_vars_raises(self, tmp_path):
+        config = Config(
+            {"outputs": {"daily": {"path": str(tmp_path / "out.nc"), "vars": []}}}
+        )
+        with pytest.raises(ValueError, match=r"\[outputs\.daily\].*no 'vars'"):
+            config.parse()
+
+    def test_output_section_missing_vars_raises(self, tmp_path):
+        config = Config({"outputs": {"daily": {"path": str(tmp_path / "out.nc")}}})
+        with pytest.raises(ValueError, match=r"\[outputs\.daily\].*no 'vars'"):
+            config.parse()
+
+    def test_output_section_missing_path_raises(self, tmp_path):
+        config = Config({"outputs": {"daily": {"vars": ["gpp"]}}})
+        with pytest.raises(ValueError, match=r"\[outputs\.daily\].*'path'"):
+            config.parse()
 
 
 class TestDump:
