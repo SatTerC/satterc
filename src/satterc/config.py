@@ -118,11 +118,11 @@ class Config:
             modules.append("grid")
 
         for freq, params in data.pop("inputs", {}).items():
-            modules.append(f"inputs.{freq}")
             if "path" in params:
                 driver_config[f"{freq}_inputs_path"] = params["path"]
                 driver_config[f"{freq}_inputs_vars"] = params.get("vars") or []
                 driver_config[f"{freq}_inputs_format"] = _infer_format(params["path"])
+                modules.append(f"inputs.{freq}")
 
         for freq, params in data.pop("outputs", {}).items():
             vars_ = params.get("vars") or []
