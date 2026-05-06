@@ -31,9 +31,6 @@ export example:
 # Export all notebooks in examples/ to docs/Examples/.
 export-all:
   just export my_first_pipeline
-  #just export 01-demo
-  just export 02-soil-moisture
-  just export 02-soil-moisture-csv
-  just export 03-pft-parameters
-  just export 03-pft-parameters-csv
-  
+  just export soil_moisture
+  just export pft_parameters
+  just export full_pipeline
