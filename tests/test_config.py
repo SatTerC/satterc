@@ -236,6 +236,143 @@ class TestValidation:
             config.parse()
 
 
+class TestGrid:
+    """Tests for [grid] section parsing."""
+
+    def test_grid_section_adds_grid_module(self):
+        config = Config({"grid": {}, "models": {"pmodel": {}}})
+        parsed = config.parse()
+        assert "grid" in parsed.modules
+
+    def test_no_grid_section_omits_grid_module(self):
+        config = Config({"models": {"pmodel": {}}})
+        parsed = config.parse()
+        assert "grid" not in parsed.modules
+
+
+class TestResample:
+    """Tests for [[resample]] section parsing."""
+
+    def test_resample_adds_resample_module(self):
+        config = Config(
+            {
+                "models": {"pmodel": {}},
+                "resample": [
+                    {"vars": ["gpp"], "from_freq": "daily", "to_freq": "monthly"}
+                ],
+            }
+        )
+        parsed = config.parse()
+        assert "resample" in parsed.modules
+
+    def test_no_resample_omits_resample_module(self):
+        config = Config({"models": {"pmodel": {}}})
+        parsed = config.parse()
+        assert "resample" not in parsed.modules
+
+    def test_resample_specs_in_driver_config(self):
+        from satterc.config import ResampleSpec
+
+        config = Config(
+            {
+                "models": {"pmodel": {}},
+                "resample": [
+                    {"vars": ["gpp", "npp"], "from_freq": "daily", "to_freq": "weekly"}
+                ],
+            }
+        )
+        parsed = config.parse()
+        specs = parsed.driver_config["resample_specs"]
+        assert len(specs) == 1
+        assert isinstance(specs[0], ResampleSpec)
+        assert specs[0].vars == ["gpp", "npp"]
+        assert specs[0].source_freq == "daily"
+        assert specs[0].target_freq == "weekly"
+
+    def test_duplicate_resample_output_raises(self):
+        config = Config(
+            {
+                "models": {"pmodel": {}},
+                "resample": [
+                    {"vars": ["gpp"], "from_freq": "daily", "to_freq": "monthly"},
+                    {"vars": ["gpp"], "from_freq": "weekly", "to_freq": "monthly"},
+                ],
+            }
+        )
+        with pytest.raises(ValueError, match="Duplicate resample output"):
+            config.parse()
+
+    def test_unsupported_freq_pair_raises(self):
+        config = Config(
+            {
+                "models": {"pmodel": {}},
+                "resample": [
+                    {"vars": ["gpp"], "from_freq": "monthly", "to_freq": "daily"}
+                ],
+            }
+        )
+        with pytest.raises(ValueError, match="Unsupported resample direction"):
+            config.parse()
+
+
+class TestMultipleFrequencies:
+    """Tests for multiple input/output frequencies."""
+
+    def test_multiple_input_frequencies(self, tmp_path):
+        config = Config(
+            {
+                "inputs": {
+                    "daily": {"path": str(tmp_path / "daily.nc"), "vars": ["temp"]},
+                    "weekly": {"path": str(tmp_path / "weekly.nc"), "vars": ["co2"]},
+                }
+            }
+        )
+        parsed = config.parse()
+        assert "inputs.daily" in parsed.modules
+        assert "inputs.weekly" in parsed.modules
+
+    def test_multiple_output_frequencies(self, tmp_path):
+        config = Config(
+            {
+                "outputs": {
+                    "daily": {"path": str(tmp_path / "out_daily.nc"), "vars": ["gpp"]},
+                    "monthly": {
+                        "path": str(tmp_path / "out_monthly.nc"),
+                        "vars": ["gpp"],
+                    },
+                }
+            }
+        )
+        parsed = config.parse()
+        assert "outputs.daily" in parsed.modules
+        assert "outputs.monthly" in parsed.modules
+        assert "save_daily_outputs" in parsed.targets
+        assert "save_monthly_outputs" in parsed.targets
+
+
+class TestExternalModules:
+    """Tests for external module sections."""
+
+    def test_multiple_external_modules(self):
+        config = Config(
+            {
+                "custom_loader": {
+                    "_import_path": "mypackage.loader",
+                    "param_a": 1,
+                },
+                "custom_transform": {
+                    "_import_path": "mypackage.transform",
+                    "param_b": 2,
+                },
+            }
+        )
+        parsed = config.parse()
+        assert "mypackage.loader" in parsed.modules
+        assert "mypackage.transform" in parsed.modules
+        assert parsed.driver_config["param_a"] == 1
+        assert parsed.driver_config["param_b"] == 2
+
+
 class TestDump:
     """Tests for Config serialization."""
 

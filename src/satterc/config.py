@@ -93,30 +93,16 @@ class Config:
             tomllib.loads(toml_str)
         )  # TODO: should we resolve paths relative to cwd?
 
-    def parse(self) -> ParsedConfig:
-        """Parse config into a ParsedConfig.
-
-        Recognised top-level sections (processed directly):
-        - [inputs.*]      — I/O modules; freq derived from subsection key
-        - [outputs.*]     — I/O modules; freq derived from subsection key
-        - [models.*]      — built-in model modules
-        - [[resample]]    — temporal resampling module
-
-        All other top-level sections are treated as external modules and must
-        include a '_import_path = "pkg.module"' key specifying the importable
-        module path. The key is stripped before merging remaining params into
-        driver_config.
-        """
-        data = dict(self._data)
-
-        driver_config: dict[str, Any] = {}
-        targets: list[str] = []
-        modules: list[str] = []
-
+    def _parse_grid(self, data: dict, driver_config: dict) -> list[str]:
+        """Handle [grid] section."""
         if "grid" in data:
             data.pop("grid")
-            modules.append("grid")
+            return ["grid"]
+        return []
 
+    def _parse_inputs(self, data: dict, driver_config: dict) -> list[str]:
+        """Handle [inputs.*] sections."""
+        modules: list[str] = []
         for freq, params in data.pop("inputs", {}).items():
             if "path" not in params:
                 raise ValueError(
@@ -127,7 +113,13 @@ class Config:
             driver_config[f"{freq}_inputs_vars"] = params.get("vars") or []
             driver_config[f"{freq}_inputs_format"] = _infer_format(params["path"])
             modules.append(f"inputs.{freq}")
+        return modules
 
+    def _parse_outputs(
+        self, data: dict, driver_config: dict, targets: list[str]
+    ) -> list[str]:
+        """Handle [outputs.*] sections."""
+        modules: list[str] = []
         for freq, params in data.pop("outputs", {}).items():
             vars_ = params.get("vars") or []
             if not vars_:
@@ -146,11 +138,18 @@ class Config:
             driver_config[f"{freq}_outputs_format"] = _infer_format(params["path"])
             targets.append(f"save_{freq}_outputs")
             modules.append(f"outputs.{freq}")
+        return modules
 
+    def _parse_models(self, data: dict, driver_config: dict) -> list[str]:
+        """Handle [models.*] sections."""
+        modules: list[str] = []
         for model_name, params in data.pop("models", {}).items():
             _merge_params(f"models.{model_name}", params, driver_config)
             modules.append(f"models.{model_name}")
+        return modules
 
+    def _parse_resample(self, data: dict, driver_config: dict) -> list[str]:
+        """Handle [[resample]] section."""
         seen_outputs: set[str] = set()
         specs: list[ResampleSpec] = []
         for entry in data.pop("resample", []):
@@ -165,8 +164,12 @@ class Config:
             specs.append(spec)
         if specs:
             driver_config["resample_specs"] = specs
-            modules.append("resample")
+            return ["resample"]
+        return []
 
+    def _parse_external_modules(self, data: dict, driver_config: dict) -> list[str]:
+        """Handle remaining sections as external modules."""
+        modules: list[str] = []
         for section_label, params in data.items():
             params = dict(params)
             import_path = params.pop("_import_path", None)
@@ -183,7 +186,32 @@ class Config:
                 )
             _merge_params(section_label, params, driver_config)
             modules.append(import_path)
+        return modules
 
+    def parse(self) -> ParsedConfig:
+        """Parse config into a ParsedConfig.
+
+        Recognised top-level sections (processed directly):
+        - [inputs.*]      — I/O modules; freq derived from subsection key
+        - [outputs.*]     — I/O modules; freq derived from subsection key
+        - [models.*]      — built-in model modules
+        - [[resample]]    — temporal resampling module
+
+        All other top-level sections are treated as external modules and must
+        include a '_import_path = "pkg.module"' key specifying the importable
+        module path. The key is stripped before merging remaining params into
+        driver_config.
+        """
+        data = dict(self._data)
+        driver_config: dict[str, Any] = {}
+        targets: list[str] = []
+        modules: list[str] = []
+        modules += self._parse_grid(data, driver_config)
+        modules += self._parse_inputs(data, driver_config)
+        modules += self._parse_outputs(data, driver_config, targets)
+        modules += self._parse_models(data, driver_config)
+        modules += self._parse_resample(data, driver_config)
+        modules += self._parse_external_modules(data, driver_config)
         return ParsedConfig(
             modules=modules, driver_config=driver_config, targets=targets
         )
