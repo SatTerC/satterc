@@ -18,6 +18,7 @@ nav = [
       "Getting Started/installation.md",
       "Getting Started/quickstart.md",
       "Getting Started/concepts.md",
+      "Getting Started/contributing.md",
   ]},
   { "Usage" = [
       "Usage/config.md",
@@ -64,6 +65,7 @@ nav = [
       "CLI Reference/data_gen.md",
       "CLI Reference/version.md",
   ]},
+  { "About" = "about.md" },
 ]
 
 # Katex
