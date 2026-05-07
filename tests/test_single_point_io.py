@@ -8,9 +8,14 @@ import pandas as pd
 import pytest
 import xarray as xr
 
-from satterc.pipeline.inputs._utils import load_timeseries, load_static
-from satterc.pipeline.outputs._utils import dataset_to_dataframe, save_timeseries
-from satterc.driver import build_driver
+from satterc.io import (
+    load_timeseries,
+    load_static,
+    dataset_to_dataframe,
+    save_timeseries,
+    load_inputs,
+)
+from satterc.config import IOSpec
 
 
 # ---------------------------------------------------------------------------
@@ -265,46 +270,41 @@ class TestSaveTimeseries:
 # ---------------------------------------------------------------------------
 
 
-class TestHamiltonInputNodes:
-    """Build a minimal Hamilton driver with single_point input modules and check shapes."""
+class TestLoadInputs:
+    """Test load_inputs() with flat (CSV/JSON) single-point data."""
 
     @pytest.fixture
-    def sp_driver(self, daily_csv, static_json):
+    def sp_inputs(self, daily_csv, static_json):
         daily_path, _ = daily_csv
         static_path, _ = static_json
-        driver_config = {
-            "daily_inputs_path": str(daily_path),
-            "daily_inputs_vars": ["temperature", "precipitation"],
-            "daily_inputs_format": "flat",
-            "static_inputs_path": str(static_path),
-            "static_inputs_vars": ["elevation", "land_cover"],
-            "static_inputs_format": "flat",
+        specs = {
+            "daily": IOSpec(
+                path=str(daily_path),
+                vars=["temperature", "precipitation"],
+                format="flat",
+            ),
+            "static": IOSpec(
+                path=str(static_path), vars=["elevation", "land_cover"], format="flat"
+            ),
         }
-        return build_driver(
-            modules=["inputs.daily", "inputs.static"],
-            config=driver_config,
-        )
+        return load_inputs(specs)
 
-    def test_daily_dataarray_shape(self, sp_driver):
-        results = sp_driver.execute(["temperature_daily"])
-        da = results["temperature_daily"]
+    def test_daily_dataarray_shape(self, sp_inputs):
+        da = sp_inputs["temperature_daily"]
         assert da.dims == ("time", "pixel")
         assert da.shape == (N_DAYS, 1)
 
-    def test_daily_dataarray_pixel_coord(self, sp_driver):
-        results = sp_driver.execute(["precipitation_daily"])
-        da = results["precipitation_daily"]
+    def test_daily_dataarray_pixel_coord(self, sp_inputs):
+        da = sp_inputs["precipitation_daily"]
         assert list(da.coords["pixel"].values) == [0]
 
-    def test_static_dataarray_shape(self, sp_driver):
-        results = sp_driver.execute(["elevation"])
-        da = results["elevation"]
+    def test_static_dataarray_shape(self, sp_inputs):
+        da = sp_inputs["elevation"]
         assert da.dims == ("pixel",)
         assert da.shape == (1,)
 
-    def test_dates_daily_validated(self, sp_driver):
-        results = sp_driver.execute(["dates_daily"])
-        idx = results["dates_daily"]
+    def test_dates_daily_present(self, sp_inputs):
+        idx = sp_inputs["dates_daily"]
         assert isinstance(idx, pd.DatetimeIndex)
         assert len(idx) == N_DAYS
 

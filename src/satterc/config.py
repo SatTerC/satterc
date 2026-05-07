@@ -62,12 +62,22 @@ class ResampleSpec:
 
 
 @dataclass
+class IOSpec:
+    """I/O specification for a single input or output section."""
+
+    path: str
+    vars: list[str]
+    format: str  # "netcdf" | "flat"
+
+
+@dataclass
 class ParsedConfig:
     """Parsed pipeline configuration, ready to pass to build_driver."""
 
     modules: list[str]
     driver_config: dict[str, Any]
-    targets: list[str] = field(default_factory=list)
+    input_specs: dict[str, "IOSpec"] = field(default_factory=dict)
+    output_specs: dict[str, "IOSpec"] = field(default_factory=dict)
 
 
 class Config:
@@ -94,32 +104,28 @@ class Config:
         )  # TODO: should we resolve paths relative to cwd?
 
     def _parse_grid(self, data: dict, driver_config: dict) -> list[str]:
-        """Handle [grid] section."""
-        if "grid" in data:
-            data.pop("grid")
-            return ["grid"]
+        """Handle [grid] section — silently accepted; grid computation moved to load_inputs()."""
+        data.pop("grid", None)
         return []
 
-    def _parse_inputs(self, data: dict, driver_config: dict) -> list[str]:
+    def _parse_inputs(self, data: dict, driver_config: dict, input_specs: dict) -> None:
         """Handle [inputs.*] sections."""
-        modules: list[str] = []
         for freq, params in data.pop("inputs", {}).items():
             if "path" not in params:
                 raise ValueError(
                     f"[inputs.{freq}] is missing a 'path' key. "
                     f"Input sections must specify a file path."
                 )
-            driver_config[f"{freq}_inputs_path"] = params["path"]
-            driver_config[f"{freq}_inputs_vars"] = params.get("vars") or []
-            driver_config[f"{freq}_inputs_format"] = _infer_format(params["path"])
-            modules.append(f"inputs.{freq}")
-        return modules
+            input_specs[freq] = IOSpec(
+                path=params["path"],
+                vars=params.get("vars") or [],
+                format=_infer_format(params["path"]),
+            )
 
     def _parse_outputs(
-        self, data: dict, driver_config: dict, targets: list[str]
-    ) -> list[str]:
+        self, data: dict, driver_config: dict, output_specs: dict
+    ) -> None:
         """Handle [outputs.*] sections."""
-        modules: list[str] = []
         for freq, params in data.pop("outputs", {}).items():
             vars_ = params.get("vars") or []
             if not vars_:
@@ -133,12 +139,11 @@ class Config:
                     f"[outputs.{freq}] is missing a 'path' key. "
                     f"Output sections must specify a file path."
                 )
-            driver_config[f"{freq}_outputs_path"] = params["path"]
-            driver_config[f"{freq}_outputs_vars"] = vars_
-            driver_config[f"{freq}_outputs_format"] = _infer_format(params["path"])
-            targets.append(f"save_{freq}_outputs")
-            modules.append(f"outputs.{freq}")
-        return modules
+            output_specs[freq] = IOSpec(
+                path=params["path"],
+                vars=vars_,
+                format=_infer_format(params["path"]),
+            )
 
     def _parse_models(self, data: dict, driver_config: dict) -> list[str]:
         """Handle [models.*] sections."""
@@ -192,8 +197,9 @@ class Config:
         """Parse config into a ParsedConfig.
 
         Recognised top-level sections (processed directly):
-        - [inputs.*]      — I/O modules; freq derived from subsection key
-        - [outputs.*]     — I/O modules; freq derived from subsection key
+        - [inputs.*]      — I/O specs; freq derived from subsection key
+        - [outputs.*]     — I/O specs; freq derived from subsection key
+        - [grid]          — silently accepted (grid computation is now in load_inputs())
         - [models.*]      — built-in model modules
         - [[resample]]    — temporal resampling module
 
@@ -204,16 +210,20 @@ class Config:
         """
         data = dict(self._data)
         driver_config: dict[str, Any] = {}
-        targets: list[str] = []
+        input_specs: dict[str, IOSpec] = {}
+        output_specs: dict[str, IOSpec] = {}
         modules: list[str] = []
-        modules += self._parse_grid(data, driver_config)
-        modules += self._parse_inputs(data, driver_config)
-        modules += self._parse_outputs(data, driver_config, targets)
+        self._parse_grid(data, driver_config)
+        self._parse_inputs(data, driver_config, input_specs)
+        self._parse_outputs(data, driver_config, output_specs)
         modules += self._parse_models(data, driver_config)
         modules += self._parse_resample(data, driver_config)
         modules += self._parse_external_modules(data, driver_config)
         return ParsedConfig(
-            modules=modules, driver_config=driver_config, targets=targets
+            modules=modules,
+            driver_config=driver_config,
+            input_specs=input_specs,
+            output_specs=output_specs,
         )
 
     def dump(self, path: str | os.PathLike, overwrite_ok: bool = False) -> None:

@@ -63,7 +63,7 @@ def _():
     import marimo as mo
     import matplotlib.pyplot as plt
 
-    from satterc import build_driver
+    from satterc import build_driver, load_inputs, get_outputs
     from satterc.config import Config
     from satterc.setup_utils.data_gen import generate_synthetic_data
 
@@ -72,6 +72,8 @@ def _():
         Path,
         build_driver,
         generate_synthetic_data,
+        get_outputs,
+        load_inputs,
         mo,
         plt,
         tempfile,
@@ -145,21 +147,31 @@ def _(mo):
 
 
 @app.cell
-def _(Config, Path, config_toml, generate_synthetic_data, tempfile):
+def _(
+    Config,
+    Path,
+    config_toml,
+    generate_synthetic_data,
+    load_inputs,
+    tempfile,
+):
     _tmpdir = Path(tempfile.mkdtemp())
 
     # Parse the embedded config string
     parsed_config = Config.loads(config_toml).parse()
 
     # Redirect the input paths to files we will generate in a temporary directory
-    parsed_config.driver_config["daily_inputs_path"] = str(_tmpdir / "daily.csv")
-    parsed_config.driver_config["static_inputs_path"] = str(_tmpdir / "static.json")
+    parsed_config.input_specs["daily"].path = str(_tmpdir / "daily.csv")
+    parsed_config.input_specs["static"].path = str(_tmpdir / "static.json")
 
     # Generate synthetic data — this may take a few seconds
     generate_synthetic_data(config=parsed_config, grid=(1, 1), n_days=730, seed=42)
 
+    # Load the generated data as inputs for the pipeline
+    inputs = load_inputs(parsed_config.input_specs)
+
     print(f"Synthetic data written to: {_tmpdir}")
-    return (parsed_config,)
+    return inputs, parsed_config
 
 
 @app.cell(hide_code=True)
@@ -202,19 +214,22 @@ def _(mo):
     mo.md(r"""
     ## Step 4: Run the pipeline
 
-    We run the pipeline by calling `dr.execute()` and naming the outputs we want.
+    We run the pipeline by calling `dr.execute()`, passing the loaded inputs and naming
+    the output variables we want back.
 
-    By default, the pipeline saves results to files on disk (the `save_*_outputs` nodes).
-    Here we instead request the merged output dataset directly as an in-memory object
-    — useful for exploration and plotting without writing any files.
+    Here we request the output variables listed in `[outputs.daily]` and merge them into
+    a single in-memory Dataset — useful for exploration and plotting without writing any files.
     """)
     return
 
 
 @app.cell
-def _(dr):
-    outputs = dr.execute(["merged_daily_outputs"])
-    outputs["merged_daily_outputs"].info()
+def _(dr, get_outputs, inputs, parsed_config):
+    _results = dr.execute(
+        ["actual_evapotranspiration_daily", "soil_moisture_daily", "runoff_daily"],
+        inputs=inputs,
+    )
+    get_outputs(_results, parsed_config.output_specs)["daily"].info()
     return
 
 
@@ -231,8 +246,8 @@ def _(mo):
 
 
 @app.cell
-def _(dr, plt):
-    _outputs = dr.execute(["soil_moisture_daily"])
+def _(dr, inputs, plt):
+    _outputs = dr.execute(["soil_moisture_daily"], inputs=inputs)
     soil_moisture = _outputs["soil_moisture_daily"].isel(pixel=0)
 
     fig, ax = plt.subplots(figsize=(10, 3))
