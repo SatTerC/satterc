@@ -1659,7 +1659,6 @@ name = "satterc"
 version = "0.3.0"
 source = { editable = "." }
 dependencies = [
-    { name = "marimo-md-export" },
     { name = "netcdf4" },
     { name = "numpy" },
     { name = "pyarrow" },
@@ -1678,6 +1677,7 @@ dependencies = [
 [package.dev-dependencies]
 dev = [
     { name = "marimo" },
+    { name = "marimo-md-export" },
     { name = "matplotlib" },
     { name = "mkdocstrings-python" },
     { name = "pre-commit" },
@@ -1688,6 +1688,7 @@ dev = [
 ]
 docs = [
     { name = "marimo" },
+    { name = "marimo-md-export" },
     { name = "matplotlib" },
     { name = "mkdocstrings-python" },
     { name = "zensical" },
@@ -1702,7 +1703,6 @@ test = [
 
 [package.metadata]
 requires-dist = [
-    { name = "marimo-md-export", specifier = ">=0.5.0" },
     { name = "netcdf4", specifier = ">=1.7.4" },
     { name = "numpy", specifier = ">=2.4.2" },
     { name = "pyarrow", specifier = ">=10.0" },
@@ -1721,6 +1721,7 @@ requires-dist = [
 [package.metadata.requires-dev]
 dev = [
     { name = "marimo", specifier = ">=0.23.0" },
+    { name = "marimo-md-export", specifier = ">=0.5.2" },
     { name = "matplotlib", specifier = ">=3.10.8" },
     { name = "mkdocstrings-python", specifier = ">=2.0.3" },
     { name = "pre-commit", specifier = ">=4.5.1" },
@@ -1731,6 +1732,7 @@ dev = [
 ]
 docs = [
     { name = "marimo", specifier = ">=0.23.0" },
+    { name = "marimo-md-export", specifier = ">=0.5.2" },
     { name = "matplotlib", specifier = ">=3.10.8" },
     { name = "mkdocstrings-python", specifier = ">=2.0.3" },
     { name = "zensical", specifier = ">=0.0.24" },
