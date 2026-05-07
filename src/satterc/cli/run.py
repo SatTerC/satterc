@@ -4,7 +4,7 @@ from typing import Annotated
 import typer
 
 from ..config import load_config
-from ..driver import build_driver
+from ..dag.driver import build_driver
 from ..io import load_inputs, get_outputs, save_outputs
 
 app = typer.Typer(help="Execute a pipeline defined in a configuration file.")
@@ -40,6 +40,6 @@ def run(
             for freq, spec in parsed.output_specs.items()
             for var in spec.vars
         ]
-        results = dr.execute(target_vars, inputs=inputs)
+        results = dr.execute(target_vars, inputs=inputs)  # type: ignore[reportArgumentType]
         output_datasets = get_outputs(results, parsed.output_specs)
         save_outputs(output_datasets, parsed.output_specs)

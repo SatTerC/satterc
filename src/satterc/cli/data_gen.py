@@ -29,6 +29,7 @@ def _parse_duration(duration: str) -> int:
         return int(value * 30.44)
     elif unit == "y":
         return int(value * 365.25)
+    raise ValueError(f"Invalid duration unit: {unit}")
 
 
 def _validate_output_paths(

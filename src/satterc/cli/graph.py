@@ -8,7 +8,7 @@ from hamilton import graph_types
 import xarray as xr
 
 from ..config import load_config
-from ..driver import build_driver
+from ..dag.driver import build_driver
 
 app = typer.Typer(help="Visualise a pipeline defined in a configuration file.")
 

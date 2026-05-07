@@ -47,8 +47,8 @@ def temperature_celcius_daily(
     n_days = len(time_coord)
     n_pixels = len(pixel_coords)
 
-    lat_vals = pixel_coords.get_level_values("y").values  # (n_pixels,)
-    lon_vals = pixel_coords.get_level_values("x").values
+    lat_vals = np.asarray(pixel_coords.get_level_values("y").values)  # (n_pixels,)
+    lon_vals = np.asarray(pixel_coords.get_level_values("x").values)
     lat_effect = (lat_vals - 52.0) * 0.5  # cooler at higher latitudes
     lon_effect = (lon_vals + 1.0) * 0.3  # milder near coast (west)
     baseline = 10.0 + lat_effect + lon_effect  # (n_pixels,)
@@ -74,7 +74,7 @@ def precipitation_mm_daily(
     n_days = len(time_coord)
     n_pixels = len(pixel_coords)
 
-    lat_vals = pixel_coords.get_level_values("y").values  # (n_pixels,)
+    lat_vals = np.asarray(pixel_coords.get_level_values("y").values)  # (n_pixels,)
     base_precip = 2.5 + (54.0 - lat_vals) * 0.3  # (n_pixels,)
 
     seasonal = _generate_seasonal_cycle(n_days, 1.0, 0.0, 0.0)  # (n_days,)

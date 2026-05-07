@@ -162,20 +162,20 @@ def generate_synthetic_data(
     ]
 
     all_targets = daily_targets + weekly_targets + monthly_targets + static_vars
-    results = dr.execute(all_targets)
+    results = dr.execute(all_targets)  # type: ignore[reportArgumentType]
 
     if daily_vars and daily_spec:
-        daily_ds = unstack_if_gridded(xr.merge([results[t] for t in daily_targets]))
+        daily_ds = unstack_if_gridded(xr.merge([results[t] for t in daily_targets]))  # type: ignore[reportArgumentType]
         _save_dataset_with_crs(daily_ds, daily_spec.path)
 
     if weekly_vars and weekly_spec:
-        weekly_ds = unstack_if_gridded(xr.merge([results[t] for t in weekly_targets]))
+        weekly_ds = unstack_if_gridded(xr.merge([results[t] for t in weekly_targets]))  # type: ignore[reportArgumentType]
         _save_dataset_with_crs(weekly_ds, weekly_spec.path)
 
     if (daily_to_monthly_vars | monthly_vars) and monthly_spec:
-        monthly_ds = unstack_if_gridded(xr.merge([results[t] for t in monthly_targets]))
+        monthly_ds = unstack_if_gridded(xr.merge([results[t] for t in monthly_targets]))  # type: ignore[reportArgumentType]
         _save_dataset_with_crs(monthly_ds, monthly_spec.path)
 
     if static_spec:
-        static_ds = unstack_if_gridded(xr.merge([results[v] for v in static_vars]))
+        static_ds = unstack_if_gridded(xr.merge([results[v] for v in static_vars]))  # type: ignore[reportArgumentType]
         _save_dataset_with_crs(static_ds, static_spec.path)

@@ -120,7 +120,9 @@ def elevation(n_lat: int, n_lon: int, pixel_coords: pd.MultiIndex) -> xr.DataArr
     xr.DataArray
         Elevation data array with dims=["pixel"].
     """
-    lat_vals = pixel_coords.get_level_values("y").values.reshape(n_lat, n_lon)
+    lat_vals = np.asarray(pixel_coords.get_level_values("y").values).reshape(
+        n_lat, n_lon
+    )
     lat_min = lat_vals.min()
     lat_range = lat_vals.max() - lat_min or 1.0
     lat_norm = (lat_vals - lat_min) / lat_range  # [0, 1], 0=south

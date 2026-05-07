@@ -9,7 +9,7 @@ import xarray as xr
 SupportedArrayTypes: tuple[Type, ...] = (np.ndarray,)
 
 try:
-    import jax
+    import jax  # type: ignore[reportMissingImports]
 
     # Add jax.Array to our allowed types for the decorator's type-checking
     SupportedArrayTypes += (jax.Array,)

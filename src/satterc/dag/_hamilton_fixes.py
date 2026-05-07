@@ -1,4 +1,8 @@
-from hamilton.function_modifiers.base import NodeTransformer
+from collections.abc import Collection
+from typing import Any, Callable
+
+from hamilton.function_modifiers.base import NodeTransformer, TargetType
+import hamilton.node as node
 from hamilton.function_modifiers.delayed import resolve
 
 
@@ -27,19 +31,27 @@ class NoOpDecorator(NodeTransformer):
     def __init__(self):
         pass
 
-    def validate(self, fn):
+    def validate(self, fn: Callable):
         pass
 
-    def transform_node(self, node, config, fn):
-        return [node]
+    def transform_node(
+        self, node_: node.Node, config: dict[str, Any], fn: Callable
+    ) -> Collection[node.Node]:
+        return [node_]
 
-    def transform_dag(self, nodes, config, fn):
+    def transform_dag(
+        self, nodes: Collection[node.Node], config: dict[str, Any], fn: Callable
+    ) -> Collection[node.Node]:
         return nodes
 
-    def select_nodes(self, target, nodes):
+    @staticmethod
+    def select_nodes(
+        target: TargetType, nodes: Collection[node.Node]
+    ) -> Collection[node.Node]:
         return []
 
-    def allows_multiple(self):
+    @classmethod
+    def allows_multiple(cls) -> bool:
         return True
 
     @classmethod

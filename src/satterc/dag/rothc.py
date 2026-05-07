@@ -31,7 +31,7 @@ def _rothc(
 
     # NOTE: need to pass a datetime.datetime object (not a numpy.datetime64)
     # NOTE: I'm not sure why pyright is complaining here!
-    start_date = dates_monthly.to_pydatetime()[0]
+    start_date = dates_monthly.to_pydatetime()[0]  # type: ignore[reportAttributeAccessIssue]
 
     t_mod = percent_modern_c(start_date=start_date, n_months=n_months)
 
@@ -62,7 +62,7 @@ def _rothc(
             t_mod=t_mod[:n_spinup_months],
         )
 
-        _, outputs = model(data, spinup_data)
+        _, outputs = model(data, spinup_data)  # type: ignore[reportArgumentType]
         pixel_outputs.append(outputs)
 
     return dict(
