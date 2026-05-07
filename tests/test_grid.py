@@ -74,7 +74,7 @@ class TestLoadInputsNoGrid:
         csv_path = tmp_path / "daily.csv"
         df.to_csv(csv_path)
 
-        specs = {"daily": IOSpec(path=str(csv_path), vars=["temp"], format="flat")}
+        specs = {"daily": IOSpec(path=str(csv_path), vars=["temp"])}
         inputs = load_inputs(specs)
 
         assert "latitude" not in inputs

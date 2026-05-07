@@ -61,7 +61,7 @@ def _(mo):
 
     1. `modules`: a list of Python modules containing the nodes (functions) which will be used to construct the pipeline.
     2. `driver_config`: a dictionary of additional config options that is applied to the driver at _build time_ (not run time).
-    3. `input_specs`: a mapping from frequency to `IOSpec` (path, vars, format) — consumed by `load_inputs()`.
+    3. `input_specs`: a mapping from frequency to `IOSpec` (path, vars) — consumed by `load_inputs()`.
     4. `output_specs`: a mapping from frequency to `IOSpec` — consumed by `get_outputs()` and `save_outputs()`.
     """)
     return

@@ -64,12 +64,6 @@ class TestInputSpecs:
         for spec in parsed_config.input_specs.values():
             assert isinstance(spec, IOSpec)
 
-    def test_input_format_inferred(self, parsed_config):
-        assert parsed_config.input_specs["daily"].format == "netcdf"
-        assert parsed_config.input_specs["weekly"].format == "netcdf"
-        assert parsed_config.input_specs["monthly"].format == "netcdf"
-        assert parsed_config.input_specs["static"].format == "netcdf"
-
     def test_daily_input_vars(self, parsed_config):
         vars_ = parsed_config.input_specs["daily"].vars
         assert "temperature_celcius" in vars_
@@ -106,7 +100,6 @@ class TestOutputSpecs:
         assert "daily" in parsed.output_specs
         assert isinstance(parsed.output_specs["daily"], IOSpec)
         assert parsed.output_specs["daily"].vars == ["gpp"]
-        assert parsed.output_specs["daily"].format == "netcdf"
 
 
 class TestDriverConfig:
@@ -127,49 +120,6 @@ class TestDriverConfig:
             assert f"{freq}_outputs_path" not in dc
             assert f"{freq}_outputs_vars" not in dc
             assert f"{freq}_outputs_format" not in dc
-
-
-class TestFlatFormat:
-    """Tests for flat-file format inference via IOSpec."""
-
-    def test_csv_path_sets_flat_format(self, tmp_path):
-        config = Config(
-            {"inputs": {"daily": {"path": str(tmp_path / "daily.csv"), "vars": ["x"]}}}
-        )
-        parsed = config.parse()
-        assert parsed.input_specs["daily"].format == "flat"
-
-    def test_parquet_path_sets_flat_format(self, tmp_path):
-        config = Config(
-            {
-                "inputs": {
-                    "daily": {"path": str(tmp_path / "daily.parquet"), "vars": ["x"]}
-                }
-            }
-        )
-        parsed = config.parse()
-        assert parsed.input_specs["daily"].format == "flat"
-
-    def test_nc_path_sets_netcdf_format(self, tmp_path):
-        config = Config(
-            {"inputs": {"daily": {"path": str(tmp_path / "daily.nc"), "vars": ["x"]}}}
-        )
-        parsed = config.parse()
-        assert parsed.input_specs["daily"].format == "netcdf"
-
-    def test_output_csv_path_sets_flat_format(self, tmp_path):
-        config = Config(
-            {"outputs": {"daily": {"path": str(tmp_path / "out.csv"), "vars": ["gpp"]}}}
-        )
-        parsed = config.parse()
-        assert parsed.output_specs["daily"].format == "flat"
-
-    def test_unknown_extension_raises(self, tmp_path):
-        config = Config(
-            {"inputs": {"daily": {"path": str(tmp_path / "data.xyz"), "vars": ["x"]}}}
-        )
-        with pytest.raises(ValueError, match="Cannot determine format"):
-            config.parse()
 
 
 class TestPathResolution:

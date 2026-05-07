@@ -4,6 +4,8 @@ from os import PathLike
 from pathlib import Path
 from typing import Any, cast
 
+from .config import IOSpec
+
 import numpy as np
 import pandas as pd
 import xarray as xr
@@ -28,7 +30,7 @@ def load_dataset(path: str | PathLike) -> xr.Dataset:
     suffix = p.suffix.lower()
     if suffix in (".nc", ".netcdf"):
         engine = "netcdf4"
-    elif suffix == ".zarr" or p.is_dir():
+    elif suffix == ".zarr":
         engine = "zarr"
     else:
         raise ValueError(f"Unsupported file extension: {p.suffix}.")
@@ -103,14 +105,14 @@ def load_static(path: str | PathLike) -> xr.Dataset:
     )
 
 
-def _open(path: str, format: str, freq: str) -> xr.Dataset:
-    """Dispatch to the right loader based on format and frequency."""
-    if format == "netcdf":
+def _load_raw(path: str) -> xr.Dataset:
+    """Dispatch to the right loader based on file extension."""
+    suffix = Path(path).suffix.lower()
+    if suffix in (".nc", ".netcdf", ".zarr"):
         return load_dataset(path)
-    elif freq == "static":
+    if suffix in (".json", ".yaml", ".yml", ".toml"):
         return load_static(path)
-    else:
-        return load_timeseries(path)
+    return load_timeseries(path)  # raises ValueError for unsupported extensions
 
 
 # ---------------------------------------------------------------------------
@@ -118,7 +120,7 @@ def _open(path: str, format: str, freq: str) -> xr.Dataset:
 # ---------------------------------------------------------------------------
 
 
-def stack_if_spatial(ds: xr.Dataset) -> xr.Dataset:
+def stack_if_gridded(ds: xr.Dataset) -> xr.Dataset:
     """Stack (y, x) → pixel if the dataset is a CRS-bearing 2D grid; pass through otherwise."""
     if "pixel" in ds.dims:
         return ds
@@ -127,7 +129,7 @@ def stack_if_spatial(ds: xr.Dataset) -> xr.Dataset:
     return ds
 
 
-def unstack_if_grid(ds: xr.Dataset) -> xr.Dataset:
+def unstack_if_gridded(ds: xr.Dataset) -> xr.Dataset:
     """Unstack pixel → (y, x) if pixel is a (y, x) MultiIndex; pass through otherwise."""
     if "pixel" in ds.dims and isinstance(ds.indexes.get("pixel"), pd.MultiIndex):
         return ds.unstack("pixel")
@@ -150,7 +152,7 @@ def _validate_dates(ds: xr.Dataset, freq: str) -> pd.DatetimeIndex:
         )
 
     expected = _FREQ_CODES[freq]
-    inferred = idx.freqstr or pd.infer_freq(idx)
+    inferred = pd.infer_freq(idx)
 
     if inferred is None:
         raise ValueError(f"Could not determine frequency from '{freq}' time index")
@@ -183,17 +185,12 @@ def _check_common_grid(
     atol: float = 1e-6,
 ) -> None:
     """Raise MisalignedGridError if two datasets do not share a common CRS and coordinates."""
-    if not (ds1.rio.crs == ds2.rio.crs):
+    if ds1.rio.crs != ds2.rio.crs:
         raise MisalignedGridError(
             f"Mismatched CRS! {label1}={ds1.rio.crs} ≠ {label2}={ds2.rio.crs}"
         )
-    try:
-        x1, y1 = ds1.rio.x_dim, ds1.rio.y_dim
-        x2, y2 = ds2.rio.x_dim, ds2.rio.y_dim
-    except AttributeError as e:
-        raise MisalignedGridError(
-            f"Could not access (x, y) dims for {label1} or {label2}"
-        ) from e
+    x1, y1 = ds1.rio.x_dim, ds1.rio.y_dim
+    x2, y2 = ds2.rio.x_dim, ds2.rio.y_dim
     if not (x1 == x2 and y1 == y2):
         raise MisalignedGridError(
             f"Mismatched dimension names: {label1}=({x1}, {y1}) ≠ {label2}=({x2}, {y2})"
@@ -220,6 +217,7 @@ def _compute_lat_lon(
     x = ref_ds[x_dim].values
     y = ref_ds[y_dim].values
 
+    # indexing="ij": x varies along axis 0, y along axis 1 — matches (x, y) DataArray dims
     x_grid, y_grid = np.meshgrid(x, y, indexing="ij")
     transformer = Transformer.from_crs(ref_ds.rio.crs, "EPSG:4326", always_xy=True)
     lon_grid, lat_grid = transformer.transform(x_grid, y_grid)
@@ -275,8 +273,9 @@ def _save_netcdf(ds: xr.Dataset, path: str | PathLike) -> None:
         )
 
 
-def _save(ds: xr.Dataset, path: str, format: str) -> None:
-    if format == "netcdf":
+def _save(ds: xr.Dataset, path: str) -> None:
+    suffix = Path(path).suffix.lower()
+    if suffix in (".nc", ".netcdf", ".zarr"):
         _save_netcdf(ds, path)
     else:
         save_timeseries(dataset_to_dataframe(ds), path)
@@ -287,7 +286,7 @@ def _save(ds: xr.Dataset, path: str, format: str) -> None:
 # ---------------------------------------------------------------------------
 
 
-def load_inputs(input_specs: dict[str, Any]) -> dict[str, Any]:
+def load_inputs(input_specs: dict[str, IOSpec]) -> dict[str, Any]:
     """Load all configured inputs and return them as a flat dict of named DataArrays.
 
     Keys follow Hamilton naming conventions:
@@ -302,17 +301,16 @@ def load_inputs(input_specs: dict[str, Any]) -> dict[str, Any]:
         Mapping from frequency string to ``IOSpec`` (path, vars, format).
         Typically ``parsed_config.input_specs``.
     """
-    # Import here to avoid circular import; IOSpec is a dataclass so no runtime cost
     inputs: dict[str, Any] = {}
     raw_datasets: dict[str, xr.Dataset] = {}
 
     for freq, spec in input_specs.items():
-        ds_raw = _open(spec.path, spec.format, freq)
+        ds_raw = _load_raw(spec.path)
         raw_datasets[freq] = ds_raw
 
-        ds = stack_if_spatial(ds_raw)
+        ds = stack_if_gridded(ds_raw)
         suffix = "" if freq == "static" else f"_{freq}"
-        vars_to_load = spec.vars or list(ds.data_vars)
+        vars_to_load = list(ds.data_vars) if spec.vars is None else spec.vars
         for var in vars_to_load:
             inputs[f"{var}{suffix}"] = ds[var]
 
@@ -330,7 +328,7 @@ def load_inputs(input_specs: dict[str, Any]) -> dict[str, Any]:
 
 def get_outputs(
     results: dict[str, xr.DataArray],
-    output_specs: dict[str, Any],
+    output_specs: dict[str, IOSpec],
 ) -> dict[str, xr.Dataset]:
     """Merge and unstack model results into per-frequency Datasets.
 
@@ -346,13 +344,13 @@ def get_outputs(
     for freq, spec in output_specs.items():
         suffix = "" if freq == "static" else f"_{freq}"
         arrays = [results[f"{var}{suffix}"] for var in spec.vars]
-        out[freq] = unstack_if_grid(xr.merge(arrays))
+        out[freq] = unstack_if_gridded(xr.merge(arrays))
     return out
 
 
 def save_outputs(
     output_datasets: dict[str, xr.Dataset],
-    output_specs: dict[str, Any],
+    output_specs: dict[str, IOSpec],
 ) -> None:
     """Write per-frequency Datasets to disk.
 
@@ -365,4 +363,4 @@ def save_outputs(
         Typically ``parsed_config.output_specs``.
     """
     for freq, ds in output_datasets.items():
-        _save(ds, output_specs[freq].path, output_specs[freq].format)
+        _save(ds, output_specs[freq].path)

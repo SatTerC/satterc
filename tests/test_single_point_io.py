@@ -281,11 +281,8 @@ class TestLoadInputs:
             "daily": IOSpec(
                 path=str(daily_path),
                 vars=["temperature", "precipitation"],
-                format="flat",
             ),
-            "static": IOSpec(
-                path=str(static_path), vars=["elevation", "land_cover"], format="flat"
-            ),
+            "static": IOSpec(path=str(static_path), vars=["elevation", "land_cover"]),
         }
         return load_inputs(specs)
 

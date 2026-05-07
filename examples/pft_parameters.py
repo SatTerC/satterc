@@ -354,14 +354,14 @@ def _(mo):
 
 
 @app.cell
-def _(np):
+def _(inputs, np):
     def objective_function(params, dr, observations, upstream):
         lue_max, leaf_turnover = params
         modified_pft = upstream["pft_params"].copy()
         modified_pft["lue_max"].values[:] = lue_max
         modified_pft["leaf_turnover_rate"].values[:] = leaf_turnover
         overrides = {**upstream, "pft_params": modified_pft}
-        outputs = dr.execute(final_vars=["leaf_pool_weekly"], overrides=overrides)
+        outputs = dr.execute(final_vars=["leaf_pool_weekly"], inputs=inputs, overrides=overrides)
         modelled = outputs["leaf_pool_weekly"].values[:, 0]
         return np.mean((modelled - observations) ** 2)
 

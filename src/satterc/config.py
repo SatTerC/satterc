@@ -67,7 +67,6 @@ class IOSpec:
 
     path: str
     vars: list[str]
-    format: str  # "netcdf" | "flat"
 
 
 @dataclass
@@ -87,6 +86,10 @@ class Config:
         """Initialize with a config dict."""
         self._data = data
 
+    def __str__(self) -> str:
+        """Return TOML string representation."""
+        return self.dumps()
+
     @classmethod
     def load(cls, path: str | os.PathLike) -> Self:
         """Load config from a TOML file."""
@@ -99,9 +102,21 @@ class Config:
     @classmethod
     def loads(cls, toml_str: str) -> Self:
         """Load config from a TOML string."""
-        return cls(
-            tomllib.loads(toml_str)
-        )  # TODO: should we resolve paths relative to cwd?
+        return cls(tomllib.loads(toml_str))
+
+    def dump(self, path: str | os.PathLike, overwrite_ok: bool = False) -> None:
+        """Write config to a TOML file."""
+        toml_str = self.dumps()
+        path = Path(path)
+        if path.exists() and not overwrite_ok:
+            raise FileExistsError(
+                f"There is already a file at {path}! Consider passing `overwrite_ok=True`."
+            )
+        path.write_text(toml_str)
+
+    def dumps(self) -> str:
+        """Dump config to a TOML str."""
+        return tomli_w.dumps(self._data)
 
     def _parse_grid(self, data: dict, driver_config: dict) -> list[str]:
         """Handle [grid] section — silently accepted; grid computation moved to load_inputs()."""
@@ -119,7 +134,6 @@ class Config:
             input_specs[freq] = IOSpec(
                 path=params["path"],
                 vars=params.get("vars") or [],
-                format=_infer_format(params["path"]),
             )
 
     def _parse_outputs(
@@ -142,7 +156,6 @@ class Config:
             output_specs[freq] = IOSpec(
                 path=params["path"],
                 vars=vars_,
-                format=_infer_format(params["path"]),
             )
 
     def _parse_models(self, data: dict, driver_config: dict) -> list[str]:
@@ -226,24 +239,6 @@ class Config:
             output_specs=output_specs,
         )
 
-    def dump(self, path: str | os.PathLike, overwrite_ok: bool = False) -> None:
-        """Write config to a TOML file."""
-        toml_str = self.dumps()
-        path = Path(path)
-        if path.exists() and not overwrite_ok:
-            raise FileExistsError(
-                f"There is already a file at {path}! Consider passing `overwrite_ok=True`."
-            )
-        path.write_text(toml_str)
-
-    def __str__(self) -> str:
-        """Return TOML string representation."""
-        return self.dumps()
-
-    def dumps(self) -> str:
-        """Dump config to a TOML str."""
-        return tomli_w.dumps(self._data)
-
 
 def load_config(config_path: str | Path) -> ParsedConfig:
     """Load and parse a TOML config file."""
@@ -273,22 +268,3 @@ def _merge_params(section: str, params: dict, driver_config: dict) -> None:
             f"disambiguate (e.g. pmodel_method_kphio)."
         )
     driver_config |= params
-
-
-def _infer_format(path: str) -> str:
-    """Derive 'netcdf' or 'flat' from file extension.
-
-    netcdf: .nc, .netcdf, .zarr, or no extension (bare zarr directory)
-    flat:   .csv, .parquet, .pq, .json, .yaml, .yml, .toml
-    """
-    p = Path(path)
-    ext = p.suffix.lower()
-    if ext in (".nc", ".netcdf", ".zarr") or not ext:
-        return "netcdf"
-    if ext in (".csv", ".parquet", ".pq", ".json", ".yaml", ".yml", ".toml"):
-        return "flat"
-    raise ValueError(
-        f"Cannot determine format from extension '{ext}' in path '{path}'. "
-        f"Expected .nc/.netcdf/.zarr (netcdf) or "
-        f".csv/.parquet/.json/.yaml/.yml/.toml (flat)."
-    )

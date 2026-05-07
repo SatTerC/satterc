@@ -13,7 +13,7 @@ from hamilton.settings import ENABLE_POWER_USER_MODE
 from . import daily, static
 from .fallback import build_fallback_module
 from ...pipeline import resample
-from ...io import unstack_if_grid, save_timeseries, dataset_to_dataframe
+from ...io import unstack_if_gridded, save_timeseries, dataset_to_dataframe
 from ...config import ParsedConfig, ResampleSpec
 
 _FLAT_SUFFIXES = {".csv", ".parquet", ".pq"}
@@ -165,17 +165,17 @@ def generate_synthetic_data(
     results = dr.execute(all_targets)
 
     if daily_vars and daily_spec:
-        daily_ds = unstack_if_grid(xr.merge([results[t] for t in daily_targets]))
+        daily_ds = unstack_if_gridded(xr.merge([results[t] for t in daily_targets]))
         _save_dataset_with_crs(daily_ds, daily_spec.path)
 
     if weekly_vars and weekly_spec:
-        weekly_ds = unstack_if_grid(xr.merge([results[t] for t in weekly_targets]))
+        weekly_ds = unstack_if_gridded(xr.merge([results[t] for t in weekly_targets]))
         _save_dataset_with_crs(weekly_ds, weekly_spec.path)
 
     if (daily_to_monthly_vars | monthly_vars) and monthly_spec:
-        monthly_ds = unstack_if_grid(xr.merge([results[t] for t in monthly_targets]))
+        monthly_ds = unstack_if_gridded(xr.merge([results[t] for t in monthly_targets]))
         _save_dataset_with_crs(monthly_ds, monthly_spec.path)
 
     if static_spec:
-        static_ds = unstack_if_grid(xr.merge([results[v] for v in static_vars]))
+        static_ds = unstack_if_gridded(xr.merge([results[v] for v in static_vars]))
         _save_dataset_with_crs(static_ds, static_spec.path)

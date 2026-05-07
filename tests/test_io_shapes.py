@@ -2,7 +2,7 @@
 Tests for input/output shape handling across spatial configurations.
 
 Three spatial configurations are supported via shape-aware helpers
-stack_if_spatial (inputs) and unstack_if_grid (outputs):
+stack_if_gridded (inputs) and unstack_if_gridded (outputs):
 
   grid_2d (time, y, x)      — CRS-bearing 2D grid: stacked to (time, pixel) and back
   single_point (time,)      — no spatial dims: passed through unchanged
@@ -17,7 +17,7 @@ import pytest
 import xarray as xr
 
 from satterc.pipeline._utils import stack_spatial_dims
-from satterc.io import stack_if_spatial, unstack_if_grid
+from satterc.io import stack_if_gridded, unstack_if_gridded
 
 
 N_TIMES = 10
@@ -165,21 +165,21 @@ class TestGrid2DPipelineSimulation:
 class TestSinglePoint:
     """(time,) — single-location time series with no spatial dimensions.
 
-    stack_if_spatial detects the absence of CRS and 'pixel' dim and returns
-    the dataset unchanged. unstack_if_grid similarly passes through because
+    stack_if_gridded detects the absence of CRS and 'pixel' dim and returns
+    the dataset unchanged. unstack_if_gridded similarly passes through because
     there is no pixel MultiIndex to expand.
     """
 
     def test_stack_is_identity(self, single_point_ds):
-        result = stack_if_spatial(single_point_ds)
+        result = stack_if_gridded(single_point_ds)
         assert result is single_point_ds
 
     def test_unstack_is_identity(self, single_point_ds):
-        result = unstack_if_grid(single_point_ds)
+        result = unstack_if_gridded(single_point_ds)
         assert result is single_point_ds
 
     def test_dims_unchanged(self, single_point_ds):
-        result = stack_if_spatial(single_point_ds)
+        result = stack_if_gridded(single_point_ds)
         assert set(result.dims) == {"time"}
 
 
@@ -191,20 +191,20 @@ class TestSinglePoint:
 class TestMultiPoint:
     """(time, pixel) — unstructured multi-point data with an integer pixel index.
 
-    stack_if_spatial detects the existing 'pixel' dim and returns the dataset
-    unchanged. unstack_if_grid detects the plain integer index (not a
+    stack_if_gridded detects the existing 'pixel' dim and returns the dataset
+    unchanged. unstack_if_gridded detects the plain integer index (not a
     MultiIndex) and also returns unchanged.
     """
 
     def test_stack_is_identity(self, multi_point_ds):
-        result = stack_if_spatial(multi_point_ds)
+        result = stack_if_gridded(multi_point_ds)
         assert result is multi_point_ds
 
     def test_unstack_is_identity(self, multi_point_ds):
-        result = unstack_if_grid(multi_point_ds)
+        result = unstack_if_gridded(multi_point_ds)
         assert result is multi_point_ds
 
     def test_dims_unchanged(self, multi_point_ds):
-        result = stack_if_spatial(multi_point_ds)
+        result = stack_if_gridded(multi_point_ds)
         assert set(result.dims) == {"time", "pixel"}
         assert result.sizes["pixel"] == N_POINTS
