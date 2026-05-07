@@ -236,14 +236,18 @@ class TestSaveTimeseries:
         path = tmp_path / "out.csv"
         save_timeseries(df, path)
         reloaded = pd.read_csv(path, index_col=0, parse_dates=True)
-        np.testing.assert_allclose(np.asarray(reloaded["gpp"].values), np.asarray(df["gpp"].values))
+        np.testing.assert_allclose(
+            np.asarray(reloaded["gpp"].values), np.asarray(df["gpp"].values)
+        )
 
     def test_parquet_roundtrip(self, tmp_path):
         df = self._make_df()
         path = tmp_path / "out.parquet"
         save_timeseries(df, path)
         reloaded = pd.read_parquet(path)
-        np.testing.assert_allclose(np.asarray(reloaded["gpp"].values), np.asarray(df["gpp"].values))
+        np.testing.assert_allclose(
+            np.asarray(reloaded["gpp"].values), np.asarray(df["gpp"].values)
+        )
 
     def test_unsupported_extension_raises(self, tmp_path):
         df = self._make_df()
