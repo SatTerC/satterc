@@ -175,7 +175,7 @@ def _select_custom_modules() -> list[str]:
             param_str = ", ".join(f"{k}={v!r}" for k, v in params.items())
             typer.echo(f"  Added: {choice}  (defaults: {param_str})")
         else:
-            typer.echo(f"  Added: {choice}  (no _parameters() function found)")
+            typer.echo(f"  Added: {choice}  (no configurable parameters found)")
 
         selected.append(choice)
 

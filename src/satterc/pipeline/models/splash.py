@@ -55,23 +55,6 @@ def _splash(
     )
 
 
-def splash_parameters(
-    soil_moisture_init_max_iter: int = 10,
-    soil_moisture_init_max_diff: float = 1.0,
-) -> tuple[int, float]:
-    """
-    Parameters for the splash model.
-
-    Parameters
-    ----------
-    soil_moisture_init_max_iter
-        Maximum number of one year iterations used to estimate initial soil moisture.
-    soil_moisture_init_max_diff
-        Maximum acceptable difference between year start and year end soil moisture.
-    """
-    return (soil_moisture_init_max_iter, soil_moisture_init_max_diff)
-
-
 @extract_fields(
     "actual_evapotranspiration_daily",
     "soil_moisture_daily",
@@ -85,7 +68,9 @@ def splash(
     elevation: DataArray,
     latitude: DataArray,
     max_soil_moisture: DataArray,
-    splash_parameters: tuple[int, float],
+    *,
+    soil_moisture_init_max_iter: int = 10,
+    soil_moisture_init_max_diff: float = 1.0,
 ) -> dict[str, DataArray]:
     """Run the SPLASH water balance model.
 
@@ -103,6 +88,10 @@ def splash(
         Latitude of the site (degrees).
     elevation
         Elevation of the site (meters).
+    soil_moisture_init_max_iter
+        Maximum number of one year iterations used to estimate initial soil moisture.
+    soil_moisture_init_max_diff
+        Maximum acceptable difference between year start and year end soil moisture.
 
     Returns
     -------
@@ -112,8 +101,6 @@ def splash(
         - soil_moisture_daily: soil moisture content (mm)
         - runoff_daily: runoff (mm per day)
     """
-    soil_moisture_init_max_iter, soil_moisture_init_max_diff = splash_parameters
-
     return _splash(
         sunshine_fraction_daily=sunshine_fraction_daily,
         temperature_celcius_daily=temperature_celcius_daily,

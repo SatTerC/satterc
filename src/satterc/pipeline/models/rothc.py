@@ -84,21 +84,6 @@ def _rothc(
     )
 
 
-def rothc_parameters(n_years_spinup: int = 1) -> tuple[int]:
-    """Static parameters for the Rothamsted Carbon model.
-
-    Parameters
-    ----------
-    n_years_spinup
-        Number of years to use for model spin-up.
-
-    Returns
-    -------
-    Tuple containing these parameters.
-    """
-    return (n_years_spinup,)
-
-
 @extract_fields(
     [
         "decomposable_plant_material_monthly",
@@ -120,7 +105,8 @@ def rothc(
     inert_organic_matter: DataArray,
     soil_depth: DataArray,
     dates_monthly: pd.Index,
-    rothc_parameters: tuple[int],
+    *,
+    n_years_spinup: int = 1,
 ) -> dict[str, DataArray]:
     """
     Rothamsted Carbon model.
@@ -149,8 +135,8 @@ def rothc(
         Soil depth in cm.
     inert_organic_matter
         Inert organic matter in tC/ha.
-    rothc_parameters
-        Tuple of parameters.
+    n_years_spinup
+        Number of years to use for model spin-up.
 
     Returns
     -------
@@ -167,8 +153,6 @@ def rothc(
     All outputs have units tC/ha (tonnes of Carbon per hectare).
     All outputs are at monthly resolution.
     """
-    (n_years_spinup,) = rothc_parameters
-
     return _rothc(
         temperature_celcius_monthly=temperature_celcius_monthly,
         precipitation_mm_monthly=precipitation_mm_monthly,

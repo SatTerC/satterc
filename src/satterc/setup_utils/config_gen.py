@@ -84,7 +84,7 @@ def get_builtin_models() -> list[str]:
 
 
 def get_model_params(model_name: str) -> dict[str, Any]:
-    """Extract parameters from <model_name>_parameters() function signature."""
+    """Extract keyword-only parameters with defaults from the main model function."""
     builtin_models = get_builtin_models()
     module_path = (
         f"satterc.pipeline.models.{model_name}"
@@ -97,14 +97,15 @@ def get_model_params(model_name: str) -> dict[str, Any]:
     except ImportError:
         return {}
 
-    param_func_name = f"{model_name.split('.')[-1]}_parameters"
-    if hasattr(module, param_func_name):
-        param_func = getattr(module, param_func_name)
-        sig = inspect.signature(param_func)
+    func_name = model_name.split(".")[-1]
+    if hasattr(module, func_name):
+        func = getattr(module, func_name)
+        sig = inspect.signature(func)
         return {
             p.name: p.default
             for p in sig.parameters.values()
-            if p.default is not inspect.Parameter.empty
+            if p.kind == inspect.Parameter.KEYWORD_ONLY
+            and p.default is not inspect.Parameter.empty
         }
     return {}
 

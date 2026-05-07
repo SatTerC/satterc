@@ -31,7 +31,7 @@ class TestGetModelParams:
         assert params_full == params_short
 
     def test_module_without_parameters_func_returns_empty(self):
-        # resample has no _parameters() function
+        # resample has no keyword-only parameters with defaults
         assert get_model_params("satterc.pipeline.resample") == {}
 
 
