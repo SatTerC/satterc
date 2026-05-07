@@ -7,6 +7,7 @@ from xarray import DataArray
 import xarray as xr
 
 from rothc_py import RothC, percent_modern_c
+from rothc_py.containers import InputData
 
 from ._utils import xarray_io
 
@@ -40,29 +41,29 @@ def _rothc(
         model = RothC(
             clay=clay_content[i], depth=soil_depth[i], iom=inert_organic_matter[i]
         )
-        data = dict(
-            t_tmp=temperature_celcius_monthly[:, i].tolist(),
-            t_rain=precipitation_mm_monthly[:, i].tolist(),
-            t_evap=evaporation_monthly[:, i].tolist(),
-            t_PC=plant_cover_monthly[:, i].astype(int).tolist(),
-            t_DPM_RPM=dpm_rpm_ratio_monthly[:, i].tolist(),
-            t_C_Inp=soil_carbon_input_monthly[:, i].tolist(),
-            t_FYM_Inp=farmyard_manure_input_monthly[:, i].tolist(),
-            t_mod=t_mod,
-        )
+        data: InputData = {
+            "t_tmp": temperature_celcius_monthly[:, i].tolist(),
+            "t_rain": precipitation_mm_monthly[:, i].tolist(),
+            "t_evap": evaporation_monthly[:, i].tolist(),
+            "t_PC": plant_cover_monthly[:, i].astype(int).tolist(),
+            "t_DPM_RPM": dpm_rpm_ratio_monthly[:, i].tolist(),
+            "t_C_Inp": soil_carbon_input_monthly[:, i].tolist(),
+            "t_FYM_Inp": farmyard_manure_input_monthly[:, i].tolist(),
+            "t_mod": t_mod,
+        }
 
-        spinup_data = dict(
-            t_tmp=data["t_tmp"][:n_spinup_months],
-            t_rain=data["t_rain"][:n_spinup_months],
-            t_evap=data["t_evap"][:n_spinup_months],
-            t_PC=data["t_PC"][:n_spinup_months],
-            t_DPM_RPM=data["t_DPM_RPM"][:n_spinup_months],
-            t_C_Inp=data["t_C_Inp"][:n_spinup_months],
-            t_FYM_Inp=data["t_FYM_Inp"][:n_spinup_months],
-            t_mod=t_mod[:n_spinup_months],
-        )
+        spinup_data: InputData = {
+            "t_tmp": data["t_tmp"][:n_spinup_months],
+            "t_rain": data["t_rain"][:n_spinup_months],
+            "t_evap": data["t_evap"][:n_spinup_months],
+            "t_PC": data["t_PC"][:n_spinup_months],
+            "t_DPM_RPM": data["t_DPM_RPM"][:n_spinup_months],
+            "t_C_Inp": data["t_C_Inp"][:n_spinup_months],
+            "t_FYM_Inp": data["t_FYM_Inp"][:n_spinup_months],
+            "t_mod": t_mod[:n_spinup_months],
+        }
 
-        _, outputs = model(data, spinup_data)  # type: ignore[reportArgumentType]
+        _, outputs = model(data, spinup_data)
         pixel_outputs.append(outputs)
 
     return dict(
