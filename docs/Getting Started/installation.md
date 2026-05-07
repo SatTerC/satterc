@@ -50,16 +50,8 @@ sudo apt install graphviz
 brew install graphviz
 ```
 
-### PyYAML (for YAML static inputs)
-
-Required if you use `.yaml` or `.yml` files for static inputs:
-
-```sh
-uv add pyyaml
-```
-
 ## Verify installation
 
 ```sh
-satterc --version
+satterc version
 ```

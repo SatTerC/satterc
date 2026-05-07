@@ -28,7 +28,6 @@ Format detection is automatic — the file extension determines how data is load
 | `.nc`, `.netcdf` | NetCDF | `xarray` + `netcdf4` engine |
 | `.zarr` or directory | Zarr store | `xarray` + `zarr` engine |
 | `.json` | JSON (key → scalar mapping) | `json.load` |
-| `.yaml`, `.yml` | YAML (key → scalar mapping) | `yaml.safe_load` (requires `pyyaml`) |
 | `.toml` | TOML (key → scalar mapping) | `tomllib.load` |
 
 ## Spatial Handling

@@ -24,45 +24,6 @@ brew install graphviz
 sudo dnf install graphviz
 ```
 
-### `pyyaml` is required for YAML static inputs
-
-If you use `.yaml` or `.yml` files for static inputs, install PyYAML:
-
-```sh
-uv add pyyaml
-# or
-pip install pyyaml
-```
-
-## Configuration
-
-### Parameter name clash between models
-
-All model parameters are merged into a single flat dictionary. If two models use the same parameter name, you'll get a conflict.
-
-**Solution:** Prefix the parameter in the config:
-
-```toml
-[models.pmodel]
-method_kphio = "sandoval"
-
-[my_custom_model]
-_import_path = "mypackage.mymodel"
-# If mymodel also has a 'method_kphio' parameter, prefix it:
-my_model_method_kphio = "custom"
-```
-
-Then reference the prefixed name in your module's function signature.
-
-### "Unsupported file extension" error
-
-Check that your file extension matches one of the supported formats:
-
-- Time-series: `.nc`, `.netcdf`, `.zarr`, `.csv`, `.parquet`, `.pq`
-- Static: `.nc`, `.netcdf`, `.zarr`, `.json`, `.yaml`, `.yml`, `.toml`
-
-For Zarr stores that are directories (no `.zarr` extension), the path must point to a directory — the format is detected when no recognised extension is found and the path is a directory.
-
 ### Missing input variable error
 
 The pipeline reports that a required node has no producer. This usually means:
