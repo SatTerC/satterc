@@ -1,123 +1,92 @@
 ---
-title: CLI Reference
+title: CLI Guide
 icon: lucide/terminal
 ---
 
-# Command-Line Interface
+# Using the Command-Line Interface
 
 SatTerC provides a `satterc` command for running pipelines from the terminal.
+This guide walks through a typical workflow from setup to execution.
 
-## Overview
+For a complete reference of all commands, arguments, and options, see the [CLI Reference](../CLI%20Reference/index.md).
 
-| Command | Description |
-|---------|-------------|
-| [`satterc setup`](#setup) | Generate a configuration file interactively |
-| [`satterc run`](#run) | Execute a pipeline from a config file |
-| [`satterc graph`](#graph) | Visualise a pipeline as a graph |
-| [`satterc data-gen`](#data-gen-generate) | Generate synthetic input data for testing |
+## The Workflow
 
-Get help for any command with `-h`:
+A typical SatTerC CLI workflow has four steps:
 
-```sh
-satterc -h
-satterc run -h
+```
+setup → data-gen → graph → run
 ```
 
-## `setup`
+1. **Generate a config** with `satterc setup`
+2. **Create test data** with `satterc data-gen generate`
+3. **Visualise the pipeline** with `satterc graph`
+4. **Execute the pipeline** with `satterc run`
 
-Generate a configuration file through interactive prompts or with defaults.
+Let's walk through each step.
 
-```sh
-satterc setup [OPTIONS]
-```
+## Step 1: Generate a Configuration
 
-### Options
+The `setup` command creates a TOML configuration file. You can run it interactively or with defaults.
 
-| Flag | Short | Description |
-|------|-------|-------------|
-| `--models` | `-m` | Space-separated list of built-in models to include (e.g., `splash pmodel`) |
-| `--output` | `-o` | Output path for the generated config file (default: `config.toml`) |
-| `--defaults` | `-d` | Use default input/output paths without prompting (requires `--models`) |
-
-### Examples
-
-Interactive mode — walks through model selection and path configuration:
+### Interactive mode
 
 ```sh
 satterc setup
 ```
 
-Non-interactive mode with defaults:
+This walks you through:
+
+1. Selecting built-in models (type numbers or names, toggle with re-entry)
+2. Optionally adding custom module paths
+3. Confirming input/output paths (or entering custom ones)
+4. Optionally generating synthetic data right away
+
+### Non-interactive mode
 
 ```sh
-satterc setup --models splash pmodel sgam --defaults
+satterc setup --models splash pmodel --defaults
 ```
 
-Custom output path:
+This generates a config with the specified models and placeholder paths, no prompts.
+
+### Custom output path
 
 ```sh
 satterc setup --models splash --output my_pipeline.toml
 ```
 
-## `run`
+The generated config includes all input variables required by the selected models, placeholder output sections, and any resampling steps needed to bridge temporal frequencies.
 
-Execute a pipeline defined in a configuration file.
+## Step 2: Generate Synthetic Data
 
-```sh
-satterc run <CONFIG_FILE> [OPTIONS]
-```
-
-### Arguments
-
-| Argument | Description |
-|----------|-------------|
-| `CONFIG_FILE` | Path to a TOML configuration file |
-
-### Options
-
-| Flag | Description |
-|------|-------------|
-| `--allow-overrides` | Allow later modules to override earlier ones |
-
-### Example
+Before running on real data, test your pipeline with synthetic inputs:
 
 ```sh
-satterc run config.toml
+satterc data-gen generate config.toml
 ```
 
-This reads the config, builds the DAG, executes all required nodes, and writes output files as specified in the `[outputs.*]` sections.
+This creates NetCDF files at the paths specified in your config. By default it generates data for a single site over 2 years.
 
-## `graph`
-
-Visualise a pipeline as a directed graph.
+### Custom grid and duration
 
 ```sh
-satterc graph <CONFIG_FILE> [OPTIONS]
+satterc data-gen generate config.toml --grid 4,4 --duration 6m --seed 42
 ```
 
-### Arguments
+This produces a 4×4 grid of synthetic data covering 6 months.
 
-| Argument | Description |
-|----------|-------------|
-| `CONFIG_FILE` | Path to a TOML configuration file |
+The duration format is a number followed by a unit: `2y` (years), `6m` (months), `30d` (days).
 
-### Options
+## Step 3: Visualise the Pipeline
 
-| Flag | Description |
-|------|-------------|
-| `--output`, `-o` | Name of output file (default: `pipeline`) |
-| `--allow-overrides` | Allow later modules to override earlier ones |
-| `--png` | Convert to PNG format |
-| `--pdf` | Convert to PDF format |
-
-### Example
+Before running, inspect the DAG to verify the structure looks correct:
 
 ```sh
 satterc graph config.toml --pdf
 ```
 
-This produces `pipeline.pdf` (and `pipeline.dot`).
-The graph is colour-coded by temporal frequency:
+This produces `pipeline.pdf` showing all nodes and their dependencies. The graph is colour-coded:
 
 | Colour | Frequency |
 |--------|-----------|
@@ -126,44 +95,48 @@ The graph is colour-coded by temporal frequency:
 | Yellow | Weekly |
 | Brown | Monthly |
 
+You can also output as PNG:
+
+```sh
+satterc graph config.toml --png
+```
+
 /// admonition | Note
     type: note
 
 Requires [graphviz](https://graphviz.org/) to be installed.
 ///
 
-## `data-gen generate`
+## Step 4: Run the Pipeline
 
-Generate synthetic input data for testing pipelines.
-
-```sh
-satterc data-gen generate <CONFIG_FILE> [OPTIONS]
-```
-
-### Arguments
-
-| Argument | Description |
-|----------|-------------|
-| `CONFIG_FILE` | Path to a TOML configuration file |
-
-### Options
-
-| Flag | Short | Description |
-|------|-------|-------------|
-| `--grid`, `-g` | Grid dimensions as `n_lat,n_lon` (default: `1,1`) |
-| `--duration`, `-d` | Time duration: `2y`, `6m`, `30d` (default: `2y`) |
-| `--seed`, `-s` | Random seed for reproducibility (default: `42`) |
-
-### Examples
-
-Generate data for a single site over 2 years:
+Execute the pipeline:
 
 ```sh
-satterc data-gen generate config.toml
+satterc run config.toml
 ```
 
-Generate data for a 4x4 grid over 6 months:
+This reads the config, builds the DAG, executes all required nodes in dependency order, and writes output files as specified in the `[outputs.*]` sections.
+
+## Inspecting Results
+
+The output files are NetCDF (or whatever format you specified). Load them in Python:
+
+```python
+import xarray as xr
+
+ds = xr.open_dataset("outputs/daily.nc")
+print(ds)
+ds["soil_moisture"].plot()
+```
+
+## Getting Help
+
+Every command supports `-h` / `--help`:
 
 ```sh
-satterc data-gen generate config.toml --grid 4,4 --duration 6m
+satterc -h
+satterc setup -h
+satterc data-gen generate -h
 ```
+
+For detailed documentation on each CLI module's functions and parameters, see the [CLI Reference](../CLI%20Reference/index.md).

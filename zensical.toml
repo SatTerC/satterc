@@ -55,6 +55,15 @@ nav = [
       "API/satterc.pipeline/pipeline.outputs/monthly.md",
       "API/satterc.pipeline/pipeline.outputs/static.md",
   ]},
+  { "CLI Reference" = [
+      "CLI Reference/index.md",
+      "CLI Reference/cli.md",
+      "CLI Reference/graph.md",
+      "CLI Reference/run.md",
+      "CLI Reference/setup.md",
+      "CLI Reference/data_gen.md",
+      "CLI Reference/version.md",
+  ]},
 ]
 
 # Katex
