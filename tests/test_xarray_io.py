@@ -377,3 +377,44 @@ class TestMetadataPreservation:
 
         result = func(ref_datarray_2d)
         assert result.name is None
+
+
+class TestOutputEdgeCases:
+    """Edge cases in _repack_returns that are not covered by the main tests."""
+
+    def test_0d_ndarray_returned_unchanged(self, ref_datarray_2d):
+        """A 0D numpy ndarray (not a Python scalar) is returned as-is."""
+
+        @xarray_io()
+        def func(arr):
+            return np.array(arr.sum())  # 0D ndarray, not a float
+
+        result = func(ref_datarray_2d)
+        assert isinstance(result, np.ndarray)
+        assert result.ndim == 0
+
+    def test_1d_output_with_time_length(self, ref_datarray_2d):
+        """1D output whose length matches the time dimension gets time coords."""
+        n_time = ref_datarray_2d.sizes["time"]
+
+        @xarray_io()
+        def func(arr):
+            return arr.mean(axis=1)  # mean over pixel → shape (n_time,)
+
+        result = func(ref_datarray_2d)
+        assert isinstance(result, xr.DataArray)
+        assert result.dims == ("time",)
+        assert result.sizes["time"] == n_time
+
+    def test_2d_output_pixel_time_shape_transposed(self, ref_datarray_2d):
+        """2D output shaped (pixel, time) is transposed to (time, pixel)."""
+
+        @xarray_io()
+        def func(arr):
+            return arr.T  # inner func sees (time, pixel) → returns (pixel, time)
+
+        result = func(ref_datarray_2d)
+        assert isinstance(result, xr.DataArray)
+        assert result.dims == ("time", "pixel")
+        assert result.sizes["time"] == ref_datarray_2d.sizes["time"]
+        assert result.sizes["pixel"] == ref_datarray_2d.sizes["pixel"]

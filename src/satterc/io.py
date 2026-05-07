@@ -29,12 +29,13 @@ def load_dataset(path: str | PathLike) -> xr.Dataset:
     p = Path(path)
     suffix = p.suffix.lower()
     if suffix in (".nc", ".netcdf"):
-        engine = "netcdf4"
+        return xr.open_dataset(path, engine="netcdf4", decode_coords="all")
     elif suffix == ".zarr":
-        engine = "zarr"
+        return xr.open_dataset(
+            path, engine="zarr", decode_coords="all", consolidated=False
+        )
     else:
         raise ValueError(f"Unsupported file extension: {p.suffix}.")
-    return xr.open_dataset(path, engine=engine, decode_coords="all")
 
 
 def load_timeseries(path: str | PathLike) -> xr.Dataset:
@@ -254,7 +255,7 @@ def _save_netcdf(ds: xr.Dataset, path: str | PathLike) -> None:
     if suffix in (".nc", ".netcdf"):
         ds.to_netcdf(path, engine="netcdf4")
     elif suffix == ".zarr" or (not suffix and p.is_dir()):
-        ds.to_zarr(path)
+        ds.to_zarr(path, consolidated=False)
     else:
         raise ValueError(
             f"Unsupported file extension: '{suffix}'. Use '.nc', '.netcdf', or '.zarr'."

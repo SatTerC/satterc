@@ -331,12 +331,12 @@ def setup(
 
             config_dir = output.parent.resolve()
             for freq in ["daily", "weekly", "monthly", "static"]:
-                path_key = f"{freq}_inputs_path"
-                if path_key in parsed_config.driver_config:
-                    rel_path = parsed_config.driver_config[path_key]
-                    full_path = config_dir / rel_path
-                    full_path.parent.mkdir(parents=True, exist_ok=True)
-                    parsed_config.driver_config[path_key] = str(full_path)
+                spec = parsed_config.input_specs.get(freq)
+                if spec is None:
+                    continue
+                full_path = (config_dir / spec.path).resolve()
+                full_path.parent.mkdir(parents=True, exist_ok=True)
+                spec.path = str(full_path)
 
             generate_synthetic_data(
                 config=parsed_config,

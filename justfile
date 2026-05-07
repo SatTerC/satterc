@@ -20,11 +20,11 @@ typecheck:
 
 # Run the full test suite.
 test:
-  pytest
+  pytest --verbose # --log-cli-level=INFO
 
 # Run tests with coverage report.
 test-cov:
-  pytest --cov=satterc --cov-report=term-missing --cov-fail-under=60
+  pytest --cov=satterc --cov-report=term-missing --cov-fail-under=90
 
 # Build the documentation using Zensical.
 docs:
