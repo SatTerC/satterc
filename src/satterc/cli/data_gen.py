@@ -43,11 +43,11 @@ def _validate_output_paths(
     files_to_overwrite = []
 
     for freq in frequencies:
-        path_str = config.driver_config.get(f"{freq}_inputs_path")
-        if path_str is None:
+        spec = config.input_specs.get(freq)
+        if spec is None:
             continue
 
-        path = Path(path_str)
+        path = Path(spec.path)
         paths.append(path)
 
         if not path.parent.exists():
