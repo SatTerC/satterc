@@ -1,16 +1,25 @@
 repos:
-  - repo: local
-    hooks:
-      - id: lint
-        name: lint
-        language: system
-        pass_filenames: false
-        entry: just lint
-        stages: [pre-commit]
 
-      - id: test
-        name: test
-        language: system
+  - repo: https://github.com/astral-sh/uv-pre-commit
+    # uv version.
+    rev: 0.11.8
+    hooks:
+      # Update lockfile.
+      - id: uv-lock
+
+  - repo: https://github.com/RobertCraigie/pyright-python
+    rev: v1.1.409
+    hooks:
+      - id: pyright
         pass_filenames: false
-        entry: just test
-        stages: [pre-commit]
+
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    # Ruff version.
+    rev: v0.15.12
+    hooks:
+      # Run the formatter.
+      - id: ruff-format
+      # Run the linter.
+      - id: ruff-check
+        args: [ --fix ]
+
