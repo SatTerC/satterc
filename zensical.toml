@@ -7,6 +7,26 @@ site_url = "https://satterc.github.io/satterc"
 use_directory_urls = false  # TODO: set to true once stable?
 copyright = "Copyright &copy; 2026 The authors"
 
+# nav = [
+#   { "Home" = "index.md" },
+#   { "Getting Started" = "index.md" },
+#   { "Models" = [
+#       "Models/splash.md",
+#       "Models/pmodel.md",
+#       "Models/sgam.md",
+#       "Models/rothc.md",
+#   ]},
+#   { "Examples" = [
+#       "Examples/my_first_pipeline.md",
+#       "Examples/soil_moisture.md",
+#       "Examples/pft_parameters.md",
+#       "Examples/full_pipeline.md",
+#   ]},
+#   { "API Reference" = [
+#       "API/Models/pmodel.md",
+#   ]},
+# ]
+
 # Katex
 extra_javascript = [
     "javascripts/marimo-button.js",
@@ -33,10 +53,11 @@ features = [
     "navigation.instant",
     "navigation.instant.prefetch",
     "navigation.path",
-    "navigation.sections",
+    "navigation.tabs",
     "navigation.top",
     "navigation.tracking",
     "search.highlight",
+    "toc.follow",
 ]
 
 [[project.theme.palette]]
@@ -52,18 +73,43 @@ toggle.name = "Switch to light mode"
 
 # Extensions
 # ----------
-# see https://zensical.org/docs/setup/extensions/python-markdown-extensions/
+# https://zensical.org/docs/setup/extensions/
 
+[project.markdown_extensions.abbr]
+[project.markdown_extensions.admonition]
+[project.markdown_extensions.attr_list]
+[project.markdown_extensions.def_list]
+[project.markdown_extensions.footnotes]
+[project.markdown_extensions.md_in_html]
+[project.markdown_extensions.toc]
+permalink = true
 [project.markdown_extensions.pymdownx.arithmatex]
 generic = true
-
+[project.markdown_extensions.pymdownx.betterem]
+[project.markdown_extensions.pymdownx.caret]
+[project.markdown_extensions.pymdownx.details]
+[project.markdown_extensions.pymdownx.emoji]
+emoji_generator = "zensical.extensions.emoji.to_svg"
+emoji_index = "zensical.extensions.emoji.twemoji"
+[project.markdown_extensions.pymdownx.highlight]
+anchor_linenums = true
+line_spans = "__span"
+pygments_lang_class = true
+[project.markdown_extensions.pymdownx.inlinehilite]
+[project.markdown_extensions.pymdownx.keys]
+[project.markdown_extensions.pymdownx.magiclink]
+[project.markdown_extensions.pymdownx.mark]
+[project.markdown_extensions.pymdownx.smartsymbols]
 [project.markdown_extensions.pymdownx.superfences]
 custom_fences = [
   { name = "mermaid", class = "mermaid", format = "pymdownx.superfences.fence_code_format" }
 ]
-
 [project.markdown_extensions.pymdownx.tabbed]
 alternate_style = true
+combine_header_slug = true
+[project.markdown_extensions.pymdownx.tasklist]
+custom_checkbox = true
+[project.markdown_extensions.pymdownx.tilde]
 
 # Mkdocstrings
 # ------------
