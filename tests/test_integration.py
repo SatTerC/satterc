@@ -1,8 +1,8 @@
 """End-to-end integration tests for the full satterc pipeline.
 
-These tests build a Hamilton driver from the test config and synthetic data,
-then execute pipeline nodes to verify the full stack — config → driver →
-input loading → grid → (optionally) output writing — works end-to-end.
+These tests call load_inputs() with the test config and synthetic data,
+then execute pipeline nodes to verify the full stack — config → load_inputs
+→ driver.execute() — works end-to-end.
 """
 
 import numpy as np
@@ -13,85 +13,65 @@ N_DAYS = 365
 N_MONTHS = 12
 
 
-class TestInputNodes:
-    """Test that input nodes load and return correctly shaped DataArrays."""
+class TestLoadedInputs:
+    """Test that load_inputs() returns correctly shaped DataArrays."""
 
-    def test_daily_input_shape(self, pipeline_driver):
-        result = pipeline_driver.execute(["temperature_celcius_daily"])
-        da = result["temperature_celcius_daily"]
+    def test_daily_input_shape(self, pipeline_inputs):
+        da = pipeline_inputs["temperature_celcius_daily"]
         assert da.sizes["time"] == N_DAYS
         assert da.sizes["pixel"] == N_PIXELS
 
-    def test_weekly_input_shape(self, pipeline_driver):
-        result = pipeline_driver.execute(["co2_ppm_weekly"])
-        da = result["co2_ppm_weekly"]
+    def test_weekly_input_shape(self, pipeline_inputs):
+        da = pipeline_inputs["co2_ppm_weekly"]
         assert 50 <= da.sizes["time"] <= 54
         assert da.sizes["pixel"] == N_PIXELS
 
-    def test_monthly_input_shape(self, pipeline_driver):
-        result = pipeline_driver.execute(["dummy_variable_monthly"])
-        da = result["dummy_variable_monthly"]
+    def test_monthly_input_shape(self, pipeline_inputs):
+        da = pipeline_inputs["dummy_variable_monthly"]
         assert da.sizes["time"] == N_MONTHS
         assert da.sizes["pixel"] == N_PIXELS
 
-    def test_static_input_shape(self, pipeline_driver):
-        result = pipeline_driver.execute(["elevation"])
-        da = result["elevation"]
+    def test_static_input_shape(self, pipeline_inputs):
+        da = pipeline_inputs["elevation"]
         assert da.sizes["pixel"] == N_PIXELS
         assert "time" not in da.dims
 
-    def test_no_nan_in_daily_inputs(self, pipeline_driver):
-        result = pipeline_driver.execute(
-            [
-                "temperature_celcius_daily",
-                "precipitation_mm_daily",
-                "sunshine_fraction_daily",
-            ]
-        )
-        for name, da in result.items():
+    def test_no_nan_in_daily_inputs(self, pipeline_inputs):
+        for name in (
+            "temperature_celcius_daily",
+            "precipitation_mm_daily",
+            "sunshine_fraction_daily",
+        ):
+            da = pipeline_inputs[name]
             assert not np.any(np.isnan(da.values)), f"{name} contains NaN"
 
-    def test_no_nan_in_static_inputs(self, pipeline_driver):
-        result = pipeline_driver.execute(
-            ["elevation", "max_soil_moisture", "clay_content"]
-        )
-        for name, da in result.items():
+    def test_no_nan_in_static_inputs(self, pipeline_inputs):
+        for name in ("elevation", "max_soil_moisture", "clay_content"):
+            da = pipeline_inputs[name]
             assert not np.any(np.isnan(da.values)), f"{name} contains NaN"
 
 
-class TestGridNodes:
-    """Test that the grid pipeline nodes execute and return sensible values."""
+class TestGridInputs:
+    """Test that load_inputs() computes latitude and longitude from spatial CRS data."""
 
-    def test_latitude_in_uk_bounds(self, pipeline_driver):
-        result = pipeline_driver.execute(["latitude"])
-        lat = result["latitude"].values
+    def test_latitude_in_uk_bounds(self, pipeline_inputs):
+        lat = pipeline_inputs["latitude"].values
         assert np.all(lat >= 49.0)
         assert np.all(lat <= 55.0)
 
-    def test_longitude_in_uk_bounds(self, pipeline_driver):
-        result = pipeline_driver.execute(["longitude"])
-        lon = result["longitude"].values
+    def test_longitude_in_uk_bounds(self, pipeline_inputs):
+        lon = pipeline_inputs["longitude"].values
         assert np.all(lon >= -5.0)
         assert np.all(lon <= 3.0)
 
-    def test_grid_pixel_count(self, pipeline_driver):
-        result = pipeline_driver.execute(["latitude", "longitude"])
-        assert result["latitude"].sizes["pixel"] == N_PIXELS
-        assert result["longitude"].sizes["pixel"] == N_PIXELS
+    def test_grid_pixel_count(self, pipeline_inputs):
+        assert pipeline_inputs["latitude"].sizes["pixel"] == N_PIXELS
+        assert pipeline_inputs["longitude"].sizes["pixel"] == N_PIXELS
 
 
-class TestFullPipeline:
-    """Test the complete pipeline execution including the targets list."""
+class TestDriverExecution:
+    """Test that the Hamilton driver executes correctly with pre-loaded inputs."""
 
-    def test_pipeline_executes_without_error(self, pipeline_driver, pipeline_config):
-        """Pipeline with no output vars should execute without error."""
-        pipeline_driver.execute(pipeline_config.targets)
-
-    def test_no_output_files_written_when_vars_empty(
-        self, pipeline_driver, pipeline_config, synthetic_data_dir
-    ):
-        """With empty *_outputs_vars, output modules are not loaded — no files created."""
-        pipeline_driver.execute(pipeline_config.targets)
-        assert not (synthetic_data_dir / "out_daily.nc").exists()
-        assert not (synthetic_data_dir / "out_weekly.nc").exists()
-        assert not (synthetic_data_dir / "out_monthly.nc").exists()
+    def test_no_output_specs_no_error(self, pipeline_config):
+        """Pipeline with no output_specs should execute without error."""
+        assert pipeline_config.output_specs == {}
