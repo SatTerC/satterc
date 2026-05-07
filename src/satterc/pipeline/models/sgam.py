@@ -132,22 +132,6 @@ def disturbances_daily(
     )
 
 
-def disturbances_weekly(disturbances_daily: xr.DataArray) -> xr.DataArray:
-    """Aggregate daily disturbances to weekly maximum.
-
-    Parameters
-    ----------
-    disturbances_daily : xr.DataArray
-        Daily disturbance indicators.
-
-    Returns
-    -------
-    xr.DataArray
-        Weekly maximum disturbance indicators.
-    """
-    return disturbances_daily.resample(time="W").max()  # or time="7D"
-
-
 @xarray_io()
 def _sgam(
     plant_type: NDArray[np.int_],
@@ -358,26 +342,3 @@ def sgam(
         use_dynamic_allocation=use_dynamic_allocation,
         strict_mass_balance=strict_mass_balance,
     )
-
-
-def leaf_area_index_weekly(
-    leaf_pool_weekly: xr.DataArray,
-    pft_params: xr.Dataset,
-) -> xr.DataArray:
-    """Compute leaf area index from leaf carbon pool.
-
-    Parameters
-    ----------
-    leaf_pool_weekly : xr.DataArray
-        Weekly leaf pool size (gC). Shape: (time, pixel).
-    pft_params : xr.Dataset
-        PFT parameters for each pixel. Contains leaf_carbon_area.
-
-    Returns
-    -------
-    xr.DataArray
-        Weekly leaf area index. Shape: (time, pixel).
-    """
-    leaf_carbon_area = pft_params["leaf_carbon_area"]
-    leaf_area_index = leaf_pool_weekly / leaf_carbon_area
-    return leaf_area_index.rename("leaf_area_index")

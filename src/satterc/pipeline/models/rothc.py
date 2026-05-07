@@ -185,59 +185,6 @@ def rothc(
     )
 
 
-def evaporation_monthly(
-    actual_evapotranspiration_monthly: DataArray,
-) -> DataArray:
-    """Extract evaporation data for RothC model.
-
-    Parameters
-    ----------
-    actual_evapotranspiration_monthly : DataArray
-        Monthly actual evapotranspiration (mm).
-
-    Returns
-    -------
-    DataArray
-        Monthly evaporation data.
-    """
-    return actual_evapotranspiration_monthly
-    # BUG: this is not quite correct!!
-    # RothC expects monthly *open pan evaporation* NOT actual evapotranspiration.
-
-
-def soil_carbon_input_monthly(litter_pool_monthly: DataArray) -> DataArray:
-    """Temporary bridge to map litter input to soil carbon input.
-
-    Parameters
-    ----------
-    litter_pool_monthly : DataArray
-        Monthly litter input (tC/ha).
-
-    Returns
-    -------
-    DataArray
-        Monthly soil carbon input (tC/ha).
-    """
-    return litter_pool_monthly
-
-
-def inert_organic_matter(organic_carbon_stocks: DataArray) -> DataArray:
-    """Calculate inert organic matter from organic carbon stocks.
-
-    Parameters
-    ----------
-    organic_carbon_stocks : DataArray
-        Organic carbon stocks (tC/ha).
-
-    Returns
-    -------
-    DataArray
-        Inert organic matter (tC/ha).
-    """
-    return 0.049 * organic_carbon_stocks**1.139
-    # NOTE: taken from https://github.com/vmyrgiotis/coupled-ecosystem-carbon-model/blob/v0/notebooks/notebook_v4.ipynb
-
-
 def plant_cover_monthly(
     plant_type: DataArray, dates_monthly: DatetimeIndex
 ) -> DataArray:

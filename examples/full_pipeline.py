@@ -124,6 +124,31 @@ def _(Config, tomllib):
       "stem_pool_init",
     ]
 
+    [[derive]]
+    output = "aridity_index_daily"
+    inputs = ["precipitation_mm_daily", "actual_evapotranspiration_daily"]
+    expression = "precipitation_mm_daily / actual_evapotranspiration_daily"
+
+    [[derive]]
+    output = "leaf_area_index_weekly"
+    inputs = ["leaf_pool_weekly", "pft_params"]
+    expression = 'leaf_pool_weekly / pft_params["leaf_carbon_area"]'
+
+    [[derive]]
+    output = "evaporation_monthly"
+    inputs = ["actual_evapotranspiration_monthly"]
+    expression = "actual_evapotranspiration_monthly"
+
+    [[derive]]
+    output = "soil_carbon_input_monthly"
+    inputs = ["litter_pool_monthly"]
+    expression = "litter_pool_monthly"
+
+    [[derive]]
+    output = "inert_organic_matter"
+    inputs = ["organic_carbon_stocks"]
+    expression = "0.049 * organic_carbon_stocks**1.139"
+
     [[resample]]
     vars = [
       "temperature_celcius",
@@ -142,6 +167,12 @@ def _(Config, tomllib):
     ]
     from_freq = "daily"
     to_freq = "monthly"
+
+    [[resample]]
+    vars = ["disturbances"]
+    from_freq = "daily"
+    to_freq = "weekly"
+    aggfunc = "max"
 
     [[resample]]
     vars = [
