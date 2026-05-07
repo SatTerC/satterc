@@ -1,5 +1,6 @@
 """Tests for the satterc CLI commands."""
 
+import shutil
 import tomllib
 from unittest.mock import MagicMock
 
@@ -129,6 +130,7 @@ class TestRunCommand:
 
 
 class TestGraphCommand:
+    @pytest.mark.skipif(not shutil.which("dot"), reason="graphviz not installed")
     def test_generates_dot_file(self, config_toml, tmp_path):
         out = tmp_path / "pipeline"
         result = runner.invoke(app, ["graph", str(config_toml), "--output", str(out)])
