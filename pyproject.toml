@@ -68,3 +68,9 @@ include = ["src/", "tests/"]
 line-length = 88
 indent-width = 4
 target-version = "py313"
+
+[tool.pytest.ini_options]
+filterwarnings = [
+    "ignore:\\s*Pyrealm 2.0.0:UserWarning",
+    "ignore:'where' used without 'out':UserWarning",
+]

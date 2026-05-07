@@ -21,8 +21,8 @@ class TestSyntheticDataGeneration:
 
     def test_spatial_grid(self, daily_ds):
         """Test spatial grid dimensions."""
-        assert daily_ds.dims["y"] == 2
-        assert daily_ds.dims["x"] == 2
+        assert daily_ds.sizes["y"] == 2
+        assert daily_ds.sizes["x"] == 2
 
     def test_daily_variables(self, daily_ds):
         """Test daily dataset contains expected variables."""
