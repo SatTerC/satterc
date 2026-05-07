@@ -61,7 +61,7 @@ sgam = { git = "https://github.com/SatTerC/sgam.git" }
 [tool.pyright]
 venvPath = "."
 venv = ".venv"
-include = ["src/"] #, "tests/"]
+include = ["src/", "tests/"]
 
 [tool.ruff]
 line-length = 88

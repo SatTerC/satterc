@@ -133,6 +133,7 @@ class TestInputDataArrayDimensionVariations:
 
         @xarray_io()
         def func(arr=None):
+            assert arr is not None
             return arr * 2
 
         with pytest.raises(

@@ -198,7 +198,7 @@ class TestDatasetToDataframe:
         ds = self._make_output_ds()
         original = ds["gpp"].values[:, 0]
         df = dataset_to_dataframe(ds)
-        np.testing.assert_allclose(df["gpp"].values, original)
+        np.testing.assert_allclose(np.asarray(df["gpp"].values), original)
 
     def test_no_pixel_dim_passes_through(self):
         """Dataset without a pixel dim is handled gracefully."""
@@ -236,14 +236,14 @@ class TestSaveTimeseries:
         path = tmp_path / "out.csv"
         save_timeseries(df, path)
         reloaded = pd.read_csv(path, index_col=0, parse_dates=True)
-        np.testing.assert_allclose(reloaded["gpp"].values, df["gpp"].values)
+        np.testing.assert_allclose(np.asarray(reloaded["gpp"].values), np.asarray(df["gpp"].values))
 
     def test_parquet_roundtrip(self, tmp_path):
         df = self._make_df()
         path = tmp_path / "out.parquet"
         save_timeseries(df, path)
         reloaded = pd.read_parquet(path)
-        np.testing.assert_allclose(reloaded["gpp"].values, df["gpp"].values)
+        np.testing.assert_allclose(np.asarray(reloaded["gpp"].values), np.asarray(df["gpp"].values))
 
     def test_unsupported_extension_raises(self, tmp_path):
         df = self._make_df()
@@ -316,4 +316,4 @@ class TestOutputRoundtrip:
         save_timeseries(df, out_path)
 
         reloaded = pd.read_csv(out_path, index_col=0, parse_dates=True)
-        np.testing.assert_allclose(reloaded["gpp"].values, original[:, 0])
+        np.testing.assert_allclose(np.asarray(reloaded["gpp"].values), original[:, 0])
