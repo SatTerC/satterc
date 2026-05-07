@@ -63,7 +63,7 @@ def xarray_io() -> Callable[[Callable[..., Any]], Callable[..., Any]]:
 
             valid_references = [v for v in da_inputs if _is_valid_reference(v)]
             if not valid_references:
-                raise Exception(
+                raise ValueError(
                     "None of the xarray.DataArray inputs satisfy the criteria for this decorator."
                 )
             reference_da = valid_references[0]
@@ -85,17 +85,25 @@ def xarray_io() -> Callable[[Callable[..., Any]], Callable[..., Any]]:
                     if v.ndim == 0:
                         return v
                     elif v.ndim == 1:
-                        # Determine if this is a time or pixel dimension
-                        # by checking against the reference DataArray
                         ref_time_len = len(reference_da.coords["time"])
                         ref_pixel_len = len(reference_da.coords["pixel"])
+                        if ref_time_len == ref_pixel_len:
+                            raise ValueError(
+                                f"Cannot infer dimension for 1D array of length {len(v)}: "
+                                f"time length ({ref_time_len}) equals pixel length ({ref_pixel_len}). "
+                                "Return the array in a dict with an explicit key, "
+                                "e.g. {'time': arr} or {'pixel': arr}."
+                            )
                         if len(v) == ref_time_len:
                             new_dims = ("time",)
                         elif len(v) == ref_pixel_len:
                             new_dims = ("pixel",)
                         else:
-                            # Default fallback
-                            new_dims = ("pixel",)
+                            raise ValueError(
+                                f"Cannot infer dimension for 1D array of length {len(v)}: "
+                                f"does not match time length ({ref_time_len}) "
+                                f"or pixel length ({ref_pixel_len})."
+                            )
                     elif v.ndim == 2:
                         # Check if shape is (pixel, time) or (time, pixel)
                         # and swap if needed to match reference
@@ -108,8 +116,10 @@ def xarray_io() -> Callable[[Callable[..., Any]], Callable[..., Any]]:
                         else:
                             new_dims = ("time", "pixel")
                     else:
-                        # TODO: bad
-                        raise Exception("no")
+                        raise NotImplementedError(
+                            f"Repacking {v.ndim}D arrays is not supported. "
+                            "xarray_io-decorated functions may only return 0D, 1D, or 2D arrays."
+                        )
 
                     return xr.DataArray(
                         v,
