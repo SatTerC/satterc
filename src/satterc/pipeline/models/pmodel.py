@@ -153,32 +153,6 @@ def pmodel(
     )
 
 
-def aridity_index_daily(
-    actual_evapotranspiration_daily: xr.DataArray,
-    precipitation_mm_daily: xr.DataArray,
-) -> xr.DataArray:
-    """Calculate a dimensionless aridity index AET/precipitation.
-
-    Parameters
-    ----------
-    actual_evapotranspiration_daily
-        Actual evapotranspiration (mm).
-    precipitation_mm_daily
-        Precipitation (mm).
-
-    Returns
-    -------
-    xr.DataArray
-        Aridity index.
-
-    Notes
-    -----
-    The standard aritidy index in the literature seems to use
-    *potential* evapotranspiration (PET) instead of AET.
-    """
-    return precipitation_mm_daily / actual_evapotranspiration_daily
-
-
 def mean_growth_temperature_weekly(
     temperature_celcius_daily: xr.DataArray,
 ) -> xr.DataArray:

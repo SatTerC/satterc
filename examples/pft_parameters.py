@@ -117,6 +117,11 @@ def _(Config, tomllib):
       "root_pool_init",
     ]
 
+    [[derive]]
+    output = "aridity_index_daily"
+    inputs = ["precipitation_mm_daily", "actual_evapotranspiration_daily"]
+    expression = "precipitation_mm_daily / actual_evapotranspiration_daily"
+
     [[resample]]
     vars = [
       "temperature_celcius",
@@ -125,6 +130,12 @@ def _(Config, tomllib):
     ]
     from_freq = "daily"
     to_freq = "weekly"
+
+    [[resample]]
+    vars = ["disturbances"]
+    from_freq = "daily"
+    to_freq = "weekly"
+    aggfunc = "max"
 
     [grid]
     """
@@ -361,7 +372,9 @@ def _(inputs, np):
         modified_pft["lue_max"].values[:] = lue_max
         modified_pft["leaf_turnover_rate"].values[:] = leaf_turnover
         overrides = {**upstream, "pft_params": modified_pft}
-        outputs = dr.execute(final_vars=["leaf_pool_weekly"], inputs=inputs, overrides=overrides)
+        outputs = dr.execute(
+            final_vars=["leaf_pool_weekly"], inputs=inputs, overrides=overrides
+        )
         modelled = outputs["leaf_pool_weekly"].values[:, 0]
         return np.mean((modelled - observations) ** 2)
 

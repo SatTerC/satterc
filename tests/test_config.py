@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from satterc.config import Config, load_config, ParsedConfig, IOSpec
+from satterc.config import Config, load_config, ParsedConfig, IOSpec, DeriveSpec
 
 
 TEST_CONFIG_PATH = Path(__file__).parent / "test_config.toml"
@@ -283,6 +283,115 @@ class TestResample:
             }
         )
         with pytest.raises(ValueError, match="Unsupported resample direction"):
+            config.parse()
+
+
+class TestDerive:
+    """Tests for [[derive]] section parsing."""
+
+    def test_derive_adds_derive_module(self):
+        config = Config(
+            {
+                "derive": [
+                    {
+                        "output": "aridity_index_daily",
+                        "inputs": ["precipitation_mm_daily", "aet_daily"],
+                        "expression": "precipitation_mm_daily / aet_daily",
+                    }
+                ]
+            }
+        )
+        parsed = config.parse()
+        assert "derive" in parsed.modules
+
+    def test_no_derive_omits_derive_module(self):
+        config = Config({"models": {"pmodel": {}}})
+        parsed = config.parse()
+        assert "derive" not in parsed.modules
+
+    def test_derive_specs_in_driver_config(self):
+        config = Config(
+            {
+                "derive": [
+                    {
+                        "output": "aridity_index_daily",
+                        "inputs": ["precipitation_mm_daily", "aet_daily"],
+                        "expression": "precipitation_mm_daily / aet_daily",
+                    }
+                ]
+            }
+        )
+        parsed = config.parse()
+        specs = parsed.driver_config["derive_specs"]
+        assert len(specs) == 1
+        assert isinstance(specs[0], DeriveSpec)
+        assert specs[0].output == "aridity_index_daily"
+        assert specs[0].inputs == ["precipitation_mm_daily", "aet_daily"]
+        assert specs[0].expression == "precipitation_mm_daily / aet_daily"
+        assert specs[0].import_path is None
+        assert specs[0].function is None
+
+    def test_function_reference_spec(self):
+        config = Config(
+            {
+                "derive": [
+                    {
+                        "output": "mean_growth_temperature_weekly",
+                        "inputs": ["temperature_celcius_daily"],
+                        "_import_path": "mypackage.met_utils",
+                        "function": "mean_growth_temperature",
+                    }
+                ]
+            }
+        )
+        parsed = config.parse()
+        spec = parsed.driver_config["derive_specs"][0]
+        assert isinstance(spec, DeriveSpec)
+        assert spec.expression is None
+        assert spec.import_path == "mypackage.met_utils"
+        assert spec.function == "mean_growth_temperature"
+
+    def test_duplicate_derive_output_raises(self):
+        config = Config(
+            {
+                "derive": [
+                    {"output": "foo", "inputs": ["a"], "expression": "a"},
+                    {"output": "foo", "inputs": ["b"], "expression": "b"},
+                ]
+            }
+        )
+        with pytest.raises(ValueError, match="Duplicate derive output"):
+            config.parse()
+
+    def test_both_expression_and_function_raises(self):
+        config = Config(
+            {
+                "derive": [
+                    {
+                        "output": "foo",
+                        "inputs": ["a"],
+                        "expression": "a",
+                        "_import_path": "some.module",
+                        "function": "some_fn",
+                    }
+                ]
+            }
+        )
+        with pytest.raises(ValueError, match="must specify either"):
+            config.parse()
+
+    def test_neither_expression_nor_function_raises(self):
+        config = Config(
+            {
+                "derive": [
+                    {
+                        "output": "foo",
+                        "inputs": ["a"],
+                    }
+                ]
+            }
+        )
+        with pytest.raises(ValueError, match="must specify either"):
             config.parse()
 
 

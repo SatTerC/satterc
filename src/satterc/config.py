@@ -16,9 +16,9 @@ _RESAMPLE_FREQ_MAP: dict[tuple[str, str], str] = {
     # Sunday) vs "7D" (rolling 7-day), or "MS" (month-start) vs "1ME" (month-end)
 }
 
-_VALID_AGGFUNCS: frozenset[str] = frozenset({"mean", "sum"})
-# TODO: extend to allow any valid xarray DataArrayResample method:
-#   min, max, std, var, first, last, median, count
+_VALID_AGGFUNCS: frozenset[str] = frozenset(
+    {"mean", "sum", "max", "min", "first", "last"}
+)
 
 
 @dataclass
@@ -58,6 +58,40 @@ class ResampleSpec:
             source_freq=source_freq,
             target_freq=target_freq,
             aggfunc=aggfunc,
+        )
+
+
+@dataclass
+class DeriveSpec:
+    """Specification for a single [[derive]] entry."""
+
+    output: str
+    inputs: list[str]
+    expression: str | None
+    import_path: str | None
+    function: str | None
+
+    @classmethod
+    def from_config(cls, entry: dict) -> "DeriveSpec":
+        """Construct and validate from a raw [[derive]] TOML entry."""
+        has_expression = "expression" in entry
+        has_function = "_import_path" in entry or "function" in entry
+        if has_expression and has_function:
+            raise ValueError(
+                f"Derive entry for '{entry.get('output')}' must specify either "
+                "'expression' or ('_import_path' + 'function'), not both."
+            )
+        if not has_expression and not has_function:
+            raise ValueError(
+                f"Derive entry for '{entry.get('output')}' must specify either "
+                "'expression' or ('_import_path' + 'function')."
+            )
+        return cls(
+            output=entry["output"],
+            inputs=entry["inputs"],
+            expression=entry.get("expression"),
+            import_path=entry.get("_import_path"),
+            function=entry.get("function"),
         )
 
 
@@ -185,6 +219,23 @@ class Config:
             return ["resample"]
         return []
 
+    def _parse_derive(self, data: dict, driver_config: dict) -> list[str]:
+        """Handle [[derive]] section."""
+        seen_outputs: set[str] = set()
+        specs: list[DeriveSpec] = []
+        for entry in data.pop("derive", []):
+            spec = DeriveSpec.from_config(entry)
+            if spec.output in seen_outputs:
+                raise ValueError(
+                    f"Duplicate derive output '{spec.output}' in [[derive]]"
+                )
+            seen_outputs.add(spec.output)
+            specs.append(spec)
+        if specs:
+            driver_config["derive_specs"] = specs
+            return ["derive"]
+        return []
+
     def _parse_external_modules(self, data: dict, driver_config: dict) -> list[str]:
         """Handle remaining sections as external modules."""
         modules: list[str] = []
@@ -214,6 +265,7 @@ class Config:
         - [outputs.*]     — I/O specs; freq derived from subsection key
         - [grid]          — silently accepted (grid computation is now in load_inputs())
         - [models.*]      — built-in model modules
+        - [[derive]]      — config-driven derived variable nodes
         - [[resample]]    — temporal resampling module
 
         All other top-level sections are treated as external modules and must
@@ -230,6 +282,7 @@ class Config:
         self._parse_inputs(data, driver_config, input_specs)
         self._parse_outputs(data, driver_config, output_specs)
         modules += self._parse_models(data, driver_config)
+        modules += self._parse_derive(data, driver_config)
         modules += self._parse_resample(data, driver_config)
         modules += self._parse_external_modules(data, driver_config)
         return ParsedConfig(

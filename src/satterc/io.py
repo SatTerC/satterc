@@ -343,7 +343,8 @@ def get_outputs(
     out: dict[str, xr.Dataset] = {}
     for freq, spec in output_specs.items():
         suffix = "" if freq == "static" else f"_{freq}"
-        arrays = [results[f"{var}{suffix}"] for var in spec.vars]
+        # (Re-)assign names to all arrays to ensure merging succeeds
+        arrays = [results[f"{var}{suffix}"].rename(var) for var in spec.vars]
         out[freq] = unstack_if_gridded(xr.merge(arrays))
     return out
 
