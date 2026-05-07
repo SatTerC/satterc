@@ -1,3 +1,3 @@
-# P-Model
+# `pipeline.models.pmodel`
 
 ::: satterc.pipeline.models.pmodel

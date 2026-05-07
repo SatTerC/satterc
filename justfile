@@ -25,8 +25,8 @@ docs:
 # Export a single example notebook to docs/Examples/.
 export example:
   # Export to Markdown file
-  marimo-md-export "examples/{{example}}.py" "docs/Examples/{{example}}.md" \
-    --html-output docs/Examples/{{example}}-notebook.html --overflow scroll
+  marimo-md-export "examples/{{example}}.py" "docs/examples/{{example}}.md" \
+    --html-output docs/examples/{{example}}-notebook.html --overflow scroll
 
 # Export all notebooks in examples/ to docs/Examples/.
 export-all:
