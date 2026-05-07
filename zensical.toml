@@ -1,31 +1,61 @@
 [project]
+
+use_directory_urls = false
+
 site_name = "satterc"
 site_description = "A Python framework for data-driven terrestrial carbon modelling based on Directed Acyclic Graphs."
 site_author = "Joe Marsh Rossney"
-
 site_url = "https://satterc.github.io/satterc"
-use_directory_urls = false  # TODO: set to true once stable?
+
+repo_name = "SatTerC/satterc"
+repo_url = "https://github.com/SatTerC/satterc"
+
 copyright = "Copyright &copy; 2026 The authors"
 
-# nav = [
-#   { "Home" = "index.md" },
-#   { "Getting Started" = "index.md" },
-#   { "Models" = [
-#       "Models/splash.md",
-#       "Models/pmodel.md",
-#       "Models/sgam.md",
-#       "Models/rothc.md",
-#   ]},
-#   { "Examples" = [
-#       "Examples/my_first_pipeline.md",
-#       "Examples/soil_moisture.md",
-#       "Examples/pft_parameters.md",
-#       "Examples/full_pipeline.md",
-#   ]},
-#   { "API Reference" = [
-#       "API/Models/pmodel.md",
-#   ]},
-# ]
+nav = [
+  { "Home" = "index.md" },
+  { "Getting Started" = [
+      "Getting Started/installation.md",
+      "Getting Started/quickstart.md",
+      "Getting Started/concepts.md",
+  ]},
+  { "Usage" = [
+      "Usage/config.md",
+      "Usage/cli.md",
+      "Usage/data-formats.md",
+      "Usage/custom-modules.md",
+      "Usage/troubleshooting.md",
+  ]},
+  { "Models" = [
+      "Models/index.md",
+      "Models/splash.md",
+      "Models/pmodel.md",
+      "Models/sgam.md",
+      "Models/rothc.md",
+  ]},
+  { "Examples" = [
+      "Examples/my_first_pipeline.md",
+      "Examples/soil_moisture.md",
+      "Examples/pft_parameters.md",
+      "Examples/full_pipeline.md",
+  ]},
+  { "API Reference" = [
+      "API/satterc.pipeline/satterc.pipeline.inputs/daily.md",
+      "API/satterc.pipeline/satterc.pipeline.inputs/weekly.md",
+      "API/satterc.pipeline/satterc.pipeline.inputs/monthly.md",
+      "API/satterc.pipeline/satterc.pipeline.inputs/static.md",
+      "API/satterc.pipeline/satterc.pipeline.models/splash.md",
+      "API/satterc.pipeline/satterc.pipeline.models/pmodel.md",
+      "API/satterc.pipeline/satterc.pipeline.models/sgam.md",
+      "API/satterc.pipeline/satterc.pipeline.models/rothc.md",
+      "API/satterc.pipeline/grid.md",
+      "API/satterc.pipeline/resample.md",
+      "API/satterc.pipeline/pipeline.outputs/daily.md",
+      "API/satterc.pipeline/pipeline.outputs/weekly.md",
+      "API/satterc.pipeline/pipeline.outputs/monthly.md",
+      "API/satterc.pipeline/pipeline.outputs/static.md",
+  ]},
+]
 
 # Katex
 extra_javascript = [
@@ -62,12 +92,12 @@ features = [
 
 [[project.theme.palette]]
 scheme = "default"
-toggle.icon = "lucide/sun"
+toggle.icon = "lucide/moon"
 toggle.name = "Switch to dark mode"
 
 [[project.theme.palette]]
 scheme = "slate"
-toggle.icon = "lucide/moon"
+toggle.icon = "lucide/sun"
 toggle.name = "Switch to light mode"
 
 

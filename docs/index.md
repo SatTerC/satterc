@@ -5,25 +5,34 @@ icon: lucide/house
 
 # SatTerC: Satellite to Terrestrial Carbon modelling using DAGs
 
+A Python framework for data-driven terrestrial carbon modelling based on Directed Acyclic Graphs.
+
 ## Installation
 
-Install the package via `pip` or `uv`.
-Currently it is only available from GitHub.
+See the [Installation guide](Getting%20Started/installation.md) for detailed instructions.
 
-=== "pip"
+## Quick Start
 
-    ``` sh
-    pip install git+https://github.com/satterc/satterc
-    ```
+Get a pipeline running in 5 minutes — see the [Quickstart guide](Getting%20Started/quickstart.md).
 
-=== "uv"
+## What is SatTerC?
 
-    ``` sh
-    uv add git+https://github.com/satterc/satterc
-    ```
+SatTerC lets you compose terrestrial carbon models into pipelines described by a simple TOML configuration file.
+Models are connected as a Directed Acyclic Graph (DAG), meaning you declare **what** you want computed and SatTerC figures out **how** to compute it.
 
-This will install a package called `satterc` into your environment.
+Key features:
 
-## Basic usage
+- **Composable models** — SPLASH, P-Model, SGAM, and RothC can be mixed and matched
+- **Automatic dependency resolution** — the DAG engine determines execution order
+- **Multiple data formats** — NetCDF, Zarr, CSV, Parquet, JSON
+- **CLI and Python API** — run from the terminal or embed in notebooks
+- **Extensible** — add your own models as Python modules
 
-For more details on the contents of this package, see the API reference.
+## Learn More
+
+- [Quickstart](Getting%20Started/quickstart.md) — run your first pipeline
+- [Concepts](Getting%20Started/concepts.md) — how DAGs work
+- [Models](Models/index.md) — built-in model overview
+- [Configuration](Usage/config.md) — TOML config reference
+- [CLI](Usage/cli.md) — command-line interface
+- [Examples](#) — interactive notebooks (run `just export-all` to generate)
