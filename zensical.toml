@@ -41,6 +41,15 @@ nav = [
       "Examples/full_pipeline.md",
   ]},
   { "API Reference" = [
+      "API/satterc.cli/index.md",
+      "API/satterc.cli/cli.md",
+      "API/satterc.cli/graph.md",
+      "API/satterc.cli/run.md",
+      "API/satterc.cli/setup.md",
+      "API/satterc.cli/data_gen.md",
+      "API/satterc.cli/version.md",
+      "API/satterc.config.md",
+      "API/satterc.driver.md",
       "API/satterc.pipeline/satterc.pipeline.inputs/daily.md",
       "API/satterc.pipeline/satterc.pipeline.inputs/weekly.md",
       "API/satterc.pipeline/satterc.pipeline.inputs/monthly.md",
@@ -55,17 +64,12 @@ nav = [
       "API/satterc.pipeline/pipeline.outputs/weekly.md",
       "API/satterc.pipeline/pipeline.outputs/monthly.md",
       "API/satterc.pipeline/pipeline.outputs/static.md",
+      "API/satterc.setup_utils/config_gen.md",
+      "API/satterc.setup_utils/data_gen/daily.md",
+      "API/satterc.setup_utils/data_gen/fallback.md",
+      "API/satterc.setup_utils/data_gen/generate.md",
+      "API/satterc.setup_utils/data_gen/static.md",
   ]},
-  { "CLI Reference" = [
-      "CLI Reference/index.md",
-      "CLI Reference/cli.md",
-      "CLI Reference/graph.md",
-      "CLI Reference/run.md",
-      "CLI Reference/setup.md",
-      "CLI Reference/data_gen.md",
-      "CLI Reference/version.md",
-  ]},
-  { "About" = "about.md" },
 ]
 
 # Katex

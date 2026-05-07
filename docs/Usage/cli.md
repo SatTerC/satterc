@@ -8,7 +8,7 @@ icon: lucide/terminal
 SatTerC provides a `satterc` command for running pipelines from the terminal.
 This guide walks through a typical workflow from setup to execution.
 
-For a complete reference of all commands, arguments, and options, see the [CLI Reference](../CLI%20Reference/index.md).
+For a complete reference of all commands, arguments, and options, see the [CLI Reference](../API/satterc.cli/index.md).
 
 ## The Workflow
 
@@ -139,4 +139,4 @@ satterc setup -h
 satterc data-gen generate -h
 ```
 
-For detailed documentation on each CLI module's functions and parameters, see the [CLI Reference](../CLI%20Reference/index.md).
+For detailed documentation on each CLI module's functions and parameters, see the [CLI Reference](../API/satterc.cli/index.md).
