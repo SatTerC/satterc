@@ -1,4 +1,4 @@
-"""Tests for single-point CSV/Parquet/JSON/YAML/TOML I/O modules."""
+"""Tests for single-point CSV/Parquet/JSON/TOML I/O modules."""
 
 import json
 from pathlib import Path
@@ -58,16 +58,6 @@ def static_json(tmp_path) -> tuple[Path, dict]:
     data = {"elevation": 150.0, "land_cover": 3.0}
     path = tmp_path / "static.json"
     path.write_text(json.dumps(data))
-    return path, data
-
-
-@pytest.fixture
-def static_yaml(tmp_path) -> tuple[Path, dict]:
-    yaml = pytest.importorskip("yaml")
-    data = {"elevation": 150.0, "land_cover": 3.0}
-    path = tmp_path / "static.yaml"
-    with open(path, "w") as f:
-        yaml.dump(data, f)
     return path, data
 
 
@@ -166,10 +156,6 @@ class TestLoadStatic:
 
     def test_json(self, static_json):
         path, data = static_json
-        self._check_static_ds(load_static(path), data)
-
-    def test_yaml(self, static_yaml):
-        path, data = static_yaml
         self._check_static_ds(load_static(path), data)
 
     def test_toml(self, static_toml):

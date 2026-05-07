@@ -65,7 +65,7 @@ def load_timeseries(path: str | PathLike) -> xr.Dataset:
 
 
 def load_static(path: str | PathLike) -> xr.Dataset:
-    """Load single-point static inputs from JSON, YAML, or TOML.
+    """Load single-point static inputs from JSON or TOML.
 
     Returns a Dataset with dim (pixel,) where pixel has coordinate value 0.
     """
@@ -78,23 +78,11 @@ def load_static(path: str | PathLike) -> xr.Dataset:
     if suffix == ".json":
         with open(p) as f:
             data: dict = json.load(f)
-    elif suffix in (".yaml", ".yml"):
-        try:
-            import yaml
-        except ImportError as e:
-            raise ImportError(
-                "PyYAML is required for YAML static inputs. "
-                "Install it with: uv add pyyaml"
-            ) from e
-        with open(p) as f:
-            data = yaml.safe_load(f)
     elif suffix == ".toml":
         with open(p, "rb") as f:
             data = tomllib.load(f)
     else:
-        raise ValueError(
-            f"Unsupported format: '{suffix}'. Use '.json', '.yaml', '.yml', or '.toml'."
-        )
+        raise ValueError(f"Unsupported format: '{suffix}'. Use '.json' or '.toml'.")
 
     return xr.Dataset(
         {
@@ -110,7 +98,7 @@ def _load_raw(path: str) -> xr.Dataset:
     suffix = Path(path).suffix.lower()
     if suffix in (".nc", ".netcdf", ".zarr"):
         return load_dataset(path)
-    if suffix in (".json", ".yaml", ".yml", ".toml"):
+    if suffix in (".json", ".toml"):
         return load_static(path)
     return load_timeseries(path)  # raises ValueError for unsupported extensions
 

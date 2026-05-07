@@ -68,7 +68,6 @@ SatTerC builds on the following open-source projects:
 
 - [Hamilton](https://github.com/dagworks-inc/hamilton) — DAG-based dataflow framework
 - [pyrealm](https://github.com/ImperialCollegeLondon/pyrealm) — SPLASH and P-Model implementations
-- [SGAM](https://github.com/ImperialCollegeLondon/sgam) — Storage Gap Assimilation Model
 - [RothC-Py](https://github.com/Rothamsted-Models/RothC_Py) — Rothamsted Carbon Model
 - [xarray](https://docs.xarray.dev/) — N-D labeled arrays and datasets
 - [Typer](https://typer.tiangolo.com/) — CLI framework
