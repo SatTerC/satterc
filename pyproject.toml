@@ -24,6 +24,7 @@ dependencies = [
     "tomli-w>=1.2.0",
     "typer>=0.24.1",
     "xarray>=2026.2.0",
+    "zarr>=3.2.1",
 ]
 
 [project.scripts]
