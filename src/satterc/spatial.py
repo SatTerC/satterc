@@ -1,18 +1,20 @@
+"""Spatial dimension stacking utilities."""
+
+import rioxarray as rioxarray
 import xarray as xr
-import rioxarray as rioxarray  # noqa: F401 — registers the .rio accessor
 
 
 def stack_spatial_dims(ds: xr.Dataset) -> xr.Dataset:
     """Stack spatial dimensions into a single pixel dimension.
 
-    Parameters:
-    -----------
+    Parameters
+    ----------
     ds : xr.Dataset
         Input Dataset with spatial dimensions at positions 1 and 2 in the
         dimensions list (with 'time' being the first dimension).
 
-    Returns:
-    --------
+    Returns
+    -------
     xr.Dataset
         Dataset with two spatial dimensions stacked into a single 'pixel' dimension.
     """
@@ -26,6 +28,7 @@ def stack_spatial_dims(ds: xr.Dataset) -> xr.Dataset:
     # This turns 'pixel' into a simple 0, 1, 2... index and
     # transforms y and x into standard 1D arrays aligned with 'pixel'
     # ds_lexi = ds_stacked.reset_index("pixel", drop=True)
-    # NOTE: This may be a good idea, but need to change how the lat-lon grid is computed if so.
+    # NOTE: This may be a good idea, but need to change lat-lon grid
+    # computation if so.
 
     return ds_stacked

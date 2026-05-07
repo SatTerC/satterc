@@ -1,10 +1,12 @@
-from hamilton.function_modifiers import extract_fields
+"""Storage Gap Model (SGAM) vegetation model interface for the SatTerC pipeline."""
+
 import numpy as np
 import pandas as pd
-from numpy.typing import NDArray
 import xarray as xr
+from hamilton.function_modifiers import extract_fields
+from numpy.typing import NDArray
 from sgam import Disturbances, Sgam
-from sgam.pft import PlantFunctionalType, PftParams, get_default_pft_params
+from sgam.pft import PftParams, PlantFunctionalType, get_default_pft_params
 
 from ._utils import xarray_io
 

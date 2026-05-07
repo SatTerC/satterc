@@ -13,7 +13,6 @@ from satterc.setup_utils.data_gen.fallback import (
     build_fallback_module,
 )
 
-
 N_DAYS = 10
 N_LAT, N_LON = 2, 3
 N_PIXELS = N_LAT * N_LON

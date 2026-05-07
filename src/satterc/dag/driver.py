@@ -1,3 +1,5 @@
+"""Build Hamilton drivers from configured module lists."""
+
 from importlib import import_module
 from typing import Any
 
@@ -19,6 +21,22 @@ def build_driver(
     config: dict[str, Any],
     allow_module_overrides: bool = False,
 ) -> driver.Driver:
+    """Build a Hamilton driver from a list of module names and config.
+
+    Parameters
+    ----------
+    modules
+        List of module identifiers (e.g., "models.pmodel", "resample").
+    config
+        Configuration dict passed to the Hamilton driver.
+    allow_module_overrides
+        If True, allow later modules to override earlier ones.
+
+    Returns
+    -------
+    driver.Driver
+        A configured Hamilton driver ready for execution.
+    """
     config[ENABLE_POWER_USER_MODE] = True
 
     from satterc.dag.derive import make_derive_module

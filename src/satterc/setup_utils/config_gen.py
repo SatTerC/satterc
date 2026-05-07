@@ -4,17 +4,17 @@ This module contains the logic for generating configuration files
 by introspecting the Hamilton driver and discovering required inputs.
 """
 
-from importlib import import_module
 import inspect
-from typing import Any
+from importlib import import_module
 from types import ModuleType
+from typing import Any
 
+import xarray as xr
 from hamilton import driver
 from hamilton.settings import ENABLE_POWER_USER_MODE
-import xarray as xr
 
-from ..config import Config
 from .. import dag as dag_modules
+from ..config import Config
 
 
 def _analyze_model_module(
@@ -255,7 +255,8 @@ def generate_config(
                     "from_freq": from_freq,
                     "to_freq": to_freq,
                     # aggfunc omitted → defaults to "mean" at parse time
-                    # TODO: support per-variable aggfunc (e.g. auto-classify precipitation as sum)
+                    # TODO: support per-variable aggfunc (e.g. auto-classify
+                    # precipitation as sum)
                 }
             )
     if resample_list:

@@ -4,19 +4,18 @@ from os import PathLike
 from pathlib import Path
 from typing import Any, cast
 
-from .config import IOSpec
-
 import numpy as np
 import pandas as pd
+import rioxarray as rioxarray
 import xarray as xr
-import rioxarray as rioxarray  # noqa: F401 — registers the .rio accessor
 from pyproj import Transformer
 
+from .config import IOSpec
 from .spatial import stack_spatial_dims
 
 
 class MisalignedGridError(Exception):
-    pass
+    """Raised when two datasets do not share a common CRS and coordinates."""
 
 
 # ---------------------------------------------------------------------------
@@ -110,7 +109,7 @@ def _load_raw(path: str) -> xr.Dataset:
 
 
 def stack_if_gridded(ds: xr.Dataset) -> xr.Dataset:
-    """Stack (y, x) → pixel if the dataset is a CRS-bearing 2D grid; pass through otherwise."""
+    """Stack (y, x) to pixel if CRS-bearing 2D grid; pass through otherwise."""
     if "pixel" in ds.dims:
         return ds
     if ds.rio.crs is not None:
@@ -119,7 +118,7 @@ def stack_if_gridded(ds: xr.Dataset) -> xr.Dataset:
 
 
 def unstack_if_gridded(ds: xr.Dataset) -> xr.Dataset:
-    """Unstack pixel → (y, x) if pixel is a (y, x) MultiIndex; pass through otherwise."""
+    """Unstack pixel to (y, x) if MultiIndex; pass through otherwise."""
     if "pixel" in ds.dims and isinstance(ds.indexes.get("pixel"), pd.MultiIndex):
         return ds.unstack("pixel")
     return ds
@@ -155,7 +154,8 @@ def _validate_dates(ds: xr.Dataset, freq: str) -> pd.DatetimeIndex:
 
     if not passes:
         raise ValueError(
-            f"Expected '{freq}' time index with frequency '{expected}', got '{inferred}'"
+            f"Expected '{freq}' time index with frequency '{expected}', "
+            f"got '{inferred}'"
         )
 
     return idx
@@ -173,7 +173,7 @@ def _check_common_grid(
     label2: str = "ds2",
     atol: float = 1e-6,
 ) -> None:
-    """Raise MisalignedGridError if two datasets do not share a common CRS and coordinates."""
+    """Raise MisalignedGridError if CRS and coordinates do not match."""
     if ds1.rio.crs != ds2.rio.crs:
         raise MisalignedGridError(
             f"Mismatched CRS! {label1}={ds1.rio.crs} ≠ {label2}={ds2.rio.crs}"
@@ -206,7 +206,7 @@ def _compute_lat_lon(
     x = ref_ds[x_dim].values
     y = ref_ds[y_dim].values
 
-    # indexing="ij": x varies along axis 0, y along axis 1 — matches (x, y) DataArray dims
+    # indexing="ij": x varies along axis 0, y along axis 1
     x_grid, y_grid = np.meshgrid(x, y, indexing="ij")
     transformer = Transformer.from_crs(ref_ds.rio.crs, "EPSG:4326", always_xy=True)
     lon_grid, lat_grid = transformer.transform(x_grid, y_grid)
@@ -228,7 +228,7 @@ def _compute_lat_lon(
 
 
 def dataset_to_dataframe(ds: xr.Dataset) -> pd.DataFrame:
-    """Convert an output Dataset to a DataFrame, squeezing the size-1 pixel dim if present."""
+    """Convert output Dataset to DataFrame, squeezing size-1 pixel dim if present."""
     if "pixel" in ds.dims:
         ds = ds.squeeze("pixel", drop=True)
     return ds.to_dataframe()

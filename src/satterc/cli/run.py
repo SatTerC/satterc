@@ -1,3 +1,5 @@
+"""Execute a pipeline defined in a configuration file."""
+
 from pathlib import Path
 from typing import Annotated
 
@@ -5,7 +7,7 @@ import typer
 
 from ..config import load_config
 from ..dag.driver import build_driver
-from ..io import load_inputs, get_outputs, save_outputs
+from ..io import get_outputs, load_inputs, save_outputs
 
 app = typer.Typer(help="Execute a pipeline defined in a configuration file.")
 

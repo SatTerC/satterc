@@ -54,7 +54,7 @@ class TestBuildDriverErrors:
             build_driver(["models.nonexistent"], {})
 
     def test_unknown_model_lists_known_models(self):
-        with pytest.raises(ValueError, match="models.pmodel"):
+        with pytest.raises(ValueError, match=r"models\.pmodel"):
             build_driver(["models.typo"], {})
 
     def test_non_importable_custom_module_raises(self):

@@ -8,15 +8,14 @@ import pandas as pd
 import pytest
 import xarray as xr
 
-from satterc.io import (
-    load_timeseries,
-    load_static,
-    dataset_to_dataframe,
-    save_timeseries,
-    load_inputs,
-)
 from satterc.config import IOSpec
-
+from satterc.io import (
+    dataset_to_dataframe,
+    load_inputs,
+    load_static,
+    load_timeseries,
+    save_timeseries,
+)
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -76,7 +75,7 @@ def static_toml(tmp_path) -> tuple[Path, dict]:
 
 class TestLoadTimeseries:
     def test_csv_shape(self, daily_csv):
-        path, df = daily_csv
+        path, _df = daily_csv
         ds = load_timeseries(path)
         assert ds.sizes == {"time": N_DAYS, "pixel": 1}
 
@@ -104,7 +103,7 @@ class TestLoadTimeseries:
         )
 
     def test_parquet_shape(self, daily_parquet):
-        path, df = daily_parquet
+        path, _df = daily_parquet
         ds = load_timeseries(path)
         assert ds.sizes == {"time": N_DAYS, "pixel": 1}
 

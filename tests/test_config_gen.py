@@ -1,8 +1,7 @@
 """Tests for setup_utils/config_gen.py."""
 
 from satterc.setup_utils import generate_config, get_model_params
-from satterc.setup_utils.config_gen import _strip_suffix, _infer_required_data
-
+from satterc.setup_utils.config_gen import _infer_required_data, _strip_suffix
 
 PATH_DEFAULTS = {
     "inputs_daily": "inputs/daily.nc",

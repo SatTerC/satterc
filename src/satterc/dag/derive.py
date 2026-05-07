@@ -1,8 +1,10 @@
+"""Generate Hamilton-compatible derive modules from config specs."""
+
 import sys
 import types
 import uuid
 from importlib import import_module
-from typing import Any, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 import xarray as xr
 
@@ -30,7 +32,8 @@ def _build_fn_code(spec: "DeriveSpec") -> str:
     else:
         kwargs = ", ".join(f"{inp}={inp}" for inp in spec.inputs)
         body = (
-            f"    _fn = getattr(import_module({spec.import_path!r}), {spec.function!r})\n"
+            f"    _fn = getattr(import_module({spec.import_path!r}), "
+            f"{spec.function!r})\n"
             f"    return _fn({kwargs})"
         )
     return f"def {spec.output}({params}) -> xr.DataArray:\n{body}\n"

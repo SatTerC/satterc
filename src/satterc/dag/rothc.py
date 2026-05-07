@@ -1,13 +1,14 @@
-from hamilton.function_modifiers import extract_fields
+"""RothC soil carbon model interface for the SatTerC pipeline."""
+
 import numpy as np
+import pandas as pd
+import xarray as xr
+from hamilton.function_modifiers import extract_fields
 from numpy.typing import NDArray
 from pandas import DatetimeIndex
-import pandas as pd
-from xarray import DataArray
-import xarray as xr
-
 from rothc_py import RothC, percent_modern_c
 from rothc_py.containers import InputData
+from xarray import DataArray
 
 from ._utils import xarray_io
 
@@ -183,6 +184,10 @@ def plant_cover_monthly(
 def dpm_rpm_ratio_monthly(
     plant_type: DataArray, dates_monthly: DatetimeIndex
 ) -> DataArray:
+    """Return the DPM/RPM ratio for RothC based on plant type.
+
+    Currently returns a constant value; future versions may use PFT-specific ratios.
+    """
     # TODO: get pft-specific dpm/rpm ratio and return constant Array
     value = 1.44  # crop and improved grassland
     # value = 0.67  # unimproved grassland and scrub

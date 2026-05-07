@@ -6,13 +6,13 @@ to calculate soil moisture, actual evapotranspiration (AET), and runoff based
 on climate inputs.
 """
 
-from hamilton.function_modifiers import extract_fields
 import numpy as np
+import pyrealm.core.calendar
+import pyrealm.splash.splash
+from hamilton.function_modifiers import extract_fields
 from numpy.typing import NDArray
 from pandas import DatetimeIndex
 from xarray import DataArray
-import pyrealm.splash.splash
-import pyrealm.core.calendar
 
 from ._utils import xarray_io
 

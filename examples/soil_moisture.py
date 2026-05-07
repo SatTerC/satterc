@@ -40,7 +40,7 @@ def _():
     import matplotlib.pyplot as plt
     import numpy as np
     import xarray as xr
-    from scipy.optimize import minimize, OptimizeResult
+    from scipy.optimize import OptimizeResult, minimize
 
     from satterc import build_driver, load_inputs
     from satterc.config import Config

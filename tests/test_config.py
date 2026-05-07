@@ -4,8 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from satterc.config import Config, load_config, ParsedConfig, IOSpec, DeriveSpec
-
+from satterc.config import Config, DeriveSpec, IOSpec, ParsedConfig, load_config
 
 TEST_CONFIG_PATH = Path(__file__).parent / "test_config.toml"
 
@@ -148,11 +147,15 @@ class TestValidation:
 
     def test_unknown_model_raises_value_error(self, tmp_path):
         config = Config({"models": {"unknown_model": {"param": "value"}}})
-        with pytest.raises(ValueError, match="unknown_model"):
+
+        def _build():
             from satterc.dag.driver import build_driver
 
             parsed = config.parse()
             build_driver(parsed.modules, parsed.driver_config)
+
+        with pytest.raises(ValueError, match="unknown_model"):
+            _build()
 
     def test_duplicate_model_params_raise(self, tmp_path):
         config = Config(

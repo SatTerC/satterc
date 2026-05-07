@@ -1,3 +1,5 @@
+"""Setup utilities for generating configurations and synthetic data."""
+
 from enum import StrEnum
 
 from .config_gen import (
@@ -7,14 +9,16 @@ from .config_gen import (
 )
 
 __all__ = [
+    "BuiltinModels",
     "generate_config",
     "get_builtin_models",
     "get_model_params",
-    "BuiltinModels",
 ]
 
 
 class BuiltinModels(StrEnum):
+    """Enumeration of built-in model names."""
+
     SPLASH = "splash"
     PMODEL = "pmodel"
     SGAM = "sgam"

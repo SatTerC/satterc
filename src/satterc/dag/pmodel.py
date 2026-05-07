@@ -6,12 +6,12 @@ to calculate gross primary productivity (GPP), light use efficiency (LUE),
 and intrinsic water use efficiency (IWUE) from environmental inputs.
 """
 
-from hamilton.function_modifiers import extract_fields
 import numpy as np
-from numpy.typing import NDArray
-import xarray as xr
-from xarray import DataArray
 import pyrealm.pmodel
+import xarray as xr
+from hamilton.function_modifiers import extract_fields
+from numpy.typing import NDArray
+from xarray import DataArray
 
 from ._utils import xarray_io
 
@@ -99,7 +99,7 @@ def pmodel(
     mean_growth_temperature_weekly
         Mean growth temperature (degrees Celsius).
     aridity_index_weekly
-        Aridity index (dimensionless, ratio of actual evapotranspiration to precipitation).
+        Aridity index (dimensionless, ratio of AET to precipitation).
     method_optchi
         Method for calculating optimal chi (leaf-internal CO2 compensation point).
     method_jmaxlim
@@ -137,8 +137,7 @@ def pmodel(
 def mean_growth_temperature_weekly(
     temperature_celcius_daily: xr.DataArray,
 ) -> xr.DataArray:
-    """Calculate the mean temperature on 'growing degree days' where the temperature is > 0°C."""
-
+    """Calculate the mean temperature on growing degree days where temp > 0°C."""
     # NOTE: this may well be incorrect!! - see https://en.wikipedia.org/wiki/Growing_degree-day
     # Perhaps this depends on growing_season_limit?
 
@@ -146,5 +145,6 @@ def mean_growth_temperature_weekly(
     gdd_mask = temperature_celcius_daily > 0.0
 
     # Compute weekly mean, masking non-growing degree days
-    # TODO: if the whole week is < 0, this will include NaN. Need to check pmodel can deal with this!
+    # TODO: if the whole week is < 0, this will include NaN.
+    # Need to check pmodel can deal with this!
     return temperature_celcius_daily.where(gdd_mask).resample(time="7D").mean()

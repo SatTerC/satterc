@@ -124,7 +124,7 @@ class TestInputDataArrayDimensionVariations:
             return arr * 2
 
         with pytest.raises(
-            Exception, match="None of the xarray.DataArray inputs satisfy"
+            Exception, match=r"None of the xarray\.DataArray inputs satisfy"
         ):
             func(ref_datarray_1d)
 
@@ -137,7 +137,7 @@ class TestInputDataArrayDimensionVariations:
             return arr * 2
 
         with pytest.raises(
-            Exception, match="None of the xarray.DataArray inputs satisfy"
+            Exception, match=r"None of the xarray\.DataArray inputs satisfy"
         ):
             func(arr=ref_datarray_1d)
 
@@ -198,7 +198,7 @@ class TestOutputDimensionTests:
         def func(arr):
             return arr.mean(axis=0)
 
-        with pytest.raises(ValueError, match="time length.*equals pixel length"):
+        with pytest.raises(ValueError, match=r"time length.*equals pixel length"):
             func(da)
 
     def test_output_1d_unknown_length_raises(self, ref_datarray_2d):
@@ -318,7 +318,7 @@ class TestErrorCases:
             return arr
 
         with pytest.raises(
-            Exception, match="None of the xarray.DataArray inputs satisfy"
+            Exception, match=r"None of the xarray\.DataArray inputs satisfy"
         ):
             func(da_invalid)
 
@@ -334,7 +334,7 @@ class TestErrorCases:
             return arr
 
         with pytest.raises(
-            Exception, match="None of the xarray.DataArray inputs satisfy"
+            Exception, match=r"None of the xarray\.DataArray inputs satisfy"
         ):
             func(da_invalid)
 

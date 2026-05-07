@@ -4,7 +4,6 @@ import numpy as np
 import pandas as pd
 import xarray as xr
 
-
 # Carbon pool defaults (root tC/ha, leaf tC/ha, stem tC/ha) indexed by plant type.
 # 1=grassland, 2=C3 crop, 3=woodland
 _POOL_BY_TYPE: dict[int, tuple[float, float, float]] = {
@@ -101,9 +100,9 @@ def pixel_coords(lat: xr.DataArray, lon: xr.DataArray) -> pd.MultiIndex:
 
 
 def elevation(n_lat: int, n_lon: int, pixel_coords: pd.MultiIndex) -> xr.DataArray:
-    """Static elevation in meters.
+    """Generate static elevation in meters.
 
-    Generates a spatially coherent field using a bilinear base (south-north
+    Creates a spatially coherent field using a bilinear base (south-north
     gradient) with Gaussian noise smoothed by a box filter.
 
     Parameters
@@ -143,7 +142,7 @@ def elevation(n_lat: int, n_lon: int, pixel_coords: pd.MultiIndex) -> xr.DataArr
 
 
 def latitude(pixel_coords: pd.MultiIndex) -> xr.DataArray:
-    """Static latitude for each pixel, taken from the grid's y-coordinate.
+    """Return static latitude for each pixel, taken from the grid's y-coordinate.
 
     Parameters
     ----------
@@ -166,7 +165,7 @@ def latitude(pixel_coords: pd.MultiIndex) -> xr.DataArray:
 
 
 def plant_type(n_lat: int, n_lon: int, pixel_coords: pd.MultiIndex) -> xr.DataArray:
-    """Static plant type (1=grassland, 2=C3 crop, 3=woodland).
+    """Assign static plant type (1=grassland, 2=C3 crop, 3=woodland).
 
     Assigns types in a repeating spatial pattern so multi-pixel grids always
     contain at least two distinct plant types.
@@ -199,7 +198,7 @@ def plant_type(n_lat: int, n_lon: int, pixel_coords: pd.MultiIndex) -> xr.DataAr
 
 
 def max_soil_moisture(elevation: xr.DataArray) -> xr.DataArray:
-    """Static maximum soil moisture capacity in mm.
+    """Compute static maximum soil moisture capacity in mm.
 
     Decreases linearly with elevation: 300 mm at sea level, 100 mm at 1000 m.
 
@@ -225,7 +224,7 @@ def max_soil_moisture(elevation: xr.DataArray) -> xr.DataArray:
 
 
 def clay_content(n_lat: int, n_lon: int, pixel_coords: pd.MultiIndex) -> xr.DataArray:
-    """Static clay content fraction (0-1).
+    """Generate static clay content fraction (0-1).
 
     Parameters
     ----------
@@ -254,7 +253,7 @@ def clay_content(n_lat: int, n_lon: int, pixel_coords: pd.MultiIndex) -> xr.Data
 
 
 def soil_depth(elevation: xr.DataArray) -> xr.DataArray:
-    """Static soil depth in mm.
+    """Compute static soil depth in mm.
 
     Decreases with elevation: deeper soils in lowland valleys (1200 mm) and
     shallower on upland terrain (400 mm).
@@ -281,7 +280,7 @@ def soil_depth(elevation: xr.DataArray) -> xr.DataArray:
 
 
 def organic_carbon_stocks(elevation: xr.DataArray) -> xr.DataArray:
-    """Static soil organic carbon stocks in tC/ha.
+    """Compute static soil organic carbon stocks in tC/ha.
 
     Higher-elevation upland mineral soils carry less SOC than lowland peats.
 
@@ -310,7 +309,7 @@ def organic_carbon_stocks(elevation: xr.DataArray) -> xr.DataArray:
 
 
 def root_pool_init(plant_type: xr.DataArray) -> xr.DataArray:
-    """Initial root carbon pool in tC/ha, varying by plant type.
+    """Compute initial root carbon pool in tC/ha, varying by plant type.
 
     Parameters
     ----------
@@ -336,7 +335,7 @@ def root_pool_init(plant_type: xr.DataArray) -> xr.DataArray:
 
 
 def leaf_pool_init(plant_type: xr.DataArray) -> xr.DataArray:
-    """Initial leaf carbon pool in tC/ha, varying by plant type.
+    """Compute initial leaf carbon pool in tC/ha, varying by plant type.
 
     Parameters
     ----------
@@ -362,7 +361,7 @@ def leaf_pool_init(plant_type: xr.DataArray) -> xr.DataArray:
 
 
 def stem_pool_init(plant_type: xr.DataArray) -> xr.DataArray:
-    """Initial stem carbon pool in tC/ha, varying by plant type.
+    """Compute initial stem carbon pool in tC/ha, varying by plant type.
 
     Parameters
     ----------

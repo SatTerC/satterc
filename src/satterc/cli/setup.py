@@ -33,7 +33,8 @@ def _parse_duration(duration: str) -> int:
     match = DURATION_PATTERN.match(duration.lower())
     if not match:
         raise typer.BadParameter(
-            f"Invalid duration format: '{duration}'. Expected format like '2y', '6m', '30d'."
+            f"Invalid duration format: '{duration}'. "
+            f"Expected format like '2y', '6m', '30d'."
         )
     value, unit = match.groups()
     value = int(value)
@@ -77,7 +78,8 @@ def _toggle_selections(
         selections: Items to toggle
         available: Optional set of valid items for validation
 
-    Returns:
+    Returns
+    -------
         Updated list with toggled items
     """
     for item in selections:
@@ -189,7 +191,10 @@ def setup(
         None,
         "-m",
         "--models",
-        help="Built-in models (e.g., -m splash pmodel). If not provided, runs interactive selector.",
+        help=(
+            "Built-in models (e.g., -m splash pmodel). "
+            "If not provided, runs interactive selector."
+        ),
     ),
     output: Path = typer.Option(
         Path("config.toml"),
@@ -212,7 +217,8 @@ def setup(
     if output.exists():
         if defaults:
             typer.echo(
-                f"Error: {output} already exists. Use --output to specify a different path.",
+                f"Error: {output} already exists. "
+                f"Use --output to specify a different path.",
                 err=True,
             )
             raise typer.Exit(1)
@@ -226,8 +232,8 @@ def setup(
         for name in model_names:
             try:
                 builtin_models.append(BuiltinModels(name).value)
-            except ValueError:
-                raise typer.BadParameter(f"Invalid model: {name}")
+            except ValueError as err:
+                raise typer.BadParameter(f"Invalid model: {name}") from err
     else:
         typer.echo("SatTerC Configuration Generator")
         typer.echo("=" * 35)

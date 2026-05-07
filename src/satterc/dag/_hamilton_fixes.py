@@ -1,8 +1,8 @@
-from collections.abc import Collection
-from typing import Any, Callable
+from collections.abc import Callable, Collection
+from typing import Any
 
-from hamilton.function_modifiers.base import NodeTransformer, TargetType
 import hamilton.node as node
+from hamilton.function_modifiers.base import NodeTransformer, TargetType
 from hamilton.function_modifiers.delayed import resolve
 
 

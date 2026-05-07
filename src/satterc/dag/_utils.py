@@ -1,12 +1,13 @@
 import functools
-from typing import Any, Callable, Type
+from collections.abc import Callable
+from typing import Any
 
 import numpy as np
 import pandas as pd
 import xarray as xr
 
 # Define the supported backends explicitly
-SupportedArrayTypes: tuple[Type, ...] = (np.ndarray,)
+SupportedArrayTypes: tuple[type, ...] = (np.ndarray,)
 
 try:
     import jax  # type: ignore[reportMissingImports]
@@ -19,26 +20,27 @@ except ImportError:
 
 
 def xarray_io() -> Callable[[Callable[..., Any]], Callable[..., Any]]:
-    """A decorator to bridge Xarray to NumPy/JAX functions.
+    """Bridge xarray.DataArray inputs to NumPy/JAX functions.
 
-    This is designed to decorate functions that take one of the `SupportedArrayTypes` (`numpy.ndarray`
-    or `jax.Array`) as arguments, to allow them to take `xarray.DataArray` arguments instead. Any
-    `xarray.DataArray` inputs passed to the decorated function will be internally converted to a
-    SupportedArrayType by accessing its `data` attribute and passing this to the wrapped function.
-    Similarly, any returned values that are `SupportedArrayTypes` will be converted back into
-    `xarray.DataArray`.
+    This is designed to decorate functions that take one of the `SupportedArrayTypes`
+    (`numpy.ndarray` or `jax.Array`) as arguments, to allow them to take
+    `xarray.DataArray` arguments instead. Any `xarray.DataArray` inputs passed to
+    the decorated function will be internally converted to a SupportedArrayType by
+    accessing its `data` attribute and passing this to the wrapped function.
+    Similarly, any returned values that are `SupportedArrayTypes` will be converted
+    back into `xarray.DataArray`.
 
-    Parameters:
-    -----------
+    Parameters
+    ----------
     inject_time
-        If non-False, the datetime index of the first `xarray.DataArray` will be passed to the
-        decorated function kwargs. If `True`, the kwarg will be called `time`. If instead a `str`
-        is provided, this will be used instead.
+        If non-False, pass the datetime index of the first `xarray.DataArray` to
+        the decorated function kwargs. If `True`, the kwarg will be called `time`.
+        If instead a `str` is provided, this will be used instead.
 
-    Note:
-    -----
-    Currently, the time dimension MUST be called "time" and the spatial coordinate dimension
-    MUST be called "pixel".
+    Note
+    ----
+    Currently, the time dimension MUST be called "time" and the spatial coordinate
+    dimension MUST be called "pixel".
     """
 
     def decorator(func: Callable[..., Any]) -> Callable[..., Any]:
@@ -49,12 +51,12 @@ def xarray_io() -> Callable[[Callable[..., Any]], Callable[..., Any]]:
             all_inputs = list(args) + list(kwargs.values())
             da_inputs = [v for v in all_inputs if isinstance(v, xr.DataArray)]
 
-            # If no xarray.DataArray, pass the unmodified args through and return the result
+            # If no xarray.DataArray, pass unmodified args through and return
             if not da_inputs:
                 return func(*args, **kwargs)
 
             def _is_valid_reference(da: xr.DataArray) -> bool:
-                """Checks if a DataArray can serve as a reference for reconstructing dimensions."""
+                """Check if a DataArray can serve as a dimension reference."""
                 return (
                     (da.ndim == 2)
                     and da.dims[0] == "time"
@@ -64,7 +66,8 @@ def xarray_io() -> Callable[[Callable[..., Any]], Callable[..., Any]]:
             valid_references = [v for v in da_inputs if _is_valid_reference(v)]
             if not valid_references:
                 raise ValueError(
-                    "None of the xarray.DataArray inputs satisfy the criteria for this decorator."
+                    "None of the xarray.DataArray inputs satisfy "
+                    "the criteria for this decorator."
                 )
             reference_da = valid_references[0]
 
@@ -89,8 +92,9 @@ def xarray_io() -> Callable[[Callable[..., Any]], Callable[..., Any]]:
                         ref_pixel_len = len(reference_da.coords["pixel"])
                         if ref_time_len == ref_pixel_len:
                             raise ValueError(
-                                f"Cannot infer dimension for 1D array of length {len(v)}: "
-                                f"time length ({ref_time_len}) equals pixel length ({ref_pixel_len}). "
+                                f"Cannot infer dimension for 1D array of length "
+                                f"{len(v)}: time length ({ref_time_len}) equals "
+                                f"pixel length ({ref_pixel_len}). "
                                 "Return the array in a dict with an explicit key, "
                                 "e.g. {'time': arr} or {'pixel': arr}."
                             )
@@ -100,9 +104,9 @@ def xarray_io() -> Callable[[Callable[..., Any]], Callable[..., Any]]:
                             new_dims = ("pixel",)
                         else:
                             raise ValueError(
-                                f"Cannot infer dimension for 1D array of length {len(v)}: "
-                                f"does not match time length ({ref_time_len}) "
-                                f"or pixel length ({ref_pixel_len})."
+                                f"Cannot infer dimension for 1D array of length "
+                                f"{len(v)}: does not match time length "
+                                f"({ref_time_len}) or pixel length ({ref_pixel_len})."
                             )
                     elif v.ndim == 2:
                         # Check if shape is (pixel, time) or (time, pixel)
@@ -118,7 +122,8 @@ def xarray_io() -> Callable[[Callable[..., Any]], Callable[..., Any]]:
                     else:
                         raise NotImplementedError(
                             f"Repacking {v.ndim}D arrays is not supported. "
-                            "xarray_io-decorated functions may only return 0D, 1D, or 2D arrays."
+                            "xarray_io-decorated functions may only return "
+                            "0D, 1D, or 2D arrays."
                         )
 
                     return xr.DataArray(

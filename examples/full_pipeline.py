@@ -32,7 +32,7 @@ def _():
     import marimo as mo  # required for Markdown etc.
     import matplotlib.pyplot as plt
 
-    from satterc import build_driver, load_inputs, get_outputs
+    from satterc import build_driver, get_outputs, load_inputs
     from satterc.config import Config
     from satterc.setup_utils.data_gen import generate_synthetic_data
 

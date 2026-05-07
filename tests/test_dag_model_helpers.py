@@ -12,10 +12,9 @@ import pandas as pd
 import pytest
 import xarray as xr
 
+from satterc.dag import pmodel as pmodel_module
 from satterc.dag import rothc as rothc_module
 from satterc.dag import sgam as sgam_module
-from satterc.dag import pmodel as pmodel_module
-
 
 # ---------------------------------------------------------------------------
 # Shared helpers
@@ -436,7 +435,7 @@ class TestSgamInnerExecution:
     """Smoke test: _sgam() runs end-to-end with minimal synthetic inputs."""
 
     def test_sgam_inner_returns_dict(self):
-        from satterc.dag.sgam import _sgam, _build_pft_params_dataset
+        from satterc.dag.sgam import _build_pft_params_dataset, _sgam
 
         n_weeks = 52
         n_pixels = 1
@@ -481,7 +480,7 @@ class TestSgamInnerExecution:
         assert "soil_organic_carbon_monthly" not in result
 
     def test_sgam_outputs_non_negative_pools(self):
-        from satterc.dag.sgam import _sgam, _build_pft_params_dataset
+        from satterc.dag.sgam import _build_pft_params_dataset, _sgam
 
         n_weeks = 52
         n_pixels = 1

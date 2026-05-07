@@ -15,7 +15,6 @@ from satterc.cli.graph import custom_style
 from satterc.cli.setup import _display_models, _parse_selections, _toggle_selections
 from satterc.config import load_config
 
-
 runner = CliRunner()
 
 
@@ -24,7 +23,7 @@ runner = CliRunner()
 # ---------------------------------------------------------------------------
 
 
-@pytest.fixture()
+@pytest.fixture
 def config_toml(tmp_path, synthetic_data_dir):
     """Config TOML pointing to session-scoped synthetic NetCDF files."""
     content = f"""\
@@ -62,7 +61,7 @@ vars = [
     return p
 
 
-@pytest.fixture()
+@pytest.fixture
 def datagen_config_toml(tmp_path):
     """Config TOML and output data dir for data-gen generate tests.
 
@@ -247,7 +246,7 @@ class TestDataGenGenerateCommand:
         assert "Random seed" in result.output
 
     def test_overwrite_confirmed_reruns_successfully(self, datagen_config_toml):
-        toml_path, data_dir = datagen_config_toml
+        toml_path, _data_dir = datagen_config_toml
         # First run creates files.
         runner.invoke(
             app, ["data-gen", "generate", str(toml_path), "--duration", "30d"]
@@ -261,7 +260,7 @@ class TestDataGenGenerateCommand:
         assert result.exit_code == 0, result.output
 
     def test_overwrite_declined_aborts(self, datagen_config_toml):
-        toml_path, data_dir = datagen_config_toml
+        toml_path, _data_dir = datagen_config_toml
         runner.invoke(
             app, ["data-gen", "generate", str(toml_path), "--duration", "30d"]
         )

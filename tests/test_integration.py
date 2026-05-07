@@ -7,7 +7,6 @@ then execute pipeline nodes to verify the full stack — config → load_inputs
 
 import numpy as np
 
-
 N_PIXELS = 4  # 2x2 grid
 N_DAYS = 365
 N_MONTHS = 12

@@ -2,11 +2,11 @@
 
 import os
 import tomllib
-import tomli_w
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Self
 
+import tomli_w
 
 _RESAMPLE_FREQ_MAP: dict[tuple[str, str], str] = {
     ("daily", "weekly"): "7D",
@@ -32,7 +32,7 @@ class ResampleSpec:
 
     @property
     def freq(self) -> str:
-        """xarray resample frequency string derived from source_freq/target_freq pair."""
+        """Return xarray resample frequency string from source/target freq pair."""
         return _RESAMPLE_FREQ_MAP[(self.source_freq, self.target_freq)]
 
     @classmethod
@@ -144,7 +144,8 @@ class Config:
         path = Path(path)
         if path.exists() and not overwrite_ok:
             raise FileExistsError(
-                f"There is already a file at {path}! Consider passing `overwrite_ok=True`."
+                f"There is already a file at {path}! "
+                f"Consider passing `overwrite_ok=True`."
             )
         path.write_text(toml_str)
 
@@ -153,7 +154,10 @@ class Config:
         return tomli_w.dumps(self._data)
 
     def _parse_grid(self, data: dict, driver_config: dict) -> list[str]:
-        """Handle [grid] section — silently accepted; grid computation moved to load_inputs()."""
+        """Handle [grid] section.
+
+        Silently accepted; grid computation moved to load_inputs().
+        """
         data.pop("grid", None)
         return []
 

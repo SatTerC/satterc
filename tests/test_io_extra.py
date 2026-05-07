@@ -16,13 +16,12 @@ import xarray as xr
 
 from satterc.config import IOSpec
 from satterc.io import (
-    load_dataset,
-    get_outputs,
-    save_outputs,
-    _validate_dates,
     _save_netcdf,
+    _validate_dates,
+    get_outputs,
+    load_dataset,
+    save_outputs,
 )
-
 
 # ---------------------------------------------------------------------------
 # Helpers

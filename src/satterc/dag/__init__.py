@@ -1,3 +1,5 @@
-from . import splash, pmodel, sgam, rothc, resample
+"""DAG modules for the SatTerC pipeline."""
 
-__all__ = ["splash", "pmodel", "sgam", "rothc", "resample"]
+from . import pmodel, resample, rothc, sgam, splash
+
+__all__ = ["pmodel", "resample", "rothc", "sgam", "splash"]

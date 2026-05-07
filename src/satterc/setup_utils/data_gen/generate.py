@@ -10,11 +10,11 @@ import xarray as xr
 from hamilton import driver
 from hamilton.settings import ENABLE_POWER_USER_MODE
 
+from ...config import ParsedConfig, ResampleSpec
+from ...dag import resample
+from ...io import dataset_to_dataframe, save_timeseries, unstack_if_gridded
 from . import daily, static
 from .fallback import build_fallback_module
-from ...dag import resample
-from ...io import unstack_if_gridded, save_timeseries, dataset_to_dataframe
-from ...config import ParsedConfig, ResampleSpec
 
 _FLAT_SUFFIXES = {".csv", ".parquet", ".pq"}
 

@@ -6,10 +6,12 @@ build-backend = "uv_build"
 name = "satterc"
 version = "0.3.0"
 description = "Add your description here"
-readme = "README.md"
 authors = [
     { name = "jmarshrossney", email = "17361029+jmarshrossney@users.noreply.github.com" }
 ]
+readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE"]
 requires-python = ">=3.13"
 dependencies = [
     "netcdf4>=1.7.4",
@@ -29,6 +31,11 @@ dependencies = [
 
 [project.scripts]
 satterc = "satterc.cli:main"
+
+[project.urls]
+Homepage = "https://SatTerC.github.io/satterc"
+Repository = "https://github.com/SatTerC/satterc"
+Documentation = "https://SatTerC.github.io/satterc"
 
 [dependency-groups]
 dev = [
@@ -68,6 +75,37 @@ include = ["src/", "tests/"]
 line-length = 88
 indent-width = 4
 target-version = "py313"
+
+[tool.ruff.lint]
+select = [
+    "E",   # pycodestyle errors
+    "D",   # pydocstyle
+    "W",   # pycodestyle warnings
+    "F",   # pyflakes
+    "UP",  # pyupgrade
+    "B",   # flake8-bugbear
+    "SIM", # flake8-simplify
+    "RUF", # ruff-specific rules
+    "PT",  # flake8-pytest-style
+    "I",   # isort
+]
+
+[tool.ruff.lint.per-file-ignores]
+# Except tests and scripts from docstring requirements
+"tests/**" = ["D", "E501"]
+"scripts/**" = ["D"]
+# Typer CLI modules use typer.Option() in function signatures as standard practice.
+"src/satterc/cli/**" = ["B008"]
+# Marimo notebooks use bare expressions for display output (B018),
+# contain prose that naturally exceeds 88 chars (E501),
+# include academic citations with en dashes (RUF001),
+# may have unused variables from exploratory cells (F841),
+# use scientific notation with Greek letters (RUF003),
+# and are exploratory notebooks without module docstrings (D100, D401).
+"examples/**" = ["B018", "E501", "F841", "RUF001", "RUF003", "D100", "D401"]
+
+[tool.ruff.lint.pydocstyle]
+convention = "numpy"
 
 [tool.pytest.ini_options]
 filterwarnings = [

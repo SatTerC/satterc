@@ -1,13 +1,14 @@
-from pathlib import Path
+"""Generate synthetic input data for testing."""
+
 import re
+from pathlib import Path
 from typing import Annotated
 
 import typer
 from typer import Abort
 
-from ..config import load_config, ParsedConfig
+from ..config import ParsedConfig, load_config
 from ..setup_utils.data_gen import generate_synthetic_data
-
 
 app = typer.Typer(help="Generate synthetic input data for testing.")
 
@@ -19,7 +20,8 @@ def _parse_duration(duration: str) -> int:
     match = DURATION_PATTERN.match(duration.lower())
     if not match:
         raise typer.BadParameter(
-            f"Invalid duration format: '{duration}'. Expected format like '2y', '6m', '30d'."
+            f"Invalid duration format: '{duration}'. "
+            f"Expected format like '2y', '6m', '30d'."
         )
     value, unit = match.groups()
     value = int(value)
@@ -35,7 +37,10 @@ def _parse_duration(duration: str) -> int:
 def _validate_output_paths(
     config: ParsedConfig,
 ) -> tuple[list[Path], list[Path], list[Path]]:
-    """Validate/create directories, prompt for overwrite if files exist. Returns paths."""
+    """Validate or create directories, prompt for overwrite if files exist.
+
+    Returns paths, directories to create, and files to overwrite.
+    """
     frequencies = ["daily", "weekly", "monthly", "static"]
 
     paths = []
@@ -83,7 +88,10 @@ def generate(
         typer.Option(
             "--duration",
             "-d",
-            help="Time duration (e.g., '2y' for 2 years, '6m' for 6 months, '30d' for 30 days).",
+            help=(
+                "Time duration (e.g., '2y' for 2 years, '6m' for 6 months, "
+                "'30d' for 30 days)."
+            ),
         ),
     ] = "2y",
     seed: Annotated[

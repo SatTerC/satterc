@@ -9,8 +9,8 @@ _compute_lat_lon() and _check_common_grid() from satterc.io.
 import numpy as np
 import pytest
 
-from satterc.io import MisalignedGridError, _check_common_grid, load_inputs
 from satterc.config import IOSpec
+from satterc.io import MisalignedGridError, _check_common_grid, load_inputs
 
 
 class TestCheckCommonGrid:
