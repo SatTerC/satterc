@@ -5,12 +5,12 @@ from hamilton import driver
 from hamilton.settings import ENABLE_POWER_USER_MODE
 
 MODULES: dict[str, str] = {
-    "derive": "satterc.pipeline.derive",
-    "resample": "satterc.pipeline.resample",
-    "models.splash": "satterc.pipeline.models.splash",
-    "models.pmodel": "satterc.pipeline.models.pmodel",
-    "models.sgam": "satterc.pipeline.models.sgam",
-    "models.rothc": "satterc.pipeline.models.rothc",
+    "derive": "satterc.dag.derive",
+    "resample": "satterc.dag.resample",
+    "models.splash": "satterc.dag.splash",
+    "models.pmodel": "satterc.dag.pmodel",
+    "models.sgam": "satterc.dag.sgam",
+    "models.rothc": "satterc.dag.rothc",
 }
 
 
@@ -21,7 +21,7 @@ def build_driver(
 ) -> driver.Driver:
     config[ENABLE_POWER_USER_MODE] = True
 
-    from satterc.pipeline.derive import make_derive_module
+    from satterc.dag.derive import make_derive_module
 
     modules_ = []
     for mod in modules:

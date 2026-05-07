@@ -131,7 +131,7 @@ The P-model returns three weekly `DataArray` outputs:
 
 ### Python API
 
-See the [API documentation](../api/satterc.pipeline/satterc.pipeline.models/pmodel.md) for full function signatures and parameter details.
+See the [API documentation](../api/satterc.dag/pmodel.md) for full function signatures and parameter details.
 
 ## References
 

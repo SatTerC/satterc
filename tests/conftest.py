@@ -4,7 +4,7 @@ import pytest
 import xarray as xr
 
 from satterc.config import load_config
-from satterc.driver import build_driver
+from satterc.dag.driver import build_driver
 from satterc.io import load_inputs
 from satterc.setup_utils.data_gen import generate_synthetic_data
 

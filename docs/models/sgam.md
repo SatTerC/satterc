@@ -240,7 +240,7 @@ $$\text{LAI} = \frac{\text{leaf\_pool}}{\text{leaf\_carbon\_area}}$$
 
 ### Python API
 
-See the [API documentation](../api/satterc.pipeline/satterc.pipeline.models/sgam.md) for full function signatures and parameter details.
+See the [API documentation](../api/satterc.dag/sgam.md) for full function signatures and parameter details.
 
 ## References
 

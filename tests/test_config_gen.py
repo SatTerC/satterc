@@ -27,45 +27,45 @@ class TestGetModelParams:
         # Passing the full dotted path to a known module must find the same
         # _parameters() function as passing the short name.
         params_short = get_model_params("rothc")
-        params_full = get_model_params("satterc.pipeline.models.rothc")
+        params_full = get_model_params("satterc.dag.rothc")
         assert params_full == params_short
 
     def test_module_without_parameters_func_returns_empty(self):
         # resample has no keyword-only parameters with defaults
-        assert get_model_params("satterc.pipeline.resample") == {}
+        assert get_model_params("satterc.dag.resample") == {}
 
 
 class TestGenerateConfigCustomModules:
     def test_custom_module_with_params_written_to_config(self):
         config = generate_config(
             builtin_models=[],
-            custom_modules=["satterc.pipeline.models.rothc"],
+            custom_modules=["satterc.dag.rothc"],
             paths=PATH_DEFAULTS,
         )
         # The nested dict for the custom module must contain the rothc params
         data = config._data
         assert "satterc" in data
-        assert "pipeline.models.rothc" in data["satterc"]
-        params = data["satterc"]["pipeline.models.rothc"]
+        assert "dag.rothc" in data["satterc"]
+        params = data["satterc"]["dag.rothc"]
         assert "n_years_spinup" in params
 
     def test_custom_module_without_params_written_as_empty_section(self):
         config = generate_config(
             builtin_models=[],
-            custom_modules=["satterc.pipeline.resample"],
+            custom_modules=["satterc.dag.resample"],
             paths=PATH_DEFAULTS,
         )
         data = config._data
         assert "satterc" in data
-        assert "pipeline.resample" in data["satterc"]
-        assert data["satterc"]["pipeline.resample"] == {}
+        assert "dag.resample" in data["satterc"]
+        assert data["satterc"]["dag.resample"] == {}
 
     def test_custom_module_params_appear_in_toml_output(self):
         config = generate_config(
             builtin_models=[],
-            custom_modules=["satterc.pipeline.models.rothc"],
+            custom_modules=["satterc.dag.rothc"],
             paths=PATH_DEFAULTS,
         )
         toml_str = str(config)
-        assert '[satterc."pipeline.models.rothc"]' in toml_str
+        assert '[satterc."dag.rothc"]' in toml_str
         assert "n_years_spinup" in toml_str

@@ -15,7 +15,7 @@ lint-check:
   marimo check examples/
 
 # Run the full test suite.
-test: lint
+test:
   pytest
 
 # Build the documentation using Zensical.

@@ -14,7 +14,7 @@ from hamilton.settings import ENABLE_POWER_USER_MODE
 import xarray as xr
 
 from ..config import Config
-from ..pipeline import models
+from .. import dag as dag_modules
 
 
 def _analyze_model_module(
@@ -87,9 +87,7 @@ def get_model_params(model_name: str) -> dict[str, Any]:
     """Extract keyword-only parameters with defaults from the main model function."""
     builtin_models = get_builtin_models()
     module_path = (
-        f"satterc.pipeline.models.{model_name}"
-        if model_name in builtin_models
-        else model_name
+        f"satterc.dag.{model_name}" if model_name in builtin_models else model_name
     )
 
     try:
@@ -124,7 +122,7 @@ def _infer_required_data(model_names: list[str]) -> dict[str, list[str]]:
     all_model_outputs: list[str] = []
 
     for model_name in model_names:
-        module = getattr(models, model_name)
+        module = getattr(dag_modules, model_name)
         data_inputs, _, data_outputs = _analyze_model_module(module, base_config)
 
         # Store full input names (with suffix) for categorization

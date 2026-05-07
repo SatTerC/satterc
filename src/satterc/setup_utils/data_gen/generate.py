@@ -12,7 +12,7 @@ from hamilton.settings import ENABLE_POWER_USER_MODE
 
 from . import daily, static
 from .fallback import build_fallback_module
-from ...pipeline import resample
+from ...dag import resample
 from ...io import unstack_if_gridded, save_timeseries, dataset_to_dataframe
 from ...config import ParsedConfig, ResampleSpec
 

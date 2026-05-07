@@ -12,7 +12,7 @@ import xarray as xr
 import rioxarray as rioxarray  # noqa: F401 — registers the .rio accessor
 from pyproj import Transformer
 
-from .pipeline._utils import stack_spatial_dims
+from .spatial import stack_spatial_dims
 
 
 class MisalignedGridError(Exception):

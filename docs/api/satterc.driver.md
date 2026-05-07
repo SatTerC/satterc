@@ -1,3 +1,0 @@
-# `driver`
-
-::: satterc.driver

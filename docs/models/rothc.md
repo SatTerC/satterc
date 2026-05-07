@@ -98,7 +98,7 @@ RothC returns five monthly `DataArray` outputs, all in tC·ha⁻¹:
 
 ### Python API
 
-See the [API documentation](../api/satterc.pipeline/satterc.pipeline.models/rothc.md) for full function signatures and parameter details.
+See the [API documentation](../api/satterc.dag/rothc.md) for full function signatures and parameter details.
 
 ## References
 

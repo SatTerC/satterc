@@ -149,7 +149,7 @@ class TestValidation:
     def test_unknown_model_raises_value_error(self, tmp_path):
         config = Config({"models": {"unknown_model": {"param": "value"}}})
         with pytest.raises(ValueError, match="unknown_model"):
-            from satterc.driver import build_driver
+            from satterc.dag.driver import build_driver
 
             parsed = config.parse()
             build_driver(parsed.modules, parsed.driver_config)

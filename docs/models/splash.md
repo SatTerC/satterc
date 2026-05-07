@@ -92,7 +92,7 @@ SPLASH returns three daily `DataArray` outputs:
 
 ### Python API
 
-See the [API documentation](../api/satterc.pipeline/satterc.pipeline.models/splash.md) for full function signatures and parameter details.
+See the [API documentation](../api/satterc.dag/splash.md) for full function signatures and parameter details.
 
 ## References
 

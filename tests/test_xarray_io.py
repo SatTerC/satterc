@@ -1,5 +1,5 @@
 """
-Tests for the xarray_io decorator in satterc.pipeline.models._utils.
+Tests for the xarray_io decorator in satterc.dag._utils.
 
 This module can be run via pytest:
     pytest tests/test_xarray_io.py -v
@@ -10,7 +10,7 @@ import pandas as pd
 import pytest
 import xarray as xr
 
-from satterc.pipeline.models._utils import xarray_io
+from satterc.dag._utils import xarray_io
 
 
 @pytest.fixture
