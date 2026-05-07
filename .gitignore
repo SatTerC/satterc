@@ -3,6 +3,7 @@
 venv/
 __pycache__/
 site/
+.coverage
 
 *.dot
 *.png

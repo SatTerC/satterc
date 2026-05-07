@@ -34,6 +34,7 @@ dev = [
     {include-group = "docs"},
     {include-group = "test"},
     "pre-commit>=4.5.1",
+    "pyright>=1.1.409",
     "ruff>=0.15.4",
     "rust-just>=1.46.0",
 ]
@@ -48,15 +49,21 @@ examples = [
     "matplotlib>=3.10.8",
 ]
 test = [
-    {include-group = "examples"},
+    "coverage>=7.13.5",
     "pytest>=9.0.2",
+    "pytest-cov>=7.1.0",
 ]
 
 [tool.uv.sources]
 rothc-py = { git = "https://github.com/SatTerC/rothc_py.git" }
 sgam = { git = "https://github.com/SatTerC/sgam.git" }
 
+[tool.pyright]
+venvPath = "."
+venv = ".venv"
+include = ["src/"] #, "tests/"]
+
 [tool.ruff]
 line-length = 88
+indent-width = 4
 target-version = "py313"
-exclude = [".venv"]

@@ -14,9 +14,17 @@ lint-check:
   ruff check
   marimo check examples/
 
+# Run static type checker.
+typecheck:
+  pyright
+
 # Run the full test suite.
 test:
   pytest
+
+# Run tests with coverage report.
+test-cov:
+  pytest --cov=satterc --cov-report=term-missing --cov-fail-under=90
 
 # Build the documentation using Zensical.
 docs:
