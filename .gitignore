@@ -4,6 +4,7 @@ venv/
 __pycache__/
 site/
 .coverage
+coverage.json
 
 *.dot
 *.png
