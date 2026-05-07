@@ -126,4 +126,4 @@ The resampling system creates edges between them (e.g., aggregating daily to wee
 
 You can add your own functions to the DAG.
 Any Python module that follows Hamilton conventions (functions whose parameter names match node names) can be included.
-See [Custom Modules](../Usage/custom-modules.md) for details.
+See [Custom Modules](../usage/custom-modules.md) for details.

@@ -104,6 +104,6 @@ ds["soil_moisture"].plot()
 ## Next Steps
 
 - Read about [how DAGs work](concepts.md) to understand the internals
-- See the [Configuration reference](../Usage/config.md) for all available options
+- See the [Configuration reference](../usage/config.md) for all available options
 - Browse the Examples for interactive notebooks (run `just export-all` to generate)
-- Learn about [built-in models](../Models/index.md) and how to compose them
+- Learn about [built-in models](../models/index.md) and how to compose them

@@ -97,7 +97,7 @@ n_years_spinup = 3
 ```
 
 Available built-in models: `splash`, `pmodel`, `sgam`, `rothc`.
-See the [Models](../Models/splash.md) section for the parameters each model accepts.
+See the [Models](../models/splash.md) section for the parameters each model accepts.
 
 /// admonition | Parameter namespacing
     type: note

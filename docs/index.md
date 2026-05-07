@@ -9,11 +9,11 @@ A Python framework for data-driven terrestrial carbon modelling based on Directe
 
 ## Installation
 
-See the [Installation guide](Getting%20Started/installation.md) for detailed instructions.
+See the [Installation guide](getting_started/installation.md) for detailed instructions.
 
 ## Quick Start
 
-Get a pipeline running in 5 minutes — see the [Quickstart guide](Getting%20Started/quickstart.md).
+Get a pipeline running in 5 minutes — see the [Quickstart guide](getting_started/quickstart.md).
 
 ## What is SatTerC?
 
@@ -30,12 +30,12 @@ Key features:
 
 ## Learn More
 
-- [Quickstart](Getting%20Started/quickstart.md) — run your first pipeline
-- [Concepts](Getting%20Started/concepts.md) — how DAGs work
-- [Models](Models/index.md) — built-in model overview
-- [Configuration](Usage/config.md) — TOML config reference
-- [CLI](Usage/cli.md) — command-line interface
-- [Examples](#) — interactive notebooks (run `just export-all` to generate)
+- [Quickstart](getting_started/quickstart.md) — run your first pipeline
+- [Concepts](getting_started/concepts.md) — how DAGs work
+- [Models](models/index.md) — built-in model overview
+- [Configuration](usage/config.md) — TOML config reference
+- [CLI](usage/cli.md) — command-line interface
+- [examples](#) — interactive notebooks (run `just export-all` to generate)
 
 ## Acknowledgements
 

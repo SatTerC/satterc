@@ -24,4 +24,4 @@ Models are designed to be composed. Common configurations include:
 - **SPLASH → P-Model → SGAM** — full vegetation dynamics with carbon pools
 - **SPLASH → P-Model → SGAM → RothC** — complete terrestrial carbon cycle including soil carbon
 
-See the [Configuration](../Usage/config.md) reference for how to select and configure models in your pipeline.
+See the [Configuration](../usage/config.md) reference for how to select and configure models in your pipeline.
