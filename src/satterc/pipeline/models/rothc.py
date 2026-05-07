@@ -84,21 +84,6 @@ def _rothc(
     )
 
 
-def rothc_parameters(n_years_spinup: int = 1) -> tuple[int]:
-    """Static parameters for the Rothamsted Carbon model.
-
-    Parameters
-    ----------
-    n_years_spinup
-        Number of years to use for model spin-up.
-
-    Returns
-    -------
-    Tuple containing these parameters.
-    """
-    return (n_years_spinup,)
-
-
 @extract_fields(
     [
         "decomposable_plant_material_monthly",
@@ -120,7 +105,8 @@ def rothc(
     inert_organic_matter: DataArray,
     soil_depth: DataArray,
     dates_monthly: pd.Index,
-    rothc_parameters: tuple[int],
+    *,
+    n_years_spinup: int = 1,
 ) -> dict[str, DataArray]:
     """
     Rothamsted Carbon model.
@@ -149,8 +135,8 @@ def rothc(
         Soil depth in cm.
     inert_organic_matter
         Inert organic matter in tC/ha.
-    rothc_parameters
-        Tuple of parameters.
+    n_years_spinup
+        Number of years to use for model spin-up.
 
     Returns
     -------
@@ -167,8 +153,6 @@ def rothc(
     All outputs have units tC/ha (tonnes of Carbon per hectare).
     All outputs are at monthly resolution.
     """
-    (n_years_spinup,) = rothc_parameters
-
     return _rothc(
         temperature_celcius_monthly=temperature_celcius_monthly,
         precipitation_mm_monthly=precipitation_mm_monthly,
@@ -183,59 +167,6 @@ def rothc(
         n_years_spinup=n_years_spinup,
         dates_monthly=dates_monthly,
     )
-
-
-def evaporation_monthly(
-    actual_evapotranspiration_monthly: DataArray,
-) -> DataArray:
-    """Extract evaporation data for RothC model.
-
-    Parameters
-    ----------
-    actual_evapotranspiration_monthly : DataArray
-        Monthly actual evapotranspiration (mm).
-
-    Returns
-    -------
-    DataArray
-        Monthly evaporation data.
-    """
-    return actual_evapotranspiration_monthly
-    # BUG: this is not quite correct!!
-    # RothC expects monthly *open pan evaporation* NOT actual evapotranspiration.
-
-
-def soil_carbon_input_monthly(litter_pool_monthly: DataArray) -> DataArray:
-    """Temporary bridge to map litter input to soil carbon input.
-
-    Parameters
-    ----------
-    litter_pool_monthly : DataArray
-        Monthly litter input (tC/ha).
-
-    Returns
-    -------
-    DataArray
-        Monthly soil carbon input (tC/ha).
-    """
-    return litter_pool_monthly
-
-
-def inert_organic_matter(organic_carbon_stocks: DataArray) -> DataArray:
-    """Calculate inert organic matter from organic carbon stocks.
-
-    Parameters
-    ----------
-    organic_carbon_stocks : DataArray
-        Organic carbon stocks (tC/ha).
-
-    Returns
-    -------
-    DataArray
-        Inert organic matter (tC/ha).
-    """
-    return 0.049 * organic_carbon_stocks**1.139
-    # NOTE: taken from https://github.com/vmyrgiotis/coupled-ecosystem-carbon-model/blob/v0/notebooks/notebook_v4.ipynb
 
 
 def plant_cover_monthly(

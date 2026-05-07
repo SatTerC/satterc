@@ -12,15 +12,14 @@ from hamilton.settings import ENABLE_POWER_USER_MODE
 
 from . import daily, static
 from .fallback import build_fallback_module
-from ...pipeline import outputs, resample
-from ...pipeline.outputs._utils import dataset_to_dataframe, save_timeseries
+from ...pipeline import resample
+from ...io import unstack_if_gridded, save_timeseries, dataset_to_dataframe
 from ...config import ParsedConfig, ResampleSpec
 
 _FLAT_SUFFIXES = {".csv", ".parquet", ".pq"}
 
 
 def _set_random_seed(seed: int) -> None:
-    """Set random seed for reproducibility."""
     np.random.seed(seed)
 
 
@@ -30,13 +29,6 @@ def _save_dataset_with_crs(ds: xr.Dataset, path: str | PathLike) -> None:
     CSV and Parquet are written as flat time-indexed tables (CRS not stored).
     JSON is written as a {variable: value} dict for static single-pixel data.
     NetCDF and Zarr receive a crs='EPSG:4326' global attribute.
-
-    Parameters
-    ----------
-    ds : xr.Dataset
-        The dataset to save.
-    path : str | PathLike
-        The destination path. Format is inferred from the file extension.
     """
     import json
 
@@ -67,7 +59,6 @@ def _save_dataset_with_crs(ds: xr.Dataset, path: str | PathLike) -> None:
 
 
 def _known_daily_fns() -> set[str]:
-    """Names of daily generator functions available in the daily module."""
     return {
         name
         for name, obj in inspect.getmembers(daily, inspect.isfunction)
@@ -76,7 +67,6 @@ def _known_daily_fns() -> set[str]:
 
 
 def _known_static_fns() -> set[str]:
-    """Names of static generator functions available in the static module."""
     return {
         name
         for name, obj in inspect.getmembers(static, inspect.isfunction)
@@ -95,39 +85,28 @@ def generate_synthetic_data(
     Parameters
     ----------
     config : ParsedConfig
-        Parsed configuration from load_config().
+        Parsed configuration from load_config(). Input paths in config.input_specs
+        are used as the destinations for the generated files.
     grid : tuple[int, int]
         Grid dimensions as (n_lat, n_lon).
     n_days : int
         Number of days to generate.
     seed : int
         Random seed for reproducibility.
-
-    Returns
-    -------
-    None
-
-    Notes
-    -----
-    This function builds a Hamilton DAG with:
-    - synthetic_data modules for generating variables
-    - pipeline.outputs modules for merging and unstacking temporal data
-    - pipeline.resample for temporal resampling
-
-    The config's input paths are mapped to output paths, since we're
-    generating the input data files.
-
-    After the DAG runs, CRS metadata (EPSG:4326) is added to all output
-    netCDF files. Variables not found in the built-in generators fall back
-    to Gaussian noise with a logged warning.
     """
     _set_random_seed(seed)
 
     n_lat, n_lon = grid
-    daily_vars = set(config.driver_config.get("daily_inputs_vars", []))
-    weekly_vars = set(config.driver_config.get("weekly_inputs_vars", []))
-    monthly_vars = set(config.driver_config.get("monthly_inputs_vars", []))
-    static_vars = list(config.driver_config.get("static_inputs_vars", []))
+
+    daily_spec = config.input_specs.get("daily")
+    weekly_spec = config.input_specs.get("weekly")
+    monthly_spec = config.input_specs.get("monthly")
+    static_spec = config.input_specs.get("static")
+
+    daily_vars: set[str] = set(daily_spec.vars) if daily_spec else set()
+    weekly_vars: set[str] = set(weekly_spec.vars) if weekly_spec else set()
+    monthly_vars: set[str] = set(monthly_spec.vars) if monthly_spec else set()
+    static_vars: list[str] = list(static_spec.vars) if static_spec else []
 
     resample_specs: list[ResampleSpec] = []
 
@@ -147,9 +126,6 @@ def generate_synthetic_data(
             )
         )
 
-    weekly_outputs_vars = sorted(weekly_vars)
-    monthly_outputs_vars = sorted(daily_to_monthly_vars | monthly_vars)
-
     driver_config: dict[str, Any] = {
         ENABLE_POWER_USER_MODE: True,
         "n_lat": n_lat,
@@ -157,18 +133,9 @@ def generate_synthetic_data(
         "n_days": n_days,
         "start_date": "2020-01-01",
         "seed": seed,
-        "daily_outputs_path": config.driver_config.get("daily_inputs_path"),
-        "daily_outputs_vars": list(daily_vars),
-        "weekly_outputs_path": config.driver_config.get("weekly_inputs_path"),
-        "weekly_outputs_vars": weekly_outputs_vars,
-        "monthly_outputs_path": config.driver_config.get("monthly_inputs_path"),
-        "monthly_outputs_vars": monthly_outputs_vars,
-        "static_outputs_path": config.driver_config.get("static_inputs_path"),
-        "static_outputs_vars": static_vars,
         "resample_specs": resample_specs,
     }
 
-    # Detect variables that have no explicit generator and inject fallbacks.
     all_temporal_vars = daily_vars | weekly_vars | monthly_vars
     known_daily = _known_daily_fns()
     known_static = _known_static_fns()
@@ -176,23 +143,8 @@ def generate_synthetic_data(
     unknown_static = [v for v in static_vars if v not in known_static]
 
     modules = [daily, static, resample]
-
     if unknown_daily or unknown_static:
         modules.append(build_fallback_module(unknown_daily, unknown_static))
-
-    targets = []
-
-    if daily_vars:
-        modules.append(outputs.daily)
-        targets.append("unstacked_daily_outputs")
-    if weekly_outputs_vars:
-        modules.append(outputs.weekly)
-        targets.append("unstacked_weekly_outputs")
-    if monthly_outputs_vars:
-        modules.append(outputs.monthly)
-        targets.append("unstacked_monthly_outputs")
-    modules.append(outputs.static)
-    targets.append("unstacked_static_outputs")
 
     dr = (
         driver.Builder()
@@ -202,20 +154,28 @@ def generate_synthetic_data(
         .build()
     )
 
-    results = dr.execute(targets)
+    # Collect targets for each frequency
+    daily_targets = [f"{v}_daily" for v in daily_vars]
+    weekly_targets = [f"{v}_weekly" for v in sorted(weekly_vars)]
+    monthly_targets = [
+        f"{v}_monthly" for v in sorted(daily_to_monthly_vars | monthly_vars)
+    ]
 
-    if daily_vars and driver_config["daily_outputs_path"]:
-        _save_dataset_with_crs(
-            results["unstacked_daily_outputs"], driver_config["daily_outputs_path"]
-        )
-    if weekly_outputs_vars and driver_config["weekly_outputs_path"]:
-        _save_dataset_with_crs(
-            results["unstacked_weekly_outputs"], driver_config["weekly_outputs_path"]
-        )
-    if monthly_outputs_vars and driver_config["monthly_outputs_path"]:
-        _save_dataset_with_crs(
-            results["unstacked_monthly_outputs"], driver_config["monthly_outputs_path"]
-        )
-    _save_dataset_with_crs(
-        results["unstacked_static_outputs"], driver_config["static_outputs_path"]
-    )
+    all_targets = daily_targets + weekly_targets + monthly_targets + static_vars
+    results = dr.execute(all_targets)
+
+    if daily_vars and daily_spec:
+        daily_ds = unstack_if_gridded(xr.merge([results[t] for t in daily_targets]))
+        _save_dataset_with_crs(daily_ds, daily_spec.path)
+
+    if weekly_vars and weekly_spec:
+        weekly_ds = unstack_if_gridded(xr.merge([results[t] for t in weekly_targets]))
+        _save_dataset_with_crs(weekly_ds, weekly_spec.path)
+
+    if (daily_to_monthly_vars | monthly_vars) and monthly_spec:
+        monthly_ds = unstack_if_gridded(xr.merge([results[t] for t in monthly_targets]))
+        _save_dataset_with_crs(monthly_ds, monthly_spec.path)
+
+    if static_spec:
+        static_ds = unstack_if_gridded(xr.merge([results[v] for v in static_vars]))
+        _save_dataset_with_crs(static_ds, static_spec.path)

@@ -175,12 +175,39 @@ class TestOutputDimensionTests:
         assert result.dims == ("time", "pixel")
         np.testing.assert_array_equal(result.values, ref_datarray_2d.values * 2)
 
-    def test_output_3d_raises_error(self, ref_datarray_2d):
+    def test_output_3d_raises_not_implemented(self, ref_datarray_2d):
         @xarray_io()
         def func(arr):
             return np.expand_dims(arr, axis=0)
 
-        with pytest.raises(Exception, match="no"):
+        with pytest.raises(NotImplementedError, match="3D arrays is not supported"):
+            func(ref_datarray_2d)
+
+    def test_output_1d_ambiguous_raises(self):
+        """1D output is ambiguous when time and pixel dimensions have the same length."""
+        n = 5
+        time_index = pd.date_range("2020-01-01", periods=n, freq="D")
+        da = xr.DataArray(
+            np.arange(n * n).reshape(n, n).astype(float),
+            dims=("time", "pixel"),
+            coords={"time": time_index, "pixel": np.arange(n)},
+        )
+
+        @xarray_io()
+        def func(arr):
+            return arr.mean(axis=0)
+
+        with pytest.raises(ValueError, match="time length.*equals pixel length"):
+            func(da)
+
+    def test_output_1d_unknown_length_raises(self, ref_datarray_2d):
+        """1D output whose length matches neither time nor pixel raises ValueError."""
+
+        @xarray_io()
+        def func(arr):
+            return np.zeros(999)
+
+        with pytest.raises(ValueError, match="does not match time length"):
             func(ref_datarray_2d)
 
 

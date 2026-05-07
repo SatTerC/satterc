@@ -61,33 +61,6 @@ def _pmodel(
     return dict(gpp_weekly=gpp, lue_weekly=lue, iwue_weekly=iwue)
 
 
-def pmodel_parameters(
-    method_optchi: str = "prentice14",
-    method_jmaxlim: str = "wang17",
-    method_kphio: str = "temperature",
-    method_arrhenius: str = "simple",
-) -> tuple[str, str, str, str]:
-    """
-    Parameters for the P-model.
-
-    Parameters
-    ----------
-    method_optchi
-        Method for calculating optimal chi (leaf-internal CO2 compensation point).
-    method_jmaxlim
-        Method for Jmax limitation.
-    method_kphio
-        Method for calculating the quantum yield efficiency (phi0).
-    method_arrhenius
-        Method for Arrhenius temperature scaling.
-
-    Returns
-    -------
-    Tuple containing these parameters in the order that they appear in the signature.
-    """
-    return (method_optchi, method_jmaxlim, method_kphio, method_arrhenius)
-
-
 @extract_fields("gpp_weekly", "lue_weekly", "iwue_weekly")
 def pmodel(
     temperature_celcius_weekly: DataArray,
@@ -99,7 +72,11 @@ def pmodel(
     mean_growth_temperature_weekly: DataArray,
     aridity_index_weekly: DataArray,
     soil_moisture_weekly: DataArray,
-    pmodel_parameters: tuple[str, str, str, str],
+    *,
+    method_optchi: str = "prentice14",
+    method_jmaxlim: str = "wang17",
+    method_kphio: str = "temperature",
+    method_arrhenius: str = "simple",
 ) -> dict[str, DataArray]:
     """Run the P-Model to calculate GPP, LUE, and IWUE.
 
@@ -123,8 +100,14 @@ def pmodel(
         Mean growth temperature (degrees Celsius).
     aridity_index_weekly
         Aridity index (dimensionless, ratio of actual evapotranspiration to precipitation).
-    pmodel_parameters
-        Tuple of parameters for the P-model.
+    method_optchi
+        Method for calculating optimal chi (leaf-internal CO2 compensation point).
+    method_jmaxlim
+        Method for Jmax limitation.
+    method_kphio
+        Method for calculating the quantum yield efficiency (phi0).
+    method_arrhenius
+        Method for Arrhenius temperature scaling.
 
     Returns
     -------
@@ -134,8 +117,6 @@ def pmodel(
         - lue_weekly: Light use efficiency (gC per MJ PAR)
         - iwue_weekly: Intrinsic water use efficiency (Pa)
     """
-    method_optchi, method_jmaxlim, method_kphio, method_arrhenius = pmodel_parameters
-
     return _pmodel(
         temperature_celcius_weekly=temperature_celcius_weekly,
         vpd_pa_weekly=vpd_pa_weekly,
@@ -151,32 +132,6 @@ def pmodel(
         method_kphio=method_kphio,
         method_arrhenius=method_arrhenius,
     )
-
-
-def aridity_index_daily(
-    actual_evapotranspiration_daily: xr.DataArray,
-    precipitation_mm_daily: xr.DataArray,
-) -> xr.DataArray:
-    """Calculate a dimensionless aridity index AET/precipitation.
-
-    Parameters
-    ----------
-    actual_evapotranspiration_daily
-        Actual evapotranspiration (mm).
-    precipitation_mm_daily
-        Precipitation (mm).
-
-    Returns
-    -------
-    xr.DataArray
-        Aridity index.
-
-    Notes
-    -----
-    The standard aritidy index in the literature seems to use
-    *potential* evapotranspiration (PET) instead of AET.
-    """
-    return precipitation_mm_daily / actual_evapotranspiration_daily
 
 
 def mean_growth_temperature_weekly(

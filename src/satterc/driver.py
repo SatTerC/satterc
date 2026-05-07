@@ -4,23 +4,13 @@ from typing import Any
 from hamilton import driver
 from hamilton.settings import ENABLE_POWER_USER_MODE
 
-from .pipeline import inputs, outputs, models, resample, grid
-
-MODULES = {
-    "inputs.daily": inputs.daily,
-    "inputs.weekly": inputs.weekly,
-    "inputs.monthly": inputs.monthly,
-    "inputs.static": inputs.static,
-    "grid": grid,
-    "outputs.daily": outputs.daily,
-    "outputs.weekly": outputs.weekly,
-    "outputs.monthly": outputs.monthly,
-    "outputs.static": outputs.static,
-    "resample": resample,
-    "models.splash": models.splash,
-    "models.pmodel": models.pmodel,
-    "models.sgam": models.sgam,
-    "models.rothc": models.rothc,
+MODULES: dict[str, str] = {
+    "derive": "satterc.pipeline.derive",
+    "resample": "satterc.pipeline.resample",
+    "models.splash": "satterc.pipeline.models.splash",
+    "models.pmodel": "satterc.pipeline.models.pmodel",
+    "models.sgam": "satterc.pipeline.models.sgam",
+    "models.rothc": "satterc.pipeline.models.rothc",
 }
 
 
@@ -31,10 +21,14 @@ def build_driver(
 ) -> driver.Driver:
     config[ENABLE_POWER_USER_MODE] = True
 
+    from satterc.pipeline.derive import make_derive_module
+
     modules_ = []
     for mod in modules:
-        if mod in MODULES:
-            modules_.append(MODULES[mod])
+        if mod == "derive":
+            modules_.append(make_derive_module(config.get("derive_specs", [])))
+        elif mod in MODULES:
+            modules_.append(import_module(MODULES[mod]))
         else:
             if mod.startswith("models."):
                 known = sorted(m for m in MODULES if m.startswith("models."))

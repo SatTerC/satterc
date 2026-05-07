@@ -32,7 +32,7 @@ def _():
     import marimo as mo  # required for Markdown etc.
     import matplotlib.pyplot as plt
 
-    from satterc import build_driver
+    from satterc import build_driver, load_inputs, get_outputs
     from satterc.config import Config
     from satterc.setup_utils.data_gen import generate_synthetic_data
 
@@ -41,6 +41,8 @@ def _():
         Path,
         build_driver,
         generate_synthetic_data,
+        get_outputs,
+        load_inputs,
         mo,
         plt,
         tempfile,
@@ -55,11 +57,12 @@ def _(mo):
 
     The pipeline configuration is defined in a [TOML](https://toml.io/en/) file.
 
-    `satterc` provides a loader / parser for pipeline configurations, which takes a path to a config file and returns a dict with three items:
+    `satterc` provides a loader / parser for pipeline configurations, which takes a path to a config file and returns a `ParsedConfig` with four attributes:
 
     1. `modules`: a list of Python modules containing the nodes (functions) which will be used to construct the pipeline.
     2. `driver_config`: a dictionary of additional config options that is applied to the driver at _build time_ (not run time).
-    3. `targets`: a list of node (function) names that are the end-points of the pipeline. By default these will be the nodes that save output data to the disk, but this can be customised (as we will see later).
+    3. `input_specs`: a mapping from frequency to `IOSpec` (path, vars) — consumed by `load_inputs()`.
+    4. `output_specs`: a mapping from frequency to `IOSpec` — consumed by `get_outputs()` and `save_outputs()`.
     """)
     return
 
@@ -121,6 +124,31 @@ def _(Config, tomllib):
       "stem_pool_init",
     ]
 
+    [[derive]]
+    output = "aridity_index_daily"
+    inputs = ["precipitation_mm_daily", "actual_evapotranspiration_daily"]
+    expression = "precipitation_mm_daily / actual_evapotranspiration_daily"
+
+    [[derive]]
+    output = "leaf_area_index_weekly"
+    inputs = ["leaf_pool_weekly", "pft_params"]
+    expression = 'leaf_pool_weekly / pft_params["leaf_carbon_area"]'
+
+    [[derive]]
+    output = "evaporation_monthly"
+    inputs = ["actual_evapotranspiration_monthly"]
+    expression = "actual_evapotranspiration_monthly"
+
+    [[derive]]
+    output = "soil_carbon_input_monthly"
+    inputs = ["litter_pool_monthly"]
+    expression = "litter_pool_monthly"
+
+    [[derive]]
+    output = "inert_organic_matter"
+    inputs = ["organic_carbon_stocks"]
+    expression = "0.049 * organic_carbon_stocks**1.139"
+
     [[resample]]
     vars = [
       "temperature_celcius",
@@ -139,6 +167,12 @@ def _(Config, tomllib):
     ]
     from_freq = "daily"
     to_freq = "monthly"
+
+    [[resample]]
+    vars = ["disturbances"]
+    from_freq = "daily"
+    to_freq = "weekly"
+    aggfunc = "max"
 
     [[resample]]
     vars = [
@@ -180,23 +214,25 @@ def _(Config, tomllib):
     # Parse config directly from the TOML string (no file needed)
     parsed_config = Config(tomllib.loads(_config_toml)).parse()
 
-    # `parsed_config` contains (1) `modules`, (2) `driver_config`, (3) `targets`
+    # `parsed_config` contains (1) `modules`, (2) `driver_config`, (3) `input_specs`, (4) `output_specs`
     parsed_config
     return (parsed_config,)
 
 
 @app.cell
-def _(Path, generate_synthetic_data, parsed_config, tempfile):
+def _(Path, generate_synthetic_data, load_inputs, parsed_config, tempfile):
     # Generate synthetic input data into a temporary directory
     _tmpdir = Path(tempfile.mkdtemp())
 
-    parsed_config.driver_config["daily_inputs_path"] = str(_tmpdir / "daily.nc")
-    parsed_config.driver_config["weekly_inputs_path"] = str(_tmpdir / "weekly.nc")
-    parsed_config.driver_config["monthly_inputs_path"] = str(_tmpdir / "monthly.nc")
-    parsed_config.driver_config["static_inputs_path"] = str(_tmpdir / "static.nc")
+    parsed_config.input_specs["daily"].path = str(_tmpdir / "daily.nc")
+    parsed_config.input_specs["weekly"].path = str(_tmpdir / "weekly.nc")
+    parsed_config.input_specs["monthly"].path = str(_tmpdir / "monthly.nc")
+    parsed_config.input_specs["static"].path = str(_tmpdir / "static.nc")
 
     generate_synthetic_data(config=parsed_config, grid=(4, 4), n_days=730, seed=42)
-    return
+
+    inputs = load_inputs(parsed_config.input_specs)
+    return (inputs,)
 
 
 @app.cell(hide_code=True)
@@ -253,17 +289,14 @@ def _(mo):
     mo.md(r"""
     ## Running the pipeline
 
-    To run the pipeline we can call the `execute` method of the driver object, providing
+    To run the pipeline we call `dr.execute()`, providing:
 
-    1. `final_vars`: A list of 'target' nodes to be computed (e.g. `parsed_config[targets]`).
-    2. Optionally, `overrides`: overrides for any nodes in the DAG.\*
-    3. Optionally, `inputs`: extra run-time inputs.
+    1. `final_vars`: the output variable names to compute.
+    2. `inputs`: the raw input DataArrays returned by `load_inputs()`.
+    3. Optionally, `overrides`: overrides for any computed node in the DAG.\*
 
-    Recall that `parsed_config['targets']` are the 'save' nodes which save the merged outputs to the disk.
-    These are the default `final_vars` when you run the pipeline using the `satterc` command-line interface (CLI).
-
-    Since we are in a notebook, we might prefer to stop the pipeline just before saving, and instead have the driver return the `xarray.Dataset` objects.
-    We will demonstrate that here by requesting computed outputs at daily, weekly and monthly resolution.
+    We collect the output variable names from `parsed_config.output_specs` and merge them
+    into per-frequency Datasets using `get_outputs()`.
 
     \* The `overrides` option will be useful later on when we want to run the DAG repeatedly with different parameter values, without rebuilding it from scratch each time.
     """)
@@ -271,12 +304,15 @@ def _(mo):
 
 
 @app.cell
-def _(dr):
-    _outputs = dr.execute(
-        ["merged_daily_outputs", "merged_weekly_outputs", "merged_monthly_outputs"]
-    )
-
-    _outputs
+def _(dr, get_outputs, inputs, parsed_config):
+    _target_vars = [
+        f"{var}_{freq}"
+        for freq, spec in parsed_config.output_specs.items()
+        for var in spec.vars
+    ]
+    _results = dr.execute(_target_vars, inputs=inputs)
+    _output_datasets = get_outputs(_results, parsed_config.output_specs)
+    _output_datasets
     return
 
 
@@ -291,8 +327,8 @@ def _(mo):
 
 
 @app.cell
-def _(dr, plt):
-    _outputs = dr.execute(["lai_daily", "leaf_area_index_weekly"])
+def _(dr, inputs, plt):
+    _outputs = dr.execute(["lai_daily", "leaf_area_index_weekly"], inputs=inputs)
 
     input_lai, modelled_lai = _outputs["lai_daily"], _outputs["leaf_area_index_weekly"]
 

@@ -42,7 +42,7 @@ def _():
     import xarray as xr
     from scipy.optimize import minimize, OptimizeResult
 
-    from satterc import build_driver
+    from satterc import build_driver, load_inputs
     from satterc.config import Config
     from satterc.setup_utils.data_gen import generate_synthetic_data
 
@@ -52,6 +52,7 @@ def _():
         Path,
         build_driver,
         generate_synthetic_data,
+        load_inputs,
         minimize,
         mo,
         np,
@@ -106,14 +107,16 @@ def _(Config, tomllib):
 
 
 @app.cell
-def _(Path, generate_synthetic_data, parsed_config, tempfile):
+def _(Path, generate_synthetic_data, load_inputs, parsed_config, tempfile):
     _tmpdir = Path(tempfile.mkdtemp())
 
-    parsed_config.driver_config["daily_inputs_path"] = str(_tmpdir / "daily.csv")
-    parsed_config.driver_config["static_inputs_path"] = str(_tmpdir / "static.json")
+    parsed_config.input_specs["daily"].path = str(_tmpdir / "daily.csv")
+    parsed_config.input_specs["static"].path = str(_tmpdir / "static.json")
 
     generate_synthetic_data(config=parsed_config, grid=(1, 1), n_days=730, seed=42)
-    return
+
+    inputs = load_inputs(parsed_config.input_specs)
+    return (inputs,)
 
 
 @app.cell
@@ -138,8 +141,8 @@ def _(mo):
 
 
 @app.cell
-def _(dr, np):
-    _outputs = dr.execute(["max_soil_moisture", "soil_moisture_daily"])
+def _(dr, inputs, np):
+    _outputs = dr.execute(["max_soil_moisture", "soil_moisture_daily"], inputs=inputs)
     _modelled_sm = _outputs["soil_moisture_daily"].values[:, 0]
 
     np.random.seed(42)
@@ -161,7 +164,7 @@ def _(mo):
 
 @app.cell
 def _(np, xr):
-    def objective_function(params, dr, observations, n_pixels):
+    def objective_function(params, dr, observations, n_pixels, inputs):
         max_sm = params[0]
 
         max_sm_grid = xr.DataArray(np.ones(n_pixels) * max_sm, dims=["pixel"])
@@ -169,6 +172,7 @@ def _(np, xr):
         outputs = dr.execute(
             final_vars=["soil_moisture_daily"],
             overrides={"max_soil_moisture": max_sm_grid},
+            inputs=inputs,
         )
 
         modelled_sm = outputs["soil_moisture_daily"].values[:, 0]
@@ -182,6 +186,7 @@ def _(np, xr):
 def _(
     OptimizeResult,
     dr,
+    inputs,
     minimize,
     n_pixels,
     objective_function,
@@ -198,7 +203,7 @@ def _(
     optimisation_result = minimize(
         fun=objective_function,
         x0=[150],  # initial guess: prior lower bound
-        args=(dr, synthetic_obs, n_pixels),
+        args=(dr, synthetic_obs, n_pixels, inputs),
         method="Nelder-Mead",
         callback=logging_callback,
         options={"xatol": 1e-8, "fatol": 1e-8, "maxiter": 2000},
@@ -289,6 +294,7 @@ def _(np, objective_function):
         dr,
         synthetic_obs,
         n_pixels,
+        inputs,
         prior_low: float,
         prior_high: float,
         likelihood_sigma: float,
@@ -299,7 +305,7 @@ def _(np, objective_function):
 
         def log_likelihood(params):
             """Logarithm of a Gaussian likelihood function."""
-            mse = objective_function(params, dr, synthetic_obs, n_pixels)
+            mse = objective_function(params, dr, synthetic_obs, n_pixels, inputs)
             return -(N / (2 * σ**2)) * mse - (N / 2) * np.log(2 * π * σ**2)
 
         def log_prior(params):
@@ -321,6 +327,7 @@ def _(np, objective_function):
 @app.cell
 def _(
     dr,
+    inputs,
     make_log_posterior,
     n_pixels,
     np,
@@ -343,6 +350,7 @@ def _(
         dr,
         synthetic_obs,
         n_pixels,
+        inputs,
         prior_low=_prior_low,
         prior_high=_prior_high,
         likelihood_sigma=5.0,

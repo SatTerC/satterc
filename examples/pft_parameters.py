@@ -44,7 +44,7 @@ def _():
     import numpy as np
     from scipy.optimize import minimize
 
-    from satterc import build_driver
+    from satterc import build_driver, load_inputs
     from satterc.config import Config
     from satterc.setup_utils.data_gen import generate_synthetic_data
 
@@ -53,6 +53,7 @@ def _():
         Path,
         build_driver,
         generate_synthetic_data,
+        load_inputs,
         minimize,
         mo,
         np,
@@ -116,6 +117,11 @@ def _(Config, tomllib):
       "root_pool_init",
     ]
 
+    [[derive]]
+    output = "aridity_index_daily"
+    inputs = ["precipitation_mm_daily", "actual_evapotranspiration_daily"]
+    expression = "precipitation_mm_daily / actual_evapotranspiration_daily"
+
     [[resample]]
     vars = [
       "temperature_celcius",
@@ -124,6 +130,12 @@ def _(Config, tomllib):
     ]
     from_freq = "daily"
     to_freq = "weekly"
+
+    [[resample]]
+    vars = ["disturbances"]
+    from_freq = "daily"
+    to_freq = "weekly"
+    aggfunc = "max"
 
     [grid]
     """
@@ -134,15 +146,17 @@ def _(Config, tomllib):
 
 
 @app.cell
-def _(Path, generate_synthetic_data, parsed_config, tempfile):
+def _(Path, generate_synthetic_data, load_inputs, parsed_config, tempfile):
     _tmpdir = Path(tempfile.mkdtemp())
 
-    parsed_config.driver_config["daily_inputs_path"] = str(_tmpdir / "daily.nc")
-    parsed_config.driver_config["weekly_inputs_path"] = str(_tmpdir / "weekly.nc")
-    parsed_config.driver_config["static_inputs_path"] = str(_tmpdir / "static.nc")
+    parsed_config.input_specs["daily"].path = str(_tmpdir / "daily.nc")
+    parsed_config.input_specs["weekly"].path = str(_tmpdir / "weekly.nc")
+    parsed_config.input_specs["static"].path = str(_tmpdir / "static.nc")
 
     generate_synthetic_data(config=parsed_config, grid=(1, 1), n_days=730, seed=42)
-    return
+
+    inputs = load_inputs(parsed_config.input_specs)
+    return (inputs,)
 
 
 @app.cell
@@ -168,7 +182,7 @@ def _(mo):
 
 
 @app.cell
-def _(dr, np):
+def _(dr, inputs, np):
     _SGAM_INPUTS = [
         "gpp_weekly",
         "lue_weekly",
@@ -185,7 +199,7 @@ def _(dr, np):
         "pft_params",
         "leaf_pool_weekly",
     ]
-    _all_outputs = dr.execute(_SGAM_INPUTS)
+    _all_outputs = dr.execute(_SGAM_INPUTS, inputs=inputs)
 
     # Cache all direct SGAM inputs — passed as overrides in the MCMC loop so that
     # each step only recomputes the sgam node, not the upstream SPLASH/P-model chain.
@@ -351,14 +365,16 @@ def _(mo):
 
 
 @app.cell
-def _(np):
+def _(inputs, np):
     def objective_function(params, dr, observations, upstream):
         lue_max, leaf_turnover = params
         modified_pft = upstream["pft_params"].copy()
         modified_pft["lue_max"].values[:] = lue_max
         modified_pft["leaf_turnover_rate"].values[:] = leaf_turnover
         overrides = {**upstream, "pft_params": modified_pft}
-        outputs = dr.execute(final_vars=["leaf_pool_weekly"], overrides=overrides)
+        outputs = dr.execute(
+            final_vars=["leaf_pool_weekly"], inputs=inputs, overrides=overrides
+        )
         modelled = outputs["leaf_pool_weekly"].values[:, 0]
         return np.mean((modelled - observations) ** 2)
 
