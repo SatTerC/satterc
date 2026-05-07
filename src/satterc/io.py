@@ -31,7 +31,9 @@ def load_dataset(path: str | PathLike) -> xr.Dataset:
     if suffix in (".nc", ".netcdf"):
         return xr.open_dataset(path, engine="netcdf4", decode_coords="all")
     elif suffix == ".zarr":
-        return xr.open_dataset(path, engine="zarr", decode_coords="all", consolidated=False)
+        return xr.open_dataset(
+            path, engine="zarr", decode_coords="all", consolidated=False
+        )
     else:
         raise ValueError(f"Unsupported file extension: {p.suffix}.")
 

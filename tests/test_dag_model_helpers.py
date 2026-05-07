@@ -111,11 +111,13 @@ class TestSgamHelpers:
 
     def test_pft_int_to_enum_returns_enum(self):
         from sgam.pft import PlantFunctionalType
+
         result = sgam_module._pft_int_to_enum(0)
         assert isinstance(result, PlantFunctionalType)
 
     def test_pft_int_to_enum_all_valid_indices(self):
         from sgam.pft import PlantFunctionalType
+
         n_pfts = len(list(PlantFunctionalType))
         for i in range(n_pfts):
             result = sgam_module._pft_int_to_enum(i)
@@ -135,7 +137,11 @@ class TestSgamHelpers:
     def test_build_pft_params_dataset_has_allocation_fields(self):
         plant_type = _static(np.array([0.0]))
         result = sgam_module._build_pft_params_dataset(plant_type)
-        for field in ["leaf_base_allocation", "stem_base_allocation", "root_base_allocation"]:
+        for field in [
+            "leaf_base_allocation",
+            "stem_base_allocation",
+            "root_base_allocation",
+        ]:
             assert field in result.data_vars
 
     def test_build_pft_params_dataset_has_turnover_fields(self):
@@ -146,6 +152,7 @@ class TestSgamHelpers:
 
     def test_pft_params_from_dataset_round_trips(self):
         from sgam.pft import PftParams
+
         plant_type = _static(np.array([0.0, 1.0]))
         ds = sgam_module._build_pft_params_dataset(plant_type)
         params = sgam_module._pft_params_from_dataset(ds, 0)
@@ -226,8 +233,9 @@ class TestPmodelExecution:
         pixel = np.arange(n_pixels)
 
         def _da(data):
-            return xr.DataArray(data, dims=["time", "pixel"],
-                                coords={"time": time, "pixel": pixel})
+            return xr.DataArray(
+                data, dims=["time", "pixel"], coords={"time": time, "pixel": pixel}
+            )
 
         return _pmodel(
             temperature_celcius_weekly=_da(np.full((n_weeks, n_pixels), 15.0)),
@@ -278,8 +286,9 @@ class TestRothcExecution:
         pixel = np.arange(n_pixels)
 
         def _da(data):
-            return xr.DataArray(data, dims=["time", "pixel"],
-                                coords={"time": time, "pixel": pixel})
+            return xr.DataArray(
+                data, dims=["time", "pixel"], coords={"time": time, "pixel": pixel}
+            )
 
         def _static_da(values):
             return xr.DataArray(values, dims=["pixel"], coords={"pixel": pixel})
@@ -414,7 +423,7 @@ class TestRothcDriverExecution:
                 "clay_content": _sda(30.0),
                 "soil_depth": _sda(25.0),
                 "inert_organic_matter": _sda(2.0),
-                "plant_type": _sda(1.0),   # needed for helper nodes
+                "plant_type": _sda(1.0),  # needed for helper nodes
                 "dates_monthly": time,
             },
         )
@@ -528,8 +537,9 @@ class TestDisturbancesDaily:
         pixel = np.arange(n_pixels)
 
         def _da(data):
-            return xr.DataArray(data, dims=["time", "pixel"],
-                                coords={"time": time, "pixel": pixel})
+            return xr.DataArray(
+                data, dims=["time", "pixel"], coords={"time": time, "pixel": pixel}
+            )
 
         def _static_da(values):
             return xr.DataArray(values, dims=["pixel"], coords={"pixel": pixel})
@@ -560,14 +570,17 @@ class TestSplashExecution:
         rng = np.random.default_rng(0)
 
         def _da(data):
-            return xr.DataArray(data, dims=["time", "pixel"],
-                                coords={"time": time, "pixel": pixel})
+            return xr.DataArray(
+                data, dims=["time", "pixel"], coords={"time": time, "pixel": pixel}
+            )
 
         def _static_da(values):
             return xr.DataArray(values, dims=["pixel"], coords={"pixel": pixel})
 
         return _splash(
-            sunshine_fraction_daily=_da(np.clip(rng.normal(0.5, 0.2, (n_days, n_pixels)), 0, 1)),
+            sunshine_fraction_daily=_da(
+                np.clip(rng.normal(0.5, 0.2, (n_days, n_pixels)), 0, 1)
+            ),
             temperature_celcius_daily=_da(rng.normal(10, 5, (n_days, n_pixels))),
             precipitation_mm_daily=_da(np.abs(rng.normal(2, 1, (n_days, n_pixels)))),
             elevation=_static_da(np.array([50.0, 100.0])),
@@ -587,7 +600,9 @@ class TestSplashExecution:
         assert "runoff_daily" in splash_result
 
     def test_aet_is_dataarray(self, splash_result):
-        assert isinstance(splash_result["actual_evapotranspiration_daily"], xr.DataArray)
+        assert isinstance(
+            splash_result["actual_evapotranspiration_daily"], xr.DataArray
+        )
 
     def test_aet_non_negative(self, splash_result):
         aet = splash_result["actual_evapotranspiration_daily"]
@@ -614,15 +629,18 @@ class TestSplashExecution:
         rng = np.random.default_rng(1)
 
         def _da(data):
-            return xr.DataArray(data, dims=["time", "pixel"],
-                                coords={"time": time, "pixel": pixel})
+            return xr.DataArray(
+                data, dims=["time", "pixel"], coords={"time": time, "pixel": pixel}
+            )
 
         def _static_da(values):
             return xr.DataArray(values, dims=["pixel"], coords={"pixel": pixel})
 
         result = splash(
             dates_daily=time,
-            sunshine_fraction_daily=_da(np.clip(rng.normal(0.5, 0.2, (n_days, n_pixels)), 0, 1)),
+            sunshine_fraction_daily=_da(
+                np.clip(rng.normal(0.5, 0.2, (n_days, n_pixels)), 0, 1)
+            ),
             temperature_celcius_daily=_da(rng.normal(10, 5, (n_days, n_pixels))),
             precipitation_mm_daily=_da(np.abs(rng.normal(2, 1, (n_days, n_pixels)))),
             elevation=_static_da(np.array([50.0])),

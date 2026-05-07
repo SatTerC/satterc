@@ -3,7 +3,6 @@
 import sys
 import types
 
-import pytest
 
 from satterc.config import DeriveSpec
 from satterc.dag.derive import _build_fn_code, make_derive_module

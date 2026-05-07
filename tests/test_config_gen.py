@@ -133,8 +133,10 @@ class TestGenerateConfigBuiltinModels:
         assert "outputs" in data
         assert "daily" in data["outputs"]
         daily_vars = data["outputs"]["daily"]["vars"]
-        assert any("soil_moisture" in v or "evapotranspiration" in v or "runoff" in v
-                   for v in daily_vars)
+        assert any(
+            "soil_moisture" in v or "evapotranspiration" in v or "runoff" in v
+            for v in daily_vars
+        )
 
     def test_rothc_generates_model_section_with_params(self):
         config = generate_config(
@@ -186,10 +188,16 @@ class TestInferRequiredData:
     def test_result_has_all_expected_keys(self):
         result = _infer_required_data(["splash"])
         for key in (
-            "inputs_daily", "inputs_weekly", "inputs_monthly", "inputs_static",
-            "resample_daily_to_weekly", "resample_daily_to_monthly",
+            "inputs_daily",
+            "inputs_weekly",
+            "inputs_monthly",
+            "inputs_static",
+            "resample_daily_to_weekly",
+            "resample_daily_to_monthly",
             "resample_weekly_to_monthly",
-            "outputs_daily", "outputs_weekly", "outputs_monthly",
+            "outputs_daily",
+            "outputs_weekly",
+            "outputs_monthly",
         ):
             assert key in result, f"Missing key: {key}"
 

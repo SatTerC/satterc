@@ -30,8 +30,15 @@ class TestBuildDriverReturnType:
         )
 
     def test_derive_module(self):
-        specs = [DeriveSpec(output="y", inputs=["x"], expression="x * 2",
-                            import_path=None, function=None)]
+        specs = [
+            DeriveSpec(
+                output="y",
+                inputs=["x"],
+                expression="x * 2",
+                import_path=None,
+                function=None,
+            )
+        ]
         assert isinstance(
             build_driver(["derive"], {"derive_specs": specs}), driver.Driver
         )
@@ -73,8 +80,15 @@ class TestBuildDriverDAGStructure:
         assert "iwue_weekly" in available
 
     def test_derive_driver_exposes_generated_node(self):
-        specs = [DeriveSpec(output="my_var", inputs=["a", "b"], expression="a + b",
-                            import_path=None, function=None)]
+        specs = [
+            DeriveSpec(
+                output="my_var",
+                inputs=["a", "b"],
+                expression="a + b",
+                import_path=None,
+                function=None,
+            )
+        ]
         dr = build_driver(["derive"], {"derive_specs": specs})
         available = {v.name for v in dr.list_available_variables()}
         assert "my_var" in available

@@ -27,7 +27,7 @@ class TestNoOpDecorator:
 
     def test_select_nodes_is_empty(self, dec):
         nodes = [object(), object()]
-        result = NoOpDecorator.select_nodes(None, nodes)
+        result = NoOpDecorator.select_nodes(None, nodes)  # type: ignore[arg-type]
         assert list(result) == []
 
     def test_allows_multiple_true(self):

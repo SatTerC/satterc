@@ -7,6 +7,8 @@ Covers:
 - Multiple-CRS-dataset lat/lon computation
 """
 
+import importlib.util
+
 import numpy as np
 import pandas as pd
 import pytest
@@ -19,7 +21,6 @@ from satterc.io import (
     save_outputs,
     _validate_dates,
     _save_netcdf,
-    load_inputs,
 )
 
 
@@ -44,7 +45,9 @@ def _simple_ds(times=DAILY_TIMES, n_pixels=N_PIXELS):
 
 
 def _static_da(values):
-    return xr.DataArray(values, dims=["pixel"], coords={"pixel": np.arange(len(values))})
+    return xr.DataArray(
+        values, dims=["pixel"], coords={"pixel": np.arange(len(values))}
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -52,8 +55,7 @@ def _static_da(values):
 # ---------------------------------------------------------------------------
 
 
-import importlib as _importlib
-_HAS_ZARR = _importlib.util.find_spec("zarr") is not None
+_HAS_ZARR = importlib.util.find_spec("zarr") is not None
 
 
 @pytest.mark.skipif(not _HAS_ZARR, reason="zarr not installed")

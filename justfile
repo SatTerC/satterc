@@ -20,7 +20,7 @@ typecheck:
 
 # Run the full test suite.
 test:
-  pytest
+  pytest --verbose # --log-cli-level=INFO
 
 # Run tests with coverage report.
 test-cov:
