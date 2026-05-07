@@ -2,14 +2,17 @@
 # requires-python = ">=3.13"
 # dependencies = [
 #     "marimo",
-#     "matplotlib",
-#     "scipy",
+#     "matplotlib==3.10.9",
+#     "numpy==2.4.4",
+#     "satterc==0.3.0",
+#     "scipy==1.17.1",
+#     "xarray==2026.4.0",
 # ]
 # ///
 
 import marimo
 
-__generated_with = "0.23.4"
+__generated_with = "0.23.5"
 app = marimo.App(width="medium")
 
 
@@ -73,15 +76,14 @@ def _(mo):
 
 @app.cell
 def _(Config, tomllib):
+    # @output: config
+    from pprint import pprint
+
     _config_toml = """
-    modules = [
-      "models.splash",
-      "inputs.daily",
-      "inputs.static",
-    ]
+    [models.splash]
 
     [inputs.daily]
-    path = "daily.nc"
+    path = "daily.csv"
     vars = [
       "precipitation_mm",
       "sunshine_fraction",
@@ -89,36 +91,36 @@ def _(Config, tomllib):
     ]
 
     [inputs.static]
-    path = "static.nc"
+    path = "static.json"
     vars = [
       "elevation",
-      "plant_type",
+      "latitude",
       "max_soil_moisture",
+      "plant_type",
     ]
     """
 
     parsed_config = Config(tomllib.loads(_config_toml)).parse()
-    parsed_config
+    pprint(parsed_config)
     return (parsed_config,)
 
 
 @app.cell
 def _(Path, generate_synthetic_data, parsed_config, tempfile):
-    # Generate synthetic input data into a temporary directory
     _tmpdir = Path(tempfile.mkdtemp())
 
-    parsed_config["driver_config"]["daily_inputs_path"] = str(_tmpdir / "daily.nc")
-    parsed_config["driver_config"]["static_inputs_path"] = str(_tmpdir / "static.nc")
+    parsed_config.driver_config["daily_inputs_path"] = str(_tmpdir / "daily.csv")
+    parsed_config.driver_config["static_inputs_path"] = str(_tmpdir / "static.json")
 
-    generate_synthetic_data(config=parsed_config, grid=(2, 2), n_days=730, seed=42)
+    generate_synthetic_data(config=parsed_config, grid=(1, 1), n_days=730, seed=42)
     return
 
 
 @app.cell
 def _(build_driver, parsed_config):
     dr = build_driver(
-        modules=parsed_config["modules"],
-        config=parsed_config["driver_config"],
+        modules=parsed_config.modules,
+        config=parsed_config.driver_config,
     )
     return (dr,)
 
@@ -206,6 +208,7 @@ def _(
 
 @app.cell
 def _(np, optimisation_history, plt, synthetic_obs_max_soil_moisture):
+    # @output: fig-optim
     # Extract history of parameter (max_soil_moisture) and objective function value
     _x, _f = np.array(optimisation_history).T
 
@@ -305,7 +308,10 @@ def _(np, objective_function):
             return -np.inf
 
         def log_posterior(params):
-            return log_prior(params) + log_likelihood(params)
+            lp = log_prior(params)
+            if np.isneginf(lp):
+                return lp
+            return lp + log_likelihood(params)
 
         return log_posterior
 
@@ -321,8 +327,9 @@ def _(
     optimisation_result,
     synthetic_obs,
 ):
-    _prior_low = 150.0
-    _prior_high = 250.0
+    # @output: acceptance
+    _prior_low = 100.0
+    _prior_high = 300.0
     step_size = 0.5
     n_iterations = 200
     burn_in = 100
@@ -340,14 +347,17 @@ def _(
         prior_high=_prior_high,
         likelihood_sigma=5.0,
     )
+    current_log_post = log_posterior([current])
 
     for i in range(burn_in + n_iterations):
         proposed = current + np.random.uniform(-step_size, step_size)
 
-        log_acceptance_prob = log_posterior([proposed]) - log_posterior([current])
+        proposed_log_post = log_posterior([proposed])
+        log_acceptance_prob = proposed_log_post - current_log_post
 
         if np.log(np.random.uniform()) < log_acceptance_prob:
             current = proposed
+            current_log_post = proposed_log_post
 
             if i >= burn_in:
                 accepted += 1
@@ -356,12 +366,13 @@ def _(
 
     acceptance_rate = accepted / n_iterations
 
-    acceptance_rate
+    print(acceptance_rate)
     return burn_in, mcmc_history
 
 
 @app.cell
 def _(burn_in, mcmc_history, np, plt, synthetic_obs_max_soil_moisture):
+    # @output: fig-mcmc
     posterior_samples = mcmc_history[burn_in:]
 
     _fig, _axes = plt.subplots(1, 2, figsize=(12, 4))
@@ -384,7 +395,7 @@ def _(burn_in, mcmc_history, np, plt, synthetic_obs_max_soil_moisture):
         posterior_samples, bins=20, density=True, alpha=0.7, label="Posterior"
     )
     _x = np.linspace(min(posterior_samples), max(posterior_samples), 100)
-    prior_pdf = np.ones_like(_x) / (250 - 150)  # uniform prior on [150, 250]
+    prior_pdf = np.ones_like(_x) / (300 - 100)  # uniform prior on [100, 300]
     _axes[1].plot(_x, prior_pdf, "r--", linewidth=2, label="Uniform Prior")
     _axes[1].axvline(
         x=synthetic_obs_max_soil_moisture,

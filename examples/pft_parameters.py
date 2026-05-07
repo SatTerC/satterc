@@ -2,14 +2,16 @@
 # requires-python = ">=3.13"
 # dependencies = [
 #     "marimo",
-#     "matplotlib",
-#     "scipy",
+#     "matplotlib==3.10.9",
+#     "numpy==2.4.4",
+#     "satterc==0.3.0",
+#     "scipy==1.17.1",
 # ]
 # ///
 
 import marimo
 
-__generated_with = "0.23.4"
+__generated_with = "0.23.5"
 app = marimo.App(width="medium")
 
 
@@ -75,19 +77,13 @@ def _(mo):
 @app.cell
 def _(Config, tomllib):
     _config_toml = """
-    modules = [
-      "models.splash",
-      "models.pmodel",
-      "models.sgam",
-      "inputs.daily",
-      "inputs.weekly",
-      "inputs.static",
-      "resample",
-    ]
+    [models.splash]
 
     [models.pmodel]
     method_kphio = "sandoval"
     method_optchi = "lavergne20_c3"
+
+    [models.sgam]
 
     [inputs.daily]
     path = "daily.nc"
@@ -120,14 +116,16 @@ def _(Config, tomllib):
       "root_pool_init",
     ]
 
-    [resample]
-    daily_to_weekly = [
+    [[resample]]
+    vars = [
       "temperature_celcius",
       "soil_moisture",
       "aridity_index",
     ]
-    daily_to_monthly = []
-    weekly_to_monthly = []
+    from_freq = "daily"
+    to_freq = "weekly"
+
+    [grid]
     """
 
     parsed_config = Config(tomllib.loads(_config_toml)).parse()
@@ -139,9 +137,9 @@ def _(Config, tomllib):
 def _(Path, generate_synthetic_data, parsed_config, tempfile):
     _tmpdir = Path(tempfile.mkdtemp())
 
-    parsed_config["driver_config"]["daily_inputs_path"] = str(_tmpdir / "daily.nc")
-    parsed_config["driver_config"]["weekly_inputs_path"] = str(_tmpdir / "weekly.nc")
-    parsed_config["driver_config"]["static_inputs_path"] = str(_tmpdir / "static.nc")
+    parsed_config.driver_config["daily_inputs_path"] = str(_tmpdir / "daily.nc")
+    parsed_config.driver_config["weekly_inputs_path"] = str(_tmpdir / "weekly.nc")
+    parsed_config.driver_config["static_inputs_path"] = str(_tmpdir / "static.nc")
 
     generate_synthetic_data(config=parsed_config, grid=(1, 1), n_days=730, seed=42)
     return
@@ -150,8 +148,8 @@ def _(Path, generate_synthetic_data, parsed_config, tempfile):
 @app.cell
 def _(build_driver, parsed_config):
     dr = build_driver(
-        modules=parsed_config["modules"],
-        config=parsed_config["driver_config"],
+        modules=parsed_config.modules,
+        config=parsed_config.driver_config,
     )
     return (dr,)
 

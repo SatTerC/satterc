@@ -5,6 +5,29 @@ import pandas as pd
 import xarray as xr
 
 
+# Carbon pool defaults (root tC/ha, leaf tC/ha, stem tC/ha) indexed by plant type.
+# 1=grassland, 2=C3 crop, 3=woodland
+_POOL_BY_TYPE: dict[int, tuple[float, float, float]] = {
+    1: (5.0, 1.0, 10.0),
+    2: (3.0, 0.5, 5.0),
+    3: (8.0, 2.0, 25.0),
+}
+
+
+def _smooth2d(arr: np.ndarray, radius: int) -> np.ndarray:
+    """Box-filter smooth a 2D array, reflecting at boundaries."""
+    if radius <= 0 or min(arr.shape) <= 1:
+        return arr
+    ny, nx = arr.shape
+    out = np.zeros_like(arr, dtype=float)
+    for di in range(-radius, radius + 1):
+        rows = np.clip(np.arange(ny) + di, 0, ny - 1)
+        for dj in range(-radius, radius + 1):
+            cols = np.clip(np.arange(nx) + dj, 0, nx - 1)
+            out += arr[np.ix_(rows, cols)]
+    return out / (2 * radius + 1) ** 2
+
+
 def lat(n_lat: int) -> xr.DataArray:
     """Latitude coordinates.
 
@@ -80,6 +103,9 @@ def pixel_coords(lat: xr.DataArray, lon: xr.DataArray) -> pd.MultiIndex:
 def elevation(n_lat: int, n_lon: int, pixel_coords: pd.MultiIndex) -> xr.DataArray:
     """Static elevation in meters.
 
+    Generates a spatially coherent field using a bilinear base (south-north
+    gradient) with Gaussian noise smoothed by a box filter.
+
     Parameters
     ----------
     n_lat : int
@@ -94,16 +120,16 @@ def elevation(n_lat: int, n_lon: int, pixel_coords: pd.MultiIndex) -> xr.DataArr
     xr.DataArray
         Elevation data array with dims=["pixel"].
     """
-    n_pixels = n_lat * n_lon
-    elevation_data = np.full(n_pixels, 150.0)
-    if n_pixels > 0:
-        elevation_data[0] = 100.0
-    if n_pixels > 1:
-        elevation_data[1] = 200.0
-    if n_pixels > 2:
-        elevation_data[2] = 250.0
-    if n_pixels > 3:
-        elevation_data[3] = 300.0
+    lat_vals = pixel_coords.get_level_values("y").values.reshape(n_lat, n_lon)
+    lat_min = lat_vals.min()
+    lat_range = lat_vals.max() - lat_min or 1.0
+    lat_norm = (lat_vals - lat_min) / lat_range  # [0, 1], 0=south
+
+    base = 100.0 + 200.0 * lat_norm  # 100m at south edge, 300m at north edge
+    noise = np.random.normal(0, 35, (n_lat, n_lon))
+    radius = max(1, min(n_lat, n_lon) // 3)
+    smoothed = _smooth2d(noise, radius=radius)
+    elevation_data = np.clip((base + smoothed).ravel(), 0.0, 1000.0)
 
     return xr.DataArray(
         data=elevation_data,
@@ -114,8 +140,34 @@ def elevation(n_lat: int, n_lon: int, pixel_coords: pd.MultiIndex) -> xr.DataArr
     )
 
 
+def latitude(pixel_coords: pd.MultiIndex) -> xr.DataArray:
+    """Static latitude for each pixel, taken from the grid's y-coordinate.
+
+    Parameters
+    ----------
+    pixel_coords : pd.MultiIndex
+        MultiIndex with 'y' and 'x' levels.
+
+    Returns
+    -------
+    xr.DataArray
+        Latitude data array with dims=["pixel"].
+    """
+    lat_vals = pixel_coords.get_level_values("y").values
+    return xr.DataArray(
+        data=lat_vals,
+        dims=["pixel"],
+        coords={"pixel": pixel_coords},
+        attrs={"units": "degrees_north", "long_name": "latitude"},
+        name="latitude",
+    )
+
+
 def plant_type(n_lat: int, n_lon: int, pixel_coords: pd.MultiIndex) -> xr.DataArray:
-    """Static plant type (1 = grassland).
+    """Static plant type (1=grassland, 2=C3 crop, 3=woodland).
+
+    Assigns types in a repeating spatial pattern so multi-pixel grids always
+    contain at least two distinct plant types.
 
     Parameters
     ----------
@@ -132,7 +184,8 @@ def plant_type(n_lat: int, n_lon: int, pixel_coords: pd.MultiIndex) -> xr.DataAr
         Plant type data array with dims=["pixel"].
     """
     n_pixels = n_lat * n_lon
-    data = np.full(n_pixels, 1)
+    # Cycle through types by pixel index so spatial layout is deterministic.
+    data = np.array([1, 2, 3], dtype=np.int32)[np.arange(n_pixels) % 3]
 
     return xr.DataArray(
         data=data,
@@ -143,32 +196,27 @@ def plant_type(n_lat: int, n_lon: int, pixel_coords: pd.MultiIndex) -> xr.DataAr
     )
 
 
-def max_soil_moisture(
-    n_lat: int, n_lon: int, pixel_coords: pd.MultiIndex
-) -> xr.DataArray:
+def max_soil_moisture(elevation: xr.DataArray) -> xr.DataArray:
     """Static maximum soil moisture capacity in mm.
+
+    Decreases linearly with elevation: 300 mm at sea level, 100 mm at 1000 m.
 
     Parameters
     ----------
-    n_lat : int
-        Number of latitude points.
-    n_lon : int
-        Number of longitude points.
-    pixel_coords : pd.MultiIndex
-        MultiIndex with 'y' and 'x' levels.
+    elevation : xr.DataArray
+        Elevation DataArray with dim "pixel".
 
     Returns
     -------
     xr.DataArray
         Max soil moisture data array with dims=["pixel"].
     """
-    n_pixels = n_lat * n_lon
-    data = np.full(n_pixels, 200.0)
+    data = np.clip(300.0 - 0.2 * elevation.values, 100.0, 300.0)
 
     return xr.DataArray(
         data=data,
         dims=["pixel"],
-        coords={"pixel": pixel_coords},
+        coords={"pixel": elevation.coords["pixel"]},
         attrs={"units": "mm", "long_name": "maximum soil moisture"},
         name="max_soil_moisture",
     )
@@ -203,148 +251,135 @@ def clay_content(n_lat: int, n_lon: int, pixel_coords: pd.MultiIndex) -> xr.Data
     )
 
 
-def soil_depth(n_lat: int, n_lon: int, pixel_coords: pd.MultiIndex) -> xr.DataArray:
+def soil_depth(elevation: xr.DataArray) -> xr.DataArray:
     """Static soil depth in mm.
+
+    Decreases with elevation: deeper soils in lowland valleys (1200 mm) and
+    shallower on upland terrain (400 mm).
 
     Parameters
     ----------
-    n_lat : int
-        Number of latitude points.
-    n_lon : int
-        Number of longitude points.
-    pixel_coords : pd.MultiIndex
-        MultiIndex with 'y' and 'x' levels.
+    elevation : xr.DataArray
+        Elevation DataArray with dim "pixel".
 
     Returns
     -------
     xr.DataArray
         Soil depth data array with dims=["pixel"].
     """
-    n_pixels = n_lat * n_lon
-    data = np.full(n_pixels, 1000.0)
+    data = np.clip(1200.0 - 0.8 * elevation.values, 400.0, 1200.0)
 
     return xr.DataArray(
         data=data,
         dims=["pixel"],
-        coords={"pixel": pixel_coords},
+        coords={"pixel": elevation.coords["pixel"]},
         attrs={"units": "mm", "long_name": "soil depth"},
         name="soil_depth",
     )
 
 
-def organic_carbon_stocks(
-    n_lat: int, n_lon: int, pixel_coords: pd.MultiIndex
-) -> xr.DataArray:
+def organic_carbon_stocks(elevation: xr.DataArray) -> xr.DataArray:
     """Static soil organic carbon stocks in tC/ha.
+
+    Higher-elevation upland mineral soils carry less SOC than lowland peats.
 
     Parameters
     ----------
-    n_lat : int
-        Number of latitude points.
-    n_lon : int
-        Number of longitude points.
-    pixel_coords : pd.MultiIndex
-        MultiIndex with 'y' and 'x' levels.
+    elevation : xr.DataArray
+        Elevation DataArray with dim "pixel".
 
     Returns
     -------
     xr.DataArray
         Organic carbon stocks data array with dims=["pixel"].
     """
-    n_pixels = n_lat * n_lon
-    data = np.random.uniform(100, 150, n_pixels)
+    n_pixels = len(elevation)
+    base = 130.0 - 0.06 * elevation.values  # ~130 at sea level, ~70 at 1000 m
+    noise = np.random.uniform(-10.0, 10.0, n_pixels)
+    data = np.clip(base + noise, 30.0, 200.0)
 
     return xr.DataArray(
         data=data,
         dims=["pixel"],
-        coords={"pixel": pixel_coords},
+        coords={"pixel": elevation.coords["pixel"]},
         attrs={"units": "tC/ha", "long_name": "soil organic carbon stocks"},
         name="organic_carbon_stocks",
     )
 
 
-def root_pool_init(n_lat: int, n_lon: int, pixel_coords: pd.MultiIndex) -> xr.DataArray:
-    """Initial root carbon pool in tC/ha.
+def root_pool_init(plant_type: xr.DataArray) -> xr.DataArray:
+    """Initial root carbon pool in tC/ha, varying by plant type.
 
     Parameters
     ----------
-    n_lat : int
-        Number of latitude points.
-    n_lon : int
-        Number of longitude points.
-    pixel_coords : pd.MultiIndex
-        MultiIndex with 'y' and 'x' levels.
+    plant_type : xr.DataArray
+        Plant type DataArray with dim "pixel".
 
     Returns
     -------
     xr.DataArray
         Root pool init data array with dims=["pixel"].
     """
-    n_pixels = n_lat * n_lon
-    data = np.full(n_pixels, 5.0)
+    data = np.array(
+        [_POOL_BY_TYPE.get(int(t), _POOL_BY_TYPE[1])[0] for t in plant_type.values]
+    )
 
     return xr.DataArray(
         data=data,
         dims=["pixel"],
-        coords={"pixel": pixel_coords},
+        coords={"pixel": plant_type.coords["pixel"]},
         attrs={"units": "tC/ha", "long_name": "initial root carbon pool"},
         name="root_pool_init",
     )
 
 
-def leaf_pool_init(n_lat: int, n_lon: int, pixel_coords: pd.MultiIndex) -> xr.DataArray:
-    """Initial leaf carbon pool in tC/ha.
+def leaf_pool_init(plant_type: xr.DataArray) -> xr.DataArray:
+    """Initial leaf carbon pool in tC/ha, varying by plant type.
 
     Parameters
     ----------
-    n_lat : int
-        Number of latitude points.
-    n_lon : int
-        Number of longitude points.
-    pixel_coords : pd.MultiIndex
-        MultiIndex with 'y' and 'x' levels.
+    plant_type : xr.DataArray
+        Plant type DataArray with dim "pixel".
 
     Returns
     -------
     xr.DataArray
         Leaf pool init data array with dims=["pixel"].
     """
-    n_pixels = n_lat * n_lon
-    data = np.full(n_pixels, 1.0)
+    data = np.array(
+        [_POOL_BY_TYPE.get(int(t), _POOL_BY_TYPE[1])[1] for t in plant_type.values]
+    )
 
     return xr.DataArray(
         data=data,
         dims=["pixel"],
-        coords={"pixel": pixel_coords},
+        coords={"pixel": plant_type.coords["pixel"]},
         attrs={"units": "tC/ha", "long_name": "initial leaf carbon pool"},
         name="leaf_pool_init",
     )
 
 
-def stem_pool_init(n_lat: int, n_lon: int, pixel_coords: pd.MultiIndex) -> xr.DataArray:
-    """Initial stem carbon pool in tC/ha.
+def stem_pool_init(plant_type: xr.DataArray) -> xr.DataArray:
+    """Initial stem carbon pool in tC/ha, varying by plant type.
 
     Parameters
     ----------
-    n_lat : int
-        Number of latitude points.
-    n_lon : int
-        Number of longitude points.
-    pixel_coords : pd.MultiIndex
-        MultiIndex with 'y' and 'x' levels.
+    plant_type : xr.DataArray
+        Plant type DataArray with dim "pixel".
 
     Returns
     -------
     xr.DataArray
         Stem pool init data array with dims=["pixel"].
     """
-    n_pixels = n_lat * n_lon
-    data = np.full(n_pixels, 10.0)
+    data = np.array(
+        [_POOL_BY_TYPE.get(int(t), _POOL_BY_TYPE[1])[2] for t in plant_type.values]
+    )
 
     return xr.DataArray(
         data=data,
         dims=["pixel"],
-        coords={"pixel": pixel_coords},
+        coords={"pixel": plant_type.coords["pixel"]},
         attrs={"units": "tC/ha", "long_name": "initial stem carbon pool"},
         name="stem_pool_init",
     )

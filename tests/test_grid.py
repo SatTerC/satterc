@@ -9,7 +9,7 @@ import numpy as np
 import pytest
 import xarray as xr
 
-from satterc.pipeline.inputs import grid
+from satterc.pipeline import grid
 
 
 class TestCheckCommonGrid:

@@ -4,14 +4,14 @@ from typing import Any
 from hamilton import driver
 from hamilton.settings import ENABLE_POWER_USER_MODE
 
-from .pipeline import inputs, outputs, models, resample
+from .pipeline import inputs, outputs, models, resample, grid
 
 MODULES = {
     "inputs.daily": inputs.daily,
     "inputs.weekly": inputs.weekly,
     "inputs.monthly": inputs.monthly,
     "inputs.static": inputs.static,
-    "inputs.grid": inputs.grid,
+    "grid": grid,
     "outputs.daily": outputs.daily,
     "outputs.weekly": outputs.weekly,
     "outputs.monthly": outputs.monthly,
@@ -27,20 +27,25 @@ MODULES = {
 def build_driver(
     modules: list[str],
     config: dict[str, Any],
-    extra_modules: list[str] | None = None,
     allow_module_overrides: bool = False,
 ) -> driver.Driver:
     config[ENABLE_POWER_USER_MODE] = True
 
-    modules_ = [MODULES[mod] for mod in modules]
-
-    if extra_modules:
-        for mod_path in extra_modules:
-            mod = import_module(mod_path)
-            modules_.append(mod)
-
-    # TODO: fix this
-    modules_ += [MODULES["inputs.grid"]]
+    modules_ = []
+    for mod in modules:
+        if mod in MODULES:
+            modules_.append(MODULES[mod])
+        else:
+            if mod.startswith("models."):
+                known = sorted(m for m in MODULES if m.startswith("models."))
+                raise ValueError(f"Unknown model '{mod}'. Known models: {known}")
+            try:
+                modules_.append(import_module(mod))
+            except ModuleNotFoundError as exc:
+                raise ValueError(
+                    f"Cannot load module '{mod}': not a known satterc module "
+                    f"and not importable as a Python module."
+                ) from exc
 
     dr = driver.Builder().with_modules(*modules_).with_config(config)
 

@@ -1,18 +1,11 @@
-modules = [
-  "inputs.daily",
-  "inputs.weekly",
-  "inputs.monthly",
-  "inputs.static",
-  "resample",
-  "outputs.daily",
-  "outputs.weekly",
-  "outputs.monthly",
-]
-
-[extra_config]
+[models.pmodel]
 method_kphio = "sandoval"
 method_optchi = "lavergne20_c3"
+
+[models.rothc]
 n_years_spinup = 1
+
+[grid]
 
 [inputs.daily]
 path = "daily.nc"
@@ -54,19 +47,3 @@ vars = [
   "stem_pool_init",
 ]
 
-[resample]
-daily_to_weekly = []
-daily_to_monthly = []
-weekly_to_monthly = []
-
-[outputs.daily]
-path = "daily.nc"
-vars = []
-
-[outputs.weekly]
-path = "weekly.nc"
-vars = []
-
-[outputs.monthly]
-path = "monthly.nc"
-vars = []

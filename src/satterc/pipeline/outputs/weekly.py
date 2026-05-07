@@ -1,9 +1,14 @@
 import xarray as xr
-from hamilton.function_modifiers import group, inject, source
+from hamilton.function_modifiers import config, group, inject, source
 from hamilton.function_modifiers.delayed import ResolveAt
 
 from .._hamilton_fixes import FixedResolve, NoOpDecorator
-from ._utils import _save_dataset
+from ._utils import (
+    _save_dataset,
+    dataset_to_dataframe,
+    save_timeseries,
+    unstack_if_grid,
+)
 
 
 @FixedResolve(
@@ -52,19 +57,20 @@ def unstacked_weekly_outputs(merged_weekly_outputs: xr.Dataset) -> xr.Dataset:
     xr.Dataset
         Weekly outputs with original spatial dimensions restored.
     """
-    return merged_weekly_outputs.unstack("pixel")
+    return unstack_if_grid(merged_weekly_outputs)
 
 
-def save_weekly_outputs(
+@config.when(weekly_outputs_format="netcdf")
+def save_weekly_outputs__netcdf(
     unstacked_weekly_outputs: xr.Dataset, weekly_outputs_path: str
 ) -> None:
-    """Save weekly outputs to file.
-
-    Parameters
-    ----------
-    unstacked_weekly_outputs : xr.Dataset
-        Weekly outputs dataset.
-    weekly_outputs_path : str
-        Path to save the dataset.
-    """
+    """Save weekly outputs to a NetCDF or Zarr file."""
     _save_dataset(unstacked_weekly_outputs, weekly_outputs_path)
+
+
+@config.when(weekly_outputs_format="flat")
+def save_weekly_outputs__flat(
+    unstacked_weekly_outputs: xr.Dataset, weekly_outputs_path: str
+) -> None:
+    """Save weekly outputs to a CSV or Parquet file."""
+    save_timeseries(dataset_to_dataframe(unstacked_weekly_outputs), weekly_outputs_path)

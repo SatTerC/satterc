@@ -6,12 +6,27 @@ from pathlib import Path
 import typer
 
 from ..config import Config
-from ..setup_utils import BuiltinModels, generate_config, get_builtin_models
+from ..setup_utils import (
+    BuiltinModels,
+    generate_config,
+    get_builtin_models,
+    get_model_params,
+)
 from ..setup_utils.data_gen import generate_synthetic_data
 
 app = typer.Typer(help="Generate a configuration file for SatTerC.")
 
 DURATION_PATTERN = re.compile(r"^(\d+)([ymd])$")
+
+PATH_DEFAULTS = {
+    "inputs_daily": "inputs/daily.nc",
+    "inputs_weekly": "inputs/weekly.nc",
+    "inputs_monthly": "inputs/monthly.nc",
+    "inputs_static": "inputs/static.nc",
+    "outputs_daily": "outputs/daily.nc",
+    "outputs_weekly": "outputs/weekly.nc",
+    "outputs_monthly": "outputs/monthly.nc",
+}
 
 
 def _parse_duration(duration: str) -> int:
@@ -129,26 +144,40 @@ def _select_custom_modules() -> list[str]:
     """
     selected: list[str] = []
 
+    typer.echo(
+        "  Enter one module path per prompt (empty to finish, re-enter to remove)."
+    )
+
     while True:
-        typer.echo(f"\nSelected: {', '.join(selected) or '(none)'}")
+        typer.echo(f"\n  Selected: {', '.join(selected) or '(none)'}")
 
         choice = typer.prompt(
-            "Enter module paths (comma or space separated, 0 when done)",
+            "  Module path",
             default="",
             show_default=False,
-            prompt_suffix="\n> ",
+            prompt_suffix="\n  > ",
         ).strip()
 
-        if choice == "" or choice == "0":
+        if not choice:
             break
 
-        selections = _parse_selections(choice)
+        if choice in selected:
+            selected.remove(choice)
+            typer.echo(f"  Removed: {choice}")
+            continue
 
-        for item in selections:
-            action = "Removed" if item in selected else "Added"
-            typer.echo(f"  {action}: {item}")
+        try:
+            params = get_model_params(choice)
+        except Exception:
+            params = {}
 
-        _toggle_selections(selected, selections)
+        if params:
+            param_str = ", ".join(f"{k}={v!r}" for k, v in params.items())
+            typer.echo(f"  Added: {choice}  (defaults: {param_str})")
+        else:
+            typer.echo(f"  Added: {choice}  (no _parameters() function found)")
+
+        selected.append(choice)
 
     return selected
 
@@ -178,6 +207,18 @@ def setup(
     if defaults and models is None:
         raise typer.BadParameter("--defaults requires --models to be specified")
 
+    overwrite_ok = False
+    if output.exists():
+        if defaults:
+            typer.echo(
+                f"Error: {output} already exists. Use --output to specify a different path.",
+                err=True,
+            )
+            raise typer.Exit(1)
+        if not typer.confirm(f"\n{output} already exists. Overwrite?", default=False):
+            raise typer.Exit()
+        overwrite_ok = True
+
     if models is not None:
         model_names = _parse_selections(models)
         builtin_models = []
@@ -195,7 +236,7 @@ def setup(
 
     if defaults:
         custom_modules: list[str] = []
-        paths = dict(Config.PATH_DEFAULTS)
+        paths = dict(PATH_DEFAULTS)
     else:
         custom_modules = _select_custom_modules()
 
@@ -205,39 +246,39 @@ def setup(
         )
 
         if use_defaults:
-            paths = dict(Config.PATH_DEFAULTS)
+            paths = dict(PATH_DEFAULTS)
         else:
             typer.echo("\nInput file paths:")
             paths = {}
             paths["inputs_daily"] = typer.prompt(
                 "Daily input path",
-                default=Config.PATH_DEFAULTS["inputs_daily"],
+                default=PATH_DEFAULTS["inputs_daily"],
             )
             paths["inputs_weekly"] = typer.prompt(
                 "Weekly input path",
-                default=Config.PATH_DEFAULTS["inputs_weekly"],
+                default=PATH_DEFAULTS["inputs_weekly"],
             )
             paths["inputs_monthly"] = typer.prompt(
                 "Monthly input path",
-                default=Config.PATH_DEFAULTS["inputs_monthly"],
+                default=PATH_DEFAULTS["inputs_monthly"],
             )
             paths["inputs_static"] = typer.prompt(
                 "Static input path",
-                default=Config.PATH_DEFAULTS["inputs_static"],
+                default=PATH_DEFAULTS["inputs_static"],
             )
 
             typer.echo("\nOutput file paths:")
             paths["outputs_daily"] = typer.prompt(
                 "Daily output path",
-                default=Config.PATH_DEFAULTS["outputs_daily"],
+                default=PATH_DEFAULTS["outputs_daily"],
             )
             paths["outputs_weekly"] = typer.prompt(
                 "Weekly output path",
-                default=Config.PATH_DEFAULTS["outputs_weekly"],
+                default=PATH_DEFAULTS["outputs_weekly"],
             )
             paths["outputs_monthly"] = typer.prompt(
                 "Monthly output path",
-                default=Config.PATH_DEFAULTS["outputs_monthly"],
+                default=PATH_DEFAULTS["outputs_monthly"],
             )
 
         typer.echo()
@@ -249,7 +290,7 @@ def setup(
 
     typer.echo(f"\nGenerating {output}... ", nl=False)
     config = generate_config(builtin_models, custom_modules, paths)
-    config.dump(output)
+    config.dump(output, overwrite_ok=overwrite_ok)
     typer.echo("Done!")
 
     if not defaults:
@@ -290,11 +331,11 @@ def setup(
             config_dir = output.parent.resolve()
             for freq in ["daily", "weekly", "monthly", "static"]:
                 path_key = f"{freq}_inputs_path"
-                if path_key in parsed_config["driver_config"]:
-                    rel_path = parsed_config["driver_config"][path_key]
+                if path_key in parsed_config.driver_config:
+                    rel_path = parsed_config.driver_config[path_key]
                     full_path = config_dir / rel_path
                     full_path.parent.mkdir(parents=True, exist_ok=True)
-                    parsed_config["driver_config"][path_key] = str(full_path)
+                    parsed_config.driver_config[path_key] = str(full_path)
 
             generate_synthetic_data(
                 config=parsed_config,

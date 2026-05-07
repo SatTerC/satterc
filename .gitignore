@@ -16,3 +16,6 @@ tmp/
 __marimo__/
 
 CLAUDE.md
+.claude/
+
+docs/Examples

@@ -1,15 +1,15 @@
 # /// script
 # requires-python = ">=3.13"
 # dependencies = [
-#   "satterc",
+#   "satterc==0.3.0",
 #   "marimo",
-#   "matplotlib",
+#   "matplotlib==3.10.9",
 # ]
 # ///
 
 import marimo
 
-__generated_with = "0.23.4"
+__generated_with = "0.23.5"
 app = marimo.App(width="medium")
 
 
@@ -24,10 +24,10 @@ def _(mo):
     return
 
 
-@app.cell(hide_code=True)
+@app.cell
 def _(mo):
-    mo.md(r"""
-    ## Running this notebook
+    mo.md("""
+    /// admonition | Running this notebook yourself
 
     ### Option A — standalone, using `uv` (recommended)
 
@@ -35,7 +35,7 @@ def _(mo):
     If you have it installed, download this file and run:
 
     ```bash
-    uv run 00-getting-started.py
+    uv run 00-getting-started-csv.py
     ```
 
     `uv` will read the dependency list embedded at the top of this file, install everything
@@ -48,8 +48,9 @@ def _(mo):
     development environment), activate that environment and run:
 
     ```bash
-    marimo run 00-getting-started.py
+    marimo run 00-getting-started-csv.py
     ```
+    ///
     """)
     return
 
@@ -57,7 +58,6 @@ def _(mo):
 @app.cell
 def _():
     import tempfile
-    import tomllib
     from pathlib import Path
 
     import marimo as mo
@@ -75,7 +75,6 @@ def _():
         mo,
         plt,
         tempfile,
-        tomllib,
     )
 
 
@@ -86,19 +85,9 @@ def _(mo):
 
     A SatTerC pipeline is described by a configuration file written in
     [TOML](https://toml.io/en/) — a simple, human-readable format.
-    The config tells SatTerC:
-
-    - **`modules`** — which model components to activate
-    - **`inputs`** — where to find the input data files and which variables to load from them
-    - **`outputs`** — which computed variables to save, and where to write them
-
-    In this example we run only the **SPLASH** water balance model, which simulates
-    how precipitation is partitioned into evapotranspiration, soil moisture, and runoff.
-    It needs just three daily inputs and two static (time-invariant) inputs.
-
-    In this notebook the config is embedded directly as a string, so you do not need
-    any external files to get started. At the end we show how to save it to a file
-    and adapt it for your own data.
+    Every section in the config activates a pipeline component — `[models.splash]` runs the
+    SPLASH water-balance model, `[inputs.daily]` loads daily climate data from the given path,
+    and `[outputs.daily]` saves the named variables to disk when the pipeline finishes.
     """)
     return
 
@@ -106,15 +95,10 @@ def _(mo):
 @app.cell
 def _():
     config_toml = """
-    modules = [
-      "models.splash",
-      "inputs.daily",
-      "inputs.static",
-      "outputs.daily",
-    ]
+    [models.splash]
 
     [inputs.daily]
-    path = "daily.nc"
+    path = "daily.csv"
     vars = [
       "precipitation_mm",
       "sunshine_fraction",
@@ -122,14 +106,15 @@ def _():
     ]
 
     [inputs.static]
-    path = "static.nc"
+    path = "static.json"
     vars = [
       "elevation",
+      "latitude",
       "max_soil_moisture",
     ]
 
     [outputs.daily]
-    path = "results/daily.nc"
+    path = "results/daily.csv"
     vars = [
       "actual_evapotranspiration",
       "soil_moisture",
@@ -144,12 +129,14 @@ def _(mo):
     mo.md(r"""
     ## Step 2: Generate synthetic input data
 
-    SatTerC reads input data from [NetCDF](https://www.unidata.ucar.edu/software/netcdf/) files
-    — a standard scientific data format for gridded (spatial) datasets.
+    SatTerC reads input data from files — the format is detected automatically from
+    the file extension listed in the configuration. SatTerC's built-in synthetic
+    data generator supports NetCDF, Zarr, CSV, Parquet, and JSON output, making
+    it easy to produce realistic stand-in inputs in whatever format you need.
 
-    Since we do not have real data to hand, we will use SatTerC's built-in synthetic data
-    generator to produce realistic stand-in inputs.
-    The generated data covers a small 4×4 grid of pixels over one year.
+    Since we do not have real data to hand, we will use the generator to produce
+    single-site CSV and JSON inputs. The generated data covers one virtual site
+    over a two-year period.
 
     > **If you have real data**, skip ahead to the *Using your own data* section at the bottom
     > of this notebook before running the pipeline.
@@ -158,17 +145,18 @@ def _(mo):
 
 
 @app.cell
-def _(Config, Path, config_toml, generate_synthetic_data, tempfile, tomllib):
-    # Parse the embedded config string
+def _(Config, Path, config_toml, generate_synthetic_data, tempfile):
     _tmpdir = Path(tempfile.mkdtemp())
-    parsed_config = Config(tomllib.loads(config_toml)).parse()
+
+    # Parse the embedded config string
+    parsed_config = Config.loads(config_toml).parse()
 
     # Redirect the input paths to files we will generate in a temporary directory
-    parsed_config["driver_config"]["daily_inputs_path"] = str(_tmpdir / "daily.nc")
-    parsed_config["driver_config"]["static_inputs_path"] = str(_tmpdir / "static.nc")
+    parsed_config.driver_config["daily_inputs_path"] = str(_tmpdir / "daily.csv")
+    parsed_config.driver_config["static_inputs_path"] = str(_tmpdir / "static.json")
 
     # Generate synthetic data — this may take a few seconds
-    generate_synthetic_data(config=parsed_config, grid=(4, 4), n_days=730, seed=42)
+    generate_synthetic_data(config=parsed_config, grid=(1, 1), n_days=730, seed=42)
 
     print(f"Synthetic data written to: {_tmpdir}")
     return (parsed_config,)
@@ -192,8 +180,8 @@ def _(mo):
 @app.cell
 def _(build_driver, parsed_config):
     dr = build_driver(
-        modules=parsed_config["modules"],
-        config=parsed_config["driver_config"],
+        modules=parsed_config.modules,
+        config=parsed_config.driver_config,
     )
     return (dr,)
 
@@ -216,7 +204,7 @@ def _(mo):
 
     We run the pipeline by calling `dr.execute()` and naming the outputs we want.
 
-    By default, the pipeline saves results to NetCDF files on disk (the `save_*_outputs` nodes).
+    By default, the pipeline saves results to files on disk (the `save_*_outputs` nodes).
     Here we instead request the merged output dataset directly as an in-memory object
     — useful for exploration and plotting without writing any files.
     """)
@@ -226,7 +214,7 @@ def _(mo):
 @app.cell
 def _(dr):
     outputs = dr.execute(["merged_daily_outputs"])
-    outputs
+    outputs["merged_daily_outputs"].info()
     return
 
 
@@ -235,7 +223,7 @@ def _(mo):
     mo.md(r"""
     ## Step 5: Inspect the results
 
-    Let us plot the simulated soil moisture for each pixel over the year.
+    Let us plot the simulated soil moisture over the two-year period.
     Soil moisture rises after precipitation events and falls during dry periods —
     a clear seasonal signal should be visible.
     """)
@@ -245,14 +233,11 @@ def _(mo):
 @app.cell
 def _(dr, plt):
     _outputs = dr.execute(["soil_moisture_daily"])
-    soil_moisture = _outputs["soil_moisture_daily"]
+    soil_moisture = _outputs["soil_moisture_daily"].isel(pixel=0)
 
-    n_pixels = soil_moisture.sizes["pixel"]
-    fig, axes = plt.subplots(n_pixels, 1, figsize=(10, 3 * n_pixels), sharex=True)
-    for i, ax in enumerate(axes):
-        soil_moisture[:, i].plot(ax=ax)
-        ax.set_title(f"Pixel {i}")
-        ax.set_ylabel("Soil moisture (mm)")
+    fig, ax = plt.subplots(figsize=(10, 3))
+    soil_moisture.plot(ax=ax)
+    ax.set_ylabel("Soil moisture (mm)")
     fig.tight_layout()
     fig
     return
@@ -286,23 +271,52 @@ def _(Path):
 @app.cell(hide_code=True)
 def _(mo):
     mo.md(r"""
-    ### 2. Edit the file
+    ### 2. Prepare your data files
+
+    **Daily CSV** — one row per day, first column a parseable date:
+
+    ```csv
+    time,precipitation_mm,sunshine_fraction,temperature_celcius
+    2020-01-01,3.2,0.45,8.1
+    2020-01-02,0.0,0.71,9.3
+    ...
+    ```
+
+    **Static JSON** — a plain key → scalar mapping:
+
+    ```json
+    {
+      "elevation": 150.0,
+      "latitude": 51.5,
+      "max_soil_moisture": 200.0
+    }
+    ```
+
+    ### 3. Edit the config file
 
     Open `my_pipeline.toml` in a text editor.
-    Under each `[inputs.*]` section, change the `path` value to point to your real NetCDF file.
+    Under each `[inputs.*]` section, change the `path` value to point to your real file.
     Paths can be absolute or relative to the location of the config file. For example:
 
     ```toml
     [inputs.daily]
-    path = "/data/my-site/daily.nc"
+    path = "/data/my-site/daily.csv"
     vars = [
       "precipitation_mm",
       "sunshine_fraction",
       "temperature_celcius",
     ]
+
+    [inputs.static]
+    path = "/data/my-site/static.json"
+    vars = [
+      "elevation",
+      "latitude",
+      "max_soil_moisture",
+    ]
     ```
 
-    ### 3. Load the config from the file
+    ### 4. Load the config from the file
 
     Replace the config and data-generation cells in this notebook with:
 
@@ -314,10 +328,10 @@ def _(mo):
 
     `load_config` reads the TOML file and resolves all paths relative to the file's location.
 
-    ### 4. Remove the data generation cell
+    ### 5. Remove the data generation cell
 
     You no longer need to generate synthetic data — delete that cell.
-    The pipeline will load your real NetCDF files directly.
+    The pipeline will load your real CSV and JSON files directly.
     """)
     return
 

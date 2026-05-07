@@ -5,13 +5,18 @@ _:
 # Format and lint the package using ruff, and lint the examples using marimo.
 lint:
   ruff format
+  ruff check --fix
+  marimo check examples/
+
+# Variant of `lint` that doesn't cause any changes to files.
+lint-check:
+  ruff format --check
   ruff check
   marimo check examples/
 
 # Run the full test suite.
 test: lint
   pytest
-  # TODO: integration test
 
 # Build the documentation using Zensical.
 docs:
@@ -20,14 +25,12 @@ docs:
 # Export a single example notebook to docs/Examples/.
 export example:
   # Export to Markdown file
-  marimo export md "examples/{{example}}.py" --output "docs/Examples/{{example}}.md" --no-sandbox --force
-  # Export to static HTML
-  marimo export html "examples/{{example}}.py" --output "docs/Examples/{{example}}-notebook.html" --no-sandbox --force
+  marimo-md-export "examples/{{example}}.py" "docs/Examples/{{example}}.md" \
+    --html-output docs/Examples/{{example}}-notebook.html --overflow scroll
 
 # Export all notebooks in examples/ to docs/Examples/.
 export-all:
-  just export 00-getting-started
-  just export 01-demo
-  just export 02-soil-moisture
-  just export 03-pft-parameters
-  
+  just export my_first_pipeline
+  just export soil_moisture
+  just export pft_parameters
+  just export full_pipeline

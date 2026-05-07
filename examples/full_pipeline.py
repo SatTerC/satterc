@@ -2,13 +2,14 @@
 # requires-python = ">=3.13"
 # dependencies = [
 #     "marimo",
-#     "matplotlib",
+#     "matplotlib==3.10.9",
+#     "satterc==0.3.0",
 # ]
 # ///
 
 import marimo
 
-__generated_with = "0.23.4"
+__generated_with = "0.23.5"
 app = marimo.App(width="medium")
 
 
@@ -66,27 +67,19 @@ def _(mo):
 @app.cell
 def _(Config, tomllib):
     _config_toml = """
-    modules = [
-      "models.pmodel",
-      "models.splash",
-      "models.sgam",
-      "models.rothc",
-      "inputs.daily",
-      "inputs.weekly",
-      "inputs.monthly",
-      "inputs.static",
-      "resample",
-      "outputs.daily",
-      "outputs.weekly",
-      "outputs.monthly",
-    ]
 
-    [extra_config]
-    n_years_spinup = 1
+    [models.splash]
 
     [models.pmodel]
     method_kphio = "sandoval"
     method_optchi = "lavergne20_c3"
+
+    [models.sgam]
+
+    [models.rothc]
+    n_years_spinup = 1
+
+    [grid]
 
     [inputs.daily]
     path = "daily.nc"
@@ -128,23 +121,31 @@ def _(Config, tomllib):
       "stem_pool_init",
     ]
 
-    [resample]
-    daily_to_weekly = [
+    [[resample]]
+    vars = [
       "temperature_celcius",
       "precipitation_mm",
       "soil_moisture",
       "aridity_index",
     ]
+    from_freq = "daily"
+    to_freq = "weekly"
 
-    daily_to_monthly = [
+    [[resample]]
+    vars = [
       "temperature_celcius",
       "precipitation_mm",
       "actual_evapotranspiration",
     ]
+    from_freq = "daily"
+    to_freq = "monthly"
 
-    weekly_to_monthly = [
+    [[resample]]
+    vars = [
       "litter_pool",
     ]
+    from_freq = "weekly"
+    to_freq = "monthly"
 
     [outputs.daily]
     path = "results/daily.nc"
@@ -189,10 +190,10 @@ def _(Path, generate_synthetic_data, parsed_config, tempfile):
     # Generate synthetic input data into a temporary directory
     _tmpdir = Path(tempfile.mkdtemp())
 
-    parsed_config["driver_config"]["daily_inputs_path"] = str(_tmpdir / "daily.nc")
-    parsed_config["driver_config"]["weekly_inputs_path"] = str(_tmpdir / "weekly.nc")
-    parsed_config["driver_config"]["monthly_inputs_path"] = str(_tmpdir / "monthly.nc")
-    parsed_config["driver_config"]["static_inputs_path"] = str(_tmpdir / "static.nc")
+    parsed_config.driver_config["daily_inputs_path"] = str(_tmpdir / "daily.nc")
+    parsed_config.driver_config["weekly_inputs_path"] = str(_tmpdir / "weekly.nc")
+    parsed_config.driver_config["monthly_inputs_path"] = str(_tmpdir / "monthly.nc")
+    parsed_config.driver_config["static_inputs_path"] = str(_tmpdir / "static.nc")
 
     generate_synthetic_data(config=parsed_config, grid=(4, 4), n_days=730, seed=42)
     return
@@ -218,8 +219,8 @@ def _(mo):
 def _(build_driver, parsed_config):
     # Build the driver object
     dr = build_driver(
-        modules=parsed_config["modules"],
-        config=parsed_config["driver_config"],
+        modules=parsed_config.modules,
+        config=parsed_config.driver_config,
     )
 
     # This produces a visualisation of the entire DAG, which is too large..

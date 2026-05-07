@@ -12,14 +12,18 @@ authors = [
 ]
 requires-python = ">=3.13"
 dependencies = [
+    "marimo-md-export>=0.5.0",
     "netcdf4>=1.7.4",
     "numpy>=2.4.2",
+    "pyarrow>=10.0",
     "pyproj>=3.7.2",
     "pyrealm>=2.0.0",
+    "pyyaml>=6.0",
     "rioxarray>=0.22.0",
     "rothc-py",
     "sf-hamilton[visualization]>=1.89.0",
     "sgam",
+    "tomli-w>=1.2.0",
     "typer>=0.24.1",
     "xarray>=2026.2.0",
 ]
@@ -38,11 +42,11 @@ dev = [
 ]
 docs = [
     {include-group = "examples"},
+    "marimo>=0.23.0",
     "mkdocstrings-python>=2.0.3",
     "zensical>=0.0.24",
 ]
 examples = [
-    "marimo>=0.23.0",
     "matplotlib>=3.10.8",
 ]
 test = [
