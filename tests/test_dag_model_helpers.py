@@ -60,43 +60,110 @@ class TestRothcBridgeFunctions:
     """plant_cover_monthly, dpm_rpm_ratio_monthly, farmyard_manure_input_monthly."""
 
     @pytest.fixture(scope="class")
-    def plant_type(self):
-        return _static(np.array([0.0, 1.0, 2.0]))
+    def plant_type_mixed(self):
+        return _static(np.array([0.0, 1.0, 2.0, 3.0]))
 
-    def test_plant_cover_shape(self, plant_type):
-        result = rothc_module.plant_cover_monthly(plant_type, MONTHLY_DATES)
-        assert result.sizes["pixel"] == N_PIXELS
+    @pytest.fixture(scope="class")
+    def latitude_nh(self):
+        pixel = np.arange(4)
+        return xr.DataArray(
+            np.array([51.0, 52.0, 53.0, 54.0]), dims=["pixel"], coords={"pixel": pixel}
+        )
+
+    @pytest.fixture(scope="class")
+    def latitude_sh(self):
+        pixel = np.arange(1)
+        return xr.DataArray(np.array([-33.0]), dims=["pixel"], coords={"pixel": pixel})
+
+    def test_plant_cover_shape(self, plant_type_mixed, latitude_nh):
+        result = rothc_module.plant_cover_monthly(
+            plant_type_mixed, latitude_nh, MONTHLY_DATES
+        )
+        assert result.sizes["pixel"] == 4
         assert result.sizes["time"] == N_MONTHS
 
-    def test_plant_cover_all_ones(self, plant_type):
-        result = rothc_module.plant_cover_monthly(plant_type, MONTHLY_DATES)
-        assert np.all(result.values == 1)
-
-    def test_plant_cover_is_dataarray(self, plant_type):
-        result = rothc_module.plant_cover_monthly(plant_type, MONTHLY_DATES)
+    def test_plant_cover_is_dataarray(self, plant_type_mixed, latitude_nh):
+        result = rothc_module.plant_cover_monthly(
+            plant_type_mixed, latitude_nh, MONTHLY_DATES
+        )
         assert isinstance(result, xr.DataArray)
 
-    def test_dpm_rpm_ratio_shape(self, plant_type):
-        result = rothc_module.dpm_rpm_ratio_monthly(plant_type, MONTHLY_DATES)
-        assert result.sizes["pixel"] == N_PIXELS
+    def test_plant_cover_non_crop_always_one(self, latitude_nh):
+        plant_type = _static(np.array([0.0, 1.0, 2.0]))
+        lat = xr.DataArray(
+            np.array([51.0, 52.0, 53.0]), dims=["pixel"], coords={"pixel": np.arange(3)}
+        )
+        result = rothc_module.plant_cover_monthly(plant_type, lat, MONTHLY_DATES)
+        assert np.all(result.values == 1)
+
+    def test_plant_cover_crop_bare_nh_winter(self, plant_type_mixed, latitude_nh):
+        result = rothc_module.plant_cover_monthly(
+            plant_type_mixed, latitude_nh, MONTHLY_DATES
+        )
+        crop_cover = result.sel(pixel=3).values
+        months = [d.month for d in MONTHLY_DATES]
+        winter_idx = [i for i, m in enumerate(months) if m in (11, 12, 1, 2)]
+        for idx in winter_idx:
+            assert crop_cover[idx] == 0, (
+                f"Expected crop cover=0 in NH winter month {months[idx]}"
+            )
+        summer_idx = [i for i, m in enumerate(months) if m not in (11, 12, 1, 2)]
+        for idx in summer_idx:
+            assert crop_cover[idx] == 1, (
+                f"Expected crop cover=1 in NH summer month {months[idx]}"
+            )
+
+    def test_plant_cover_crop_bare_sh_winter(self, latitude_sh):
+        plant_type = _static(np.array([3.0]))
+        result = rothc_module.plant_cover_monthly(
+            plant_type, latitude_sh, MONTHLY_DATES
+        )
+        crop_cover = result.sel(pixel=0).values
+        months = [d.month for d in MONTHLY_DATES]
+        winter_idx = [i for i, m in enumerate(months) if m in (5, 6, 7, 8)]
+        for idx in winter_idx:
+            assert crop_cover[idx] == 0, (
+                f"Expected crop cover=0 in SH winter month {months[idx]}"
+            )
+        summer_idx = [i for i, m in enumerate(months) if m not in (5, 6, 7, 8)]
+        for idx in summer_idx:
+            assert crop_cover[idx] == 1, (
+                f"Expected crop cover=1 in SH summer month {months[idx]}"
+            )
+
+    def test_dpm_rpm_ratio_shape(self, plant_type_mixed):
+        result = rothc_module.dpm_rpm_ratio_monthly(plant_type_mixed, MONTHLY_DATES)
+        assert result.sizes["pixel"] == 4
         assert result.sizes["time"] == N_MONTHS
 
-    def test_dpm_rpm_ratio_positive(self, plant_type):
-        result = rothc_module.dpm_rpm_ratio_monthly(plant_type, MONTHLY_DATES)
+    def test_dpm_rpm_ratio_positive(self, plant_type_mixed):
+        result = rothc_module.dpm_rpm_ratio_monthly(plant_type_mixed, MONTHLY_DATES)
         assert np.all(result.values > 0)
 
-    def test_dpm_rpm_ratio_spatially_uniform(self, plant_type):
-        result = rothc_module.dpm_rpm_ratio_monthly(plant_type, MONTHLY_DATES)
-        # Same constant across all pixels and times (current implementation)
-        assert result.values.std() == pytest.approx(0.0)
+    def test_dpm_rpm_ratio_values_by_type(self, plant_type_mixed):
+        result = rothc_module.dpm_rpm_ratio_monthly(plant_type_mixed, MONTHLY_DATES)
+        np.testing.assert_allclose(result.sel(pixel=0).values, 0.25)
+        np.testing.assert_allclose(result.sel(pixel=1).values, 1.44)
+        np.testing.assert_allclose(result.sel(pixel=2).values, 0.67)
+        np.testing.assert_allclose(result.sel(pixel=3).values, 1.44)
 
-    def test_farmyard_manure_shape(self, plant_type):
-        result = rothc_module.farmyard_manure_input_monthly(plant_type, MONTHLY_DATES)
-        assert result.sizes["pixel"] == N_PIXELS
+    def test_dpm_rpm_ratio_config_override(self, plant_type_mixed):
+        result = rothc_module.dpm_rpm_ratio_monthly(
+            plant_type_mixed, MONTHLY_DATES, dpm_rpm_ratio_grass=0.67
+        )
+        np.testing.assert_allclose(result.sel(pixel=1).values, 0.67)
+
+    def test_farmyard_manure_shape(self, plant_type_mixed):
+        result = rothc_module.farmyard_manure_input_monthly(
+            plant_type_mixed, MONTHLY_DATES
+        )
+        assert result.sizes["pixel"] == 4
         assert result.sizes["time"] == N_MONTHS
 
-    def test_farmyard_manure_all_zeros(self, plant_type):
-        result = rothc_module.farmyard_manure_input_monthly(plant_type, MONTHLY_DATES)
+    def test_farmyard_manure_all_zeros(self, plant_type_mixed):
+        result = rothc_module.farmyard_manure_input_monthly(
+            plant_type_mixed, MONTHLY_DATES
+        )
         assert np.all(result.values == 0.0)
 
 
@@ -423,6 +490,7 @@ class TestRothcDriverExecution:
                 "soil_depth": _sda(25.0),
                 "inert_organic_matter": _sda(2.0),
                 "plant_type": _sda(1.0),  # needed for helper nodes
+                "latitude": _sda(51.5),
                 "dates_monthly": time,
             },
         )

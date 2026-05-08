@@ -145,11 +145,15 @@ Static variables have no suffix.
 | **Inputs (static)** | `clay_content` | Clay content (%) |
 | | `soil_depth` | Soil depth (cm) |
 | | `organic_carbon_stocks` | Organic carbon stocks (tC/ha) — used to compute inert organic matter |
-| **Computed internally** | `plant_cover` | Set to all ones (TODO: PFT-dependent) |
-| | `dpm_rpm_ratio` | Set to 1.44 (TODO: PFT-dependent) |
-| | `farmyard_manure_input` | Set to zeros (TODO: PFT-dependent) |
+| **Computed internally** | `plant_cover` | PFT-dependent: tree/grass/shrub always 1; crops bare in winter (NH: Nov–Feb, SH: May–Aug) |
+| | `dpm_rpm_ratio` | PFT-dependent (configurable): tree=0.25, grass=1.44, shrub=0.67, crop=1.44 |
+| | `farmyard_manure_input` | Set to zeros (future: SGAM grazing C flux for grass) |
 | | `inert_organic_matter` | Computed from `organic_carbon_stocks` |
 | **Parameters** | `n_years_spinup` | Years for model spin-up (default: 1) |
+| | `dpm_rpm_ratio_tree` | DPM/RPM ratio for tree (default: 0.25) |
+| | `dpm_rpm_ratio_grass` | DPM/RPM ratio for grass (default: 1.44) |
+| | `dpm_rpm_ratio_shrub` | DPM/RPM ratio for shrub (default: 0.67) |
+| | `dpm_rpm_ratio_crop` | DPM/RPM ratio for crop (default: 1.44) |
 | **Outputs (monthly)** | `decomposable_plant_material` | DPM pool (tC/ha) |
 | | `resistant_plant_material` | RPM pool (tC/ha) |
 | | `microbial_biomass` | BIO pool (tC/ha) |

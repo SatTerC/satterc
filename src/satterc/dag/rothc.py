@@ -32,7 +32,8 @@ def _rothc(
     n_spinup_months = n_years_spinup * 12
 
     # NOTE: need to pass a datetime.datetime object (not a numpy.datetime64)
-    # NOTE: I'm not sure why pyright is complaining here!
+    # DatetimeIndex.to_pydatetime() exists at runtime but is missing from
+    # the pandas type stubs, hence the type: ignore.
     start_date = dates_monthly.to_pydatetime()[0]  # type: ignore[reportAttributeAccessIssue]
 
     t_mod = percent_modern_c(start_date=start_date, n_months=n_months)
@@ -171,37 +172,127 @@ def rothc(
     )
 
 
-def plant_cover_monthly(
-    plant_type: DataArray, dates_monthly: DatetimeIndex
-) -> DataArray:
-    """Temporary bridge to the boolean plant cover data required by RothC.
+# --- Bridge nodes, needed for RothC --- #
+# Ideally refactored in future to be more flexible, configurable via config.toml etc.
 
-    Just returns an array of ones with shape (n_months, n_pixels).
+
+def plant_cover_monthly(
+    plant_type: DataArray,
+    latitude: DataArray,
+    dates_monthly: DatetimeIndex,
+) -> DataArray:
+    """Return monthly plant cover as a boolean mask, accounting for crop seasonality.
+
+    Tree (0), grass (1), and shrub (2) are always considered to cover the soil.
+    Crops (3) have a bare season that depends on hemisphere:
+      - Northern hemisphere (lat >= 0): bare Nov-Feb
+      - Southern hemisphere (lat < 0): bare May-Aug
+
+    Parameters
+    ----------
+    plant_type
+        Plant functional type as integer (0=tree, 1=grass, 2=shrub, 3=crop).
+        Dims: ["pixel"].
+    latitude
+        Latitude for each pixel. Dims: ["pixel"].
+    dates_monthly
+        Monthly datetime index.
+
+    Returns
+    -------
+    DataArray
+        Boolean plant cover with shape (time, pixel).
     """
-    return xr.ones_like(plant_type.expand_dims(time=dates_monthly))
+    n_months = len(dates_monthly)
+    n_pixels = len(plant_type)
+    months = np.array([d.month for d in dates_monthly])
+
+    is_crop = plant_type.values == 3
+    nh = latitude.values >= 0
+
+    bare_months_nh = np.isin(months, [11, 12, 1, 2])
+    bare_months_sh = np.isin(months, [5, 6, 7, 8])
+
+    cover = np.ones((n_months, n_pixels), dtype=bool)
+
+    for i in range(n_pixels):
+        if is_crop[i]:
+            if nh[i]:
+                cover[:, i] = ~bare_months_nh
+            else:
+                cover[:, i] = ~bare_months_sh
+
+    return xr.DataArray(
+        data=cover,
+        dims=["time", "pixel"],
+        coords={"time": dates_monthly, "pixel": plant_type.coords["pixel"]},
+    )
 
 
 def dpm_rpm_ratio_monthly(
-    plant_type: DataArray, dates_monthly: DatetimeIndex
+    plant_type: DataArray,
+    dates_monthly: DatetimeIndex,
+    *,
+    dpm_rpm_ratio_tree: float = 0.25,
+    dpm_rpm_ratio_grass: float = 1.44,
+    dpm_rpm_ratio_shrub: float = 0.67,
+    dpm_rpm_ratio_crop: float = 1.44,
 ) -> DataArray:
     """Return the DPM/RPM ratio for RothC based on plant type.
 
-    Currently returns a constant value; future versions may use PFT-specific ratios.
-    """
-    # TODO: get pft-specific dpm/rpm ratio and return constant Array
-    value = 1.44  # crop and improved grassland
-    # value = 0.67  # unimproved grassland and scrub
-    # value = 0.25  # woodland
-    # See https://github.com/Rothamsted-Models/RothC_Py/blob/main/RothC_description.pdf
+    Default ratios follow the RothC documentation:
+      - Tree (0) → 0.25 (woodland)
+      - Grass (1) → 1.44 (improved grassland)
+      - Shrub (2) → 0.67 (scrub)
+      - Crop (3) → 1.44 (crop)
 
-    return xr.full_like(plant_type.expand_dims(time=dates_monthly), value)
+    Each ratio can be overridden via config, e.g.:
+        [models.rothc]
+        dpm_rpm_ratio_grass = 0.67
+
+    Parameters
+    ----------
+    plant_type
+        Plant functional type as integer (0=tree, 1=grass, 2=shrub, 3=crop).
+        Dims: ["pixel"].
+    dates_monthly
+        Monthly datetime index.
+    dpm_rpm_ratio_tree
+        DPM/RPM ratio for tree/woodland.
+    dpm_rpm_ratio_grass
+        DPM/RPM ratio for grass.
+    dpm_rpm_ratio_shrub
+        DPM/RPM ratio for shrub/scrub.
+    dpm_rpm_ratio_crop
+        DPM/RPM ratio for crop.
+
+    Returns
+    -------
+    DataArray
+        DPM/RPM ratio with shape (time, pixel).
+    """
+    ratio_map = {
+        0: dpm_rpm_ratio_tree,
+        1: dpm_rpm_ratio_grass,
+        2: dpm_rpm_ratio_shrub,
+        3: dpm_rpm_ratio_crop,
+    }
+    values = np.array([ratio_map[int(t)] for t in plant_type.values])
+    return xr.DataArray(
+        data=np.tile(values, (len(dates_monthly), 1)),
+        dims=["time", "pixel"],
+        coords={"time": dates_monthly, "pixel": plant_type.coords["pixel"]},
+    )
 
 
 def farmyard_manure_input_monthly(
-    plant_type: DataArray, dates_monthly: DatetimeIndex
+    plant_type: DataArray,
+    dates_monthly: DatetimeIndex,
 ) -> DataArray:
-    """For now, return array of zeros for farmyard manure input.
+    """Return array of zeros for farmyard manure input.
 
-    In future, could be determined by pft (non-zero if crop) and month of year.
+    In a future version, this could be driven by a grazing/manure C flux
+    estimated by SGAM for grass-dominated pixels. Such a flux would need
+    to be exposed as a monthly SGAM output and wired here.
     """
     return xr.zeros_like(plant_type.expand_dims(time=dates_monthly))
