@@ -17,7 +17,6 @@ tmp/
 *.html
 __marimo__/
 
-CLAUDE.md
 .claude/
 
 docs/examples
