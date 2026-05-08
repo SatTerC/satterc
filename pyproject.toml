@@ -109,6 +109,7 @@ convention = "numpy"
 
 [tool.pytest.ini_options]
 filterwarnings = [
-    "ignore:\\s*Pyrealm 2.0.0:UserWarning",
     "ignore:'where' used without 'out':UserWarning",
+    "ignore:\\s*Pyrealm 2\\.0\\.0 uses a new default.*:UserWarning",
+    "ignore::pyrealm.core.experimental.ExperimentalFeatureWarning",
 ]
