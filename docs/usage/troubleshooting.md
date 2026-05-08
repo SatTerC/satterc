@@ -142,40 +142,4 @@ dr.visualize_path_between("precipitation_mm_daily", "soil_moisture_daily")
 | Brown | Monthly-frequency nodes |
 | White/Default | Computed nodes (no frequency suffix) |
 
-## Python API
 
-### How do I run a pipeline from a notebook instead of the CLI?
-
-```python
-from satterc import load_config, build_driver
-
-parsed = load_config("config.toml")
-
-dr = build_driver(
-    modules=parsed.modules,
-    config=parsed.driver_config,
-)
-
-# Get in-memory results instead of writing to disk
-outputs = dr.execute(["merged_daily_outputs", "merged_weekly_outputs"])
-outputs["merged_daily_outputs"]  # xarray.Dataset
-```
-
-### How do I override a node value at runtime?
-
-```python
-outputs = dr.execute(
-    final_vars=["soil_moisture_daily"],
-    overrides={"max_soil_moisture": custom_max_sm_array},
-)
-```
-
-This is useful for running the pipeline repeatedly with different parameter values without rebuilding the DAG.
-
-### What is `ParsedConfig`?
-
-`load_config()` returns a `ParsedConfig` with three attributes:
-
-- `modules` — List of Python modules for the DAG
-- `driver_config` — Dictionary of configuration for the driver
-- `targets` — List of output node names (the "save" nodes)

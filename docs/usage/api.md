@@ -157,6 +157,15 @@ Or request any node directly by name, without using `get_final_vars()` at all:
 sm = dr.execute(["soil_moisture_daily"], inputs=inputs)
 ```
 
+You can also override any node value at runtime without rebuilding the DAG — useful for repeatedly running the pipeline with different parameter values:
+
+```python
+outputs = dr.execute(
+    final_vars=["soil_moisture_daily"],
+    overrides={"max_soil_moisture": custom_max_sm_array},
+)
+```
+
 ---
 
 ## Step 6: Inspect and save outputs
