@@ -167,6 +167,77 @@ to produce no output at that frequency.
 
 ---
 
+### Derived Variables
+
+Use `[[derive]]` (an [array of tables](https://toml.io/en/v1.0.0#array-of-tables))
+to create new computed variables from existing DAG nodes using inline Python
+expressions or external functions. Each entry defines a single derived variable.
+
+#### Inline expressions
+
+The simplest form uses an `expression` — a Python expression evaluated with
+the listed `inputs` available as local variables. The `xr` (xarray) module is
+automatically available in the expression namespace.
+
+```toml
+[[derive]]
+output = "aridity_index_daily"
+inputs = ["precipitation_mm_daily", "actual_evapotranspiration_daily"]
+expression = "precipitation_mm_daily / actual_evapotranspiration_daily"
+
+[[derive]]
+output = "inert_organic_matter"
+inputs = ["organic_carbon_stocks"]
+expression = "0.049 * organic_carbon_stocks**1.139"
+```
+
+Input variable names must include their frequency suffix (e.g. `_daily`, `_weekly`,
+`_monthly`) as they appear in the DAG. The `output` name is the node name that
+downstream models and outputs will reference.
+
+#### Accessing dict-like parameters
+
+Some DAG nodes (e.g. `pft_params`) return dictionaries. You can index into them
+within the expression:
+
+```toml
+[[derive]]
+output = "leaf_area_index_weekly"
+inputs = ["leaf_pool_weekly", "pft_params"]
+expression = 'leaf_pool_weekly / pft_params["leaf_carbon_area"]'
+```
+
+#### Calling external functions
+
+For more complex logic, you can delegate to a function in an importable module
+by specifying `_import_path` and `function` instead of `expression`:
+
+```toml
+[[derive]]
+output = "custom_index_daily"
+inputs = ["temperature_daily", "precipitation_daily"]
+_import_path = "mypackage.indices"
+function = "compute_custom_index"
+```
+
+The referenced function must accept keyword arguments matching the `inputs` list
+and return an `xarray.DataArray`.
+
+/// admonition | Naming and ordering
+    type: note
+
+Each `[[derive]]` entry produces a DAG node named after its `output` field.
+Derived variables can be used as inputs to models, to other derived variables,
+or in output sections — as long as the DAG remains acyclic.
+
+If multiple derive entries depend on each other, they are executed in the
+order they appear in the config file.
+///
+
+Omit `[[derive]]` entirely if no derived variables are needed.
+
+---
+
 ## Custom modules
 
 You can extend the pipeline with any importable Python module by adding a section
