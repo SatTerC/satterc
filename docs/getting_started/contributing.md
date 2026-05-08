@@ -65,7 +65,7 @@ After this, linting and tests run automatically before every commit.
 The project uses [just](https://github.com/casey/just) for shortcuts:
 
 ```bash
-just test        # run linting and the test suite (ruff + marimo + pytest)
+just test        # run the test suite (pytest)
 just lint        # format and lint code with ruff, check examples with marimo
 just docs        # build the docs (zensical)
 just export <x>  # export a notebook example to docs
