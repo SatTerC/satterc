@@ -22,6 +22,7 @@ nav = [
   ]},
   { "Usage" = [
       "usage/config.md",
+      "usage/api.md",
       "usage/cli.md",
       "usage/data-formats.md",
       "usage/custom-modules.md",
