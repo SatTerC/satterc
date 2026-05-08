@@ -32,7 +32,7 @@ def _():
     import marimo as mo  # required for Markdown etc.
     import matplotlib.pyplot as plt
 
-    from satterc import build_driver, get_outputs, load_inputs
+    from satterc import build_driver, get_final_vars, get_outputs, load_inputs
     from satterc.config import Config
     from satterc.setup_utils.data_gen import generate_synthetic_data
 
@@ -41,6 +41,7 @@ def _():
         Path,
         build_driver,
         generate_synthetic_data,
+        get_final_vars,
         get_outputs,
         load_inputs,
         mo,
@@ -304,12 +305,8 @@ def _(mo):
 
 
 @app.cell
-def _(dr, get_outputs, inputs, parsed_config):
-    _target_vars = [
-        f"{var}_{freq}"
-        for freq, spec in parsed_config.output_specs.items()
-        for var in spec.vars
-    ]
+def _(dr, get_final_vars, get_outputs, inputs, parsed_config):
+    _target_vars = get_final_vars(parsed_config.output_specs)
     _results = dr.execute(_target_vars, inputs=inputs)
     _output_datasets = get_outputs(_results, parsed_config.output_specs)
     _output_datasets

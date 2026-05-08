@@ -63,7 +63,7 @@ def _():
     import marimo as mo
     import matplotlib.pyplot as plt
 
-    from satterc import build_driver, get_outputs, load_inputs
+    from satterc import build_driver, get_final_vars, get_outputs, load_inputs
     from satterc.config import Config
     from satterc.setup_utils.data_gen import generate_synthetic_data
 
@@ -72,6 +72,7 @@ def _():
         Path,
         build_driver,
         generate_synthetic_data,
+        get_final_vars,
         get_outputs,
         load_inputs,
         mo,
@@ -224,9 +225,9 @@ def _(mo):
 
 
 @app.cell
-def _(dr, get_outputs, inputs, parsed_config):
+def _(dr, get_final_vars, get_outputs, inputs, parsed_config):
     _results = dr.execute(
-        ["actual_evapotranspiration_daily", "soil_moisture_daily", "runoff_daily"],
+        get_final_vars({"daily": parsed_config.output_specs["daily"]}),
         inputs=inputs,
     )
     get_outputs(_results, parsed_config.output_specs)["daily"].info()

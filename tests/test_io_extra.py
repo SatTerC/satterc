@@ -18,6 +18,7 @@ from satterc.config import IOSpec
 from satterc.io import (
     _save_netcdf,
     _validate_dates,
+    get_final_vars,
     get_outputs,
     load_dataset,
     save_outputs,
@@ -220,6 +221,51 @@ class TestGetOutputs:
             result["daily"]["gpp"].values,
             daily_results["gpp_daily"].values,
         )
+
+
+# ---------------------------------------------------------------------------
+# get_final_vars
+# ---------------------------------------------------------------------------
+
+
+class TestGetFinalVars:
+    """get_final_vars converts output_specs into Hamilton node name lists."""
+
+    def test_empty_specs_returns_empty_list(self):
+        assert get_final_vars({}) == []
+
+    def test_single_freq_single_var(self, tmp_path):
+        specs = {"daily": IOSpec(path=str(tmp_path / "d.nc"), vars=["gpp"])}
+        assert get_final_vars(specs) == ["gpp_daily"]
+
+    def test_single_freq_multiple_vars(self, tmp_path):
+        specs = {"daily": IOSpec(path=str(tmp_path / "d.nc"), vars=["gpp", "aet"])}
+        assert get_final_vars(specs) == ["gpp_daily", "aet_daily"]
+
+    def test_multiple_frequencies(self, tmp_path):
+        specs = {
+            "daily": IOSpec(path=str(tmp_path / "d.nc"), vars=["gpp"]),
+            "weekly": IOSpec(path=str(tmp_path / "w.nc"), vars=["leaf_pool"]),
+            "monthly": IOSpec(path=str(tmp_path / "m.nc"), vars=["soc"]),
+        }
+        assert get_final_vars(specs) == [
+            "gpp_daily",
+            "leaf_pool_weekly",
+            "soc_monthly",
+        ]
+
+    def test_static_no_suffix(self, tmp_path):
+        specs = {"static": IOSpec(path=str(tmp_path / "s.nc"), vars=["elevation"])}
+        assert get_final_vars(specs) == ["elevation"]
+
+    def test_static_mixed_with_temporal(self, tmp_path):
+        specs = {
+            "daily": IOSpec(path=str(tmp_path / "d.nc"), vars=["gpp"]),
+            "static": IOSpec(path=str(tmp_path / "s.nc"), vars=["elevation", "clay"]),
+        }
+        result = get_final_vars(specs)
+        assert result == ["gpp_daily", "elevation", "clay"]
+        assert all("_static" not in v for v in result)
 
 
 # ---------------------------------------------------------------------------

@@ -7,6 +7,9 @@ then execute pipeline nodes to verify the full stack — config → load_inputs
 
 import numpy as np
 
+from satterc.config import IOSpec
+from satterc.io import get_final_vars
+
 N_PIXELS = 4  # 2x2 grid
 N_DAYS = 365
 N_MONTHS = 12
@@ -74,3 +77,34 @@ class TestDriverExecution:
     def test_no_output_specs_no_error(self, pipeline_config):
         """Pipeline with no output_specs should execute without error."""
         assert pipeline_config.output_specs == {}
+
+    def test_get_final_vars_all_frequencies(self, pipeline_driver, pipeline_inputs):
+        """get_final_vars() produces valid final_vars across daily, weekly, monthly."""
+        output_specs = {
+            "daily": IOSpec(path="", vars=["temperature_celcius"]),
+            "weekly": IOSpec(path="", vars=["co2_ppm"]),
+            "monthly": IOSpec(path="", vars=["dummy_variable"]),
+        }
+        final_vars = get_final_vars(output_specs)
+        assert final_vars == [
+            "temperature_celcius_daily",
+            "co2_ppm_weekly",
+            "dummy_variable_monthly",
+        ]
+        results = pipeline_driver.execute(final_vars, inputs=pipeline_inputs)
+        assert all(v in results for v in final_vars)
+        assert results["temperature_celcius_daily"].sizes["pixel"] == N_PIXELS
+        assert results["co2_ppm_weekly"].sizes["pixel"] == N_PIXELS
+        assert results["dummy_variable_monthly"].sizes["pixel"] == N_PIXELS
+
+    def test_get_final_vars_single_frequency(self, pipeline_driver, pipeline_inputs):
+        """Filtering output_specs to one frequency requests only those targets."""
+        all_specs = {
+            "daily": IOSpec(path="", vars=["temperature_celcius"]),
+            "monthly": IOSpec(path="", vars=["dummy_variable"]),
+        }
+        daily_vars = get_final_vars({"daily": all_specs["daily"]})
+        assert daily_vars == ["temperature_celcius_daily"]
+        results = pipeline_driver.execute(daily_vars, inputs=pipeline_inputs)
+        assert "temperature_celcius_daily" in results
+        assert "dummy_variable_monthly" not in results

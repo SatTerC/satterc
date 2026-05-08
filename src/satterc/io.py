@@ -354,3 +354,29 @@ def save_outputs(
     """
     for freq, ds in output_datasets.items():
         _save(ds, output_specs[freq].path)
+
+
+def get_final_vars(output_specs: dict[str, IOSpec]) -> list[str]:
+    """Build Hamilton node names from output specifications.
+
+    Converts per-frequency variable lists into the flat list of node names
+    expected by ``driver.execute(final_vars=...)``.
+
+    Parameters
+    ----------
+    output_specs:
+        Mapping from frequency string to ``IOSpec``.  Pass the full
+        ``parsed_config.output_specs`` for all outputs, or a subset
+        (e.g. ``{"monthly": parsed.output_specs["monthly"]}``) to
+        request a single frequency.
+
+    Returns
+    -------
+    list[str]
+        Flat list of Hamilton node names (e.g. ``["gpp_daily", ...]``).
+    """
+    return [
+        var if freq == "static" else f"{var}_{freq}"
+        for freq, spec in output_specs.items()
+        for var in spec.vars
+    ]

@@ -7,7 +7,7 @@ import typer
 
 from ..config import load_config
 from ..dag.driver import build_driver
-from ..io import get_outputs, load_inputs, save_outputs
+from ..io import get_final_vars, get_outputs, load_inputs, save_outputs
 
 app = typer.Typer(help="Execute a pipeline defined in a configuration file.")
 
@@ -37,11 +37,7 @@ def run(
     )
 
     if parsed.output_specs:
-        target_vars = [
-            var if freq == "static" else f"{var}_{freq}"
-            for freq, spec in parsed.output_specs.items()
-            for var in spec.vars
-        ]
+        target_vars = get_final_vars(parsed.output_specs)
         results = dr.execute(target_vars, inputs=inputs)  # type: ignore[reportArgumentType]
         output_datasets = get_outputs(results, parsed.output_specs)
         save_outputs(output_datasets, parsed.output_specs)
