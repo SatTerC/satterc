@@ -2,29 +2,130 @@
 
 import os
 import tomllib
+from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any
+from typing import Any, Self
+
+import tomli_w
+
+_RESAMPLE_FREQ_MAP: dict[tuple[str, str], str] = {
+    ("daily", "weekly"): "7D",
+    ("daily", "monthly"): "1ME",
+    ("weekly", "monthly"): "1ME",
+    # TODO: expose frequency strings as config options to support e.g. "W" (week-ending
+    # Sunday) vs "7D" (rolling 7-day), or "MS" (month-start) vs "1ME" (month-end)
+}
+
+_VALID_AGGFUNCS: frozenset[str] = frozenset(
+    {"mean", "sum", "max", "min", "first", "last"}
+)
+
+
+@dataclass
+class ResampleSpec:
+    """Specification for a single [[resample]] entry."""
+
+    vars: list[str]
+    source_freq: str
+    target_freq: str
+    aggfunc: str = "mean"
+
+    @property
+    def freq(self) -> str:
+        """Return xarray resample frequency string from source/target freq pair."""
+        return _RESAMPLE_FREQ_MAP[(self.source_freq, self.target_freq)]
+
+    @classmethod
+    def from_config(cls, entry: dict) -> "ResampleSpec":
+        """Construct and validate from a raw [[resample]] TOML entry."""
+        source_freq = entry["from_freq"]
+        target_freq = entry["to_freq"]
+        aggfunc = entry.get("aggfunc", "mean")
+        vars_ = entry["vars"]
+
+        if (source_freq, target_freq) not in _RESAMPLE_FREQ_MAP:
+            raise ValueError(
+                f"Unsupported resample direction '{source_freq}' → '{target_freq}'. "
+                f"Supported: {sorted(_RESAMPLE_FREQ_MAP)}"
+            )
+        if aggfunc not in _VALID_AGGFUNCS:
+            raise ValueError(
+                f"Unsupported aggfunc '{aggfunc}'. Supported: {sorted(_VALID_AGGFUNCS)}"
+            )
+
+        return cls(
+            vars=vars_,
+            source_freq=source_freq,
+            target_freq=target_freq,
+            aggfunc=aggfunc,
+        )
+
+
+@dataclass
+class DeriveSpec:
+    """Specification for a single [[derive]] entry."""
+
+    output: str
+    inputs: list[str]
+    expression: str | None
+    import_path: str | None
+    function: str | None
+
+    @classmethod
+    def from_config(cls, entry: dict) -> "DeriveSpec":
+        """Construct and validate from a raw [[derive]] TOML entry."""
+        has_expression = "expression" in entry
+        has_function = "_import_path" in entry or "function" in entry
+        if has_expression and has_function:
+            raise ValueError(
+                f"Derive entry for '{entry.get('output')}' must specify either "
+                "'expression' or ('_import_path' + 'function'), not both."
+            )
+        if not has_expression and not has_function:
+            raise ValueError(
+                f"Derive entry for '{entry.get('output')}' must specify either "
+                "'expression' or ('_import_path' + 'function')."
+            )
+        return cls(
+            output=entry["output"],
+            inputs=entry["inputs"],
+            expression=entry.get("expression"),
+            import_path=entry.get("_import_path"),
+            function=entry.get("function"),
+        )
+
+
+@dataclass
+class IOSpec:
+    """I/O specification for a single input or output section."""
+
+    path: str
+    vars: list[str]
+
+
+@dataclass
+class ParsedConfig:
+    """Parsed pipeline configuration, ready to pass to build_driver."""
+
+    modules: list[str]
+    driver_config: dict[str, Any]
+    input_specs: dict[str, "IOSpec"] = field(default_factory=dict)
+    output_specs: dict[str, "IOSpec"] = field(default_factory=dict)
 
 
 class Config:
     """Configuration class with loading, parsing, and serialization."""
 
-    PATH_DEFAULTS = {
-        "inputs_daily": "inputs/daily.nc",
-        "inputs_weekly": "inputs/weekly.nc",
-        "inputs_monthly": "inputs/monthly.nc",
-        "inputs_static": "inputs/static.nc",
-        "outputs_daily": "outputs/daily.nc",
-        "outputs_weekly": "outputs/weekly.nc",
-        "outputs_monthly": "outputs/monthly.nc",
-    }
-
     def __init__(self, data: dict[str, Any]) -> None:
         """Initialize with a config dict."""
         self._data = data
 
+    def __str__(self) -> str:
+        """Return TOML string representation."""
+        return self.dumps()
+
     @classmethod
-    def load(cls, path: str | os.PathLike) -> "Config":
+    def load(cls, path: str | os.PathLike) -> Self:
         """Load config from a TOML file."""
         path = Path(path).resolve()
         with open(path, "rb") as f:
@@ -32,136 +133,172 @@ class Config:
         _resolve_paths(data, base=path.parent)
         return cls(data)
 
-    def parse(self) -> dict[str, Any]:
-        """Parse config into {modules, driver_config, targets}."""
-        data = dict(self._data)
-
-        modules = data.pop("modules")
-        extra_modules = data.pop("extra_modules", [])
-        extra_config = data.pop("extra_config", {})
-
-        config_flat = _flatten_config(data)
-
-        for section in config_flat:
-            if section not in modules:
-                raise ValueError(f"Section [{section}] not defined in modules list")
-
-        driver_config = {}
-        targets = []
-
-        for section_name, params in config_flat.items():
-            if section_name.startswith("inputs."):
-                _, freq = section_name.split(".", 1)
-                driver_config[f"{freq}_inputs_path"] = params.get("path")
-                driver_config[f"{freq}_inputs_vars"] = params.get("vars")
-            elif section_name.startswith("outputs."):
-                _, freq = section_name.split(".", 1)
-                vars_ = params.get("vars") or []
-                if vars_:
-                    driver_config[f"{freq}_outputs_path"] = params.get("path")
-                    driver_config[f"{freq}_outputs_vars"] = vars_
-                    targets.append(f"save_{freq}_outputs")
-                else:
-                    modules = [m for m in modules if m != f"outputs.{freq}"]
-            else:
-                driver_config |= params
-
-        driver_config |= extra_config
-
-        return {
-            "modules": modules,
-            "extra_modules": extra_modules,
-            "driver_config": driver_config,
-            "targets": targets,
-        }
+    @classmethod
+    def loads(cls, toml_str: str) -> Self:
+        """Load config from a TOML string."""
+        return cls(tomllib.loads(toml_str))
 
     def dump(self, path: str | os.PathLike, overwrite_ok: bool = False) -> None:
         """Write config to a TOML file."""
-        toml_str = self._dump()
+        toml_str = self.dumps()
         path = Path(path)
         if path.exists() and not overwrite_ok:
             raise FileExistsError(
-                f"There is already a file at {path}! Consider passing `overwrite_ok=True`."
+                f"There is already a file at {path}! "
+                f"Consider passing `overwrite_ok=True`."
             )
         path.write_text(toml_str)
 
-    def __str__(self) -> str:
-        """Return TOML string representation."""
-        return self._dump()
+    def dumps(self) -> str:
+        """Dump config to a TOML str."""
+        return tomli_w.dumps(self._data)
 
-    def _dump(self) -> str:
-        """Serialize config dict to TOML string."""
-        d = self._data
-        lines = []
+    def _parse_grid(self, data: dict, driver_config: dict) -> list[str]:
+        """Handle [grid] section.
 
-        if "modules" in d:
-            lines.append("modules = [")
-            for m in d["modules"]:
-                lines.append(f'  "{m}",')
-            lines.append("]")
+        Silently accepted; grid computation moved to load_inputs().
+        """
+        data.pop("grid", None)
+        return []
 
-        if "extra_modules" in d:
-            lines.append("")
-            lines.append("extra_modules = [")
-            for m in d["extra_modules"]:
-                lines.append(f'  "{m}",')
-            lines.append("]")
+    def _parse_inputs(self, data: dict, driver_config: dict, input_specs: dict) -> None:
+        """Handle [inputs.*] sections."""
+        for freq, params in data.pop("inputs", {}).items():
+            if "path" not in params:
+                raise ValueError(
+                    f"[inputs.{freq}] is missing a 'path' key. "
+                    f"Input sections must specify a file path."
+                )
+            input_specs[freq] = IOSpec(
+                path=params["path"],
+                vars=params.get("vars") or [],
+            )
 
-        if "extra_config" in d:
-            lines.append("")
-            lines.append("[extra_config]")
-            for k, v in d["extra_config"].items():
-                lines.append(f"{k} = {_format_value(v)}")
+    def _parse_outputs(
+        self, data: dict, driver_config: dict, output_specs: dict
+    ) -> None:
+        """Handle [outputs.*] sections."""
+        for freq, params in data.pop("outputs", {}).items():
+            vars_ = params.get("vars") or []
+            if not vars_:
+                raise ValueError(
+                    f"[outputs.{freq}] has no 'vars'. "
+                    f"Output sections must list at least one variable, "
+                    f"or be removed from the config."
+                )
+            if "path" not in params:
+                raise ValueError(
+                    f"[outputs.{freq}] is missing a 'path' key. "
+                    f"Output sections must specify a file path."
+                )
+            output_specs[freq] = IOSpec(
+                path=params["path"],
+                vars=vars_,
+            )
 
-        if "models" in d:
-            for model_name, params in d["models"].items():
-                if params:
-                    lines.append("")
-                    lines.append(f"[models.{model_name}]")
-                    for k, v in params.items():
-                        lines.append(f"{k} = {_format_value(v)}")
+    def _parse_models(self, data: dict, driver_config: dict) -> list[str]:
+        """Handle [models.*] sections."""
+        modules: list[str] = []
+        for model_name, params in data.pop("models", {}).items():
+            _merge_params(f"models.{model_name}", params, driver_config)
+            modules.append(f"models.{model_name}")
+        return modules
 
-        if "inputs" in d:
-            for section in ["daily", "weekly", "monthly", "static"]:
-                if section in d["inputs"]:
-                    data = d["inputs"][section]
-                    lines.append("")
-                    lines.append(f"[inputs.{section}]")
-                    lines.append(f'path = "{data["path"]}"')
-                    lines.append(f"vars = {_format_list(data['vars'])}")
+    def _parse_resample(self, data: dict, driver_config: dict) -> list[str]:
+        """Handle [[resample]] section."""
+        seen_outputs: set[str] = set()
+        specs: list[ResampleSpec] = []
+        for entry in data.pop("resample", []):
+            spec = ResampleSpec.from_config(entry)
+            for var in spec.vars:
+                out = f"{var}_{spec.target_freq}"
+                if out in seen_outputs:
+                    raise ValueError(
+                        f"Duplicate resample output '{out}' in [[resample]]"
+                    )
+                seen_outputs.add(out)
+            specs.append(spec)
+        if specs:
+            driver_config["resample_specs"] = specs
+            return ["resample"]
+        return []
 
-        if "resample" in d:
-            lines.append("")
-            lines.append("[resample]")
-            for key in ["daily_to_weekly", "daily_to_monthly", "weekly_to_monthly"]:
-                if key in d["resample"]:
-                    lines.append(f"{key} = {_format_list(d['resample'][key])}")
+    def _parse_derive(self, data: dict, driver_config: dict) -> list[str]:
+        """Handle [[derive]] section."""
+        seen_outputs: set[str] = set()
+        specs: list[DeriveSpec] = []
+        for entry in data.pop("derive", []):
+            spec = DeriveSpec.from_config(entry)
+            if spec.output in seen_outputs:
+                raise ValueError(
+                    f"Duplicate derive output '{spec.output}' in [[derive]]"
+                )
+            seen_outputs.add(spec.output)
+            specs.append(spec)
+        if specs:
+            driver_config["derive_specs"] = specs
+            return ["derive"]
+        return []
 
-        if "outputs" in d:
-            for section in ["daily", "weekly", "monthly", "static"]:
-                if section in d["outputs"]:
-                    data = d["outputs"][section]
-                    lines.append("")
-                    lines.append(f"[outputs.{section}]")
-                    lines.append(f'path = "{data["path"]}"')
-                    lines.append(f"vars = {_format_list(data['vars'])}")
+    def _parse_external_modules(self, data: dict, driver_config: dict) -> list[str]:
+        """Handle remaining sections as external modules."""
+        modules: list[str] = []
+        for section_label, params in data.items():
+            params = dict(params)
+            import_path = params.pop("_import_path", None)
+            if import_path is None:
+                raise ValueError(
+                    f"Section [{section_label!r}] is missing '_import_path'. "
+                    f"All non-built-in sections must include "
+                    f"'_import_path = \"pkg.module\"'."
+                )
+            if not _is_valid_module_path(import_path):
+                raise ValueError(
+                    f"'_import_path = {import_path!r}' in [{section_label!r}] "
+                    f"is not a valid dotted module path."
+                )
+            _merge_params(section_label, params, driver_config)
+            modules.append(import_path)
+        return modules
 
-        return "\n".join(lines)
+    def parse(self) -> ParsedConfig:
+        """Parse config into a ParsedConfig.
+
+        Recognised top-level sections (processed directly):
+        - [inputs.*]      — I/O specs; freq derived from subsection key
+        - [outputs.*]     — I/O specs; freq derived from subsection key
+        - [grid]          — silently accepted (grid computation is now in load_inputs())
+        - [models.*]      — built-in model modules
+        - [[derive]]      — config-driven derived variable nodes
+        - [[resample]]    — temporal resampling module
+
+        All other top-level sections are treated as external modules and must
+        include a '_import_path = "pkg.module"' key specifying the importable
+        module path. The key is stripped before merging remaining params into
+        driver_config.
+        """
+        data = dict(self._data)
+        driver_config: dict[str, Any] = {}
+        input_specs: dict[str, IOSpec] = {}
+        output_specs: dict[str, IOSpec] = {}
+        modules: list[str] = []
+        self._parse_grid(data, driver_config)
+        self._parse_inputs(data, driver_config, input_specs)
+        self._parse_outputs(data, driver_config, output_specs)
+        modules += self._parse_models(data, driver_config)
+        modules += self._parse_derive(data, driver_config)
+        modules += self._parse_resample(data, driver_config)
+        modules += self._parse_external_modules(data, driver_config)
+        return ParsedConfig(
+            modules=modules,
+            driver_config=driver_config,
+            input_specs=input_specs,
+            output_specs=output_specs,
+        )
 
 
-def load_config(config_path: str | Path) -> dict[str, Any]:
-    """Load and parse a TOML config file.
-
-    Parameters
-    ----------
-    config_path : str | Path
-        Path to the TOML config file.
-
-    Returns
-    -------
-    dict
-        Parsed config with modules, driver_config, and targets keys.
-    """
+def load_config(config_path: str | Path) -> ParsedConfig:
+    """Load and parse a TOML config file."""
     return Config.load(config_path).parse()
 
 
@@ -173,37 +310,18 @@ def _resolve_paths(data: dict, base: Path) -> None:
                 params["path"] = str(base / params["path"])
 
 
-def _flatten_config(config: dict) -> dict[str, Any]:
-    """Flatten nested TOML sections into dot-notation keys."""
-    flat = {}
-    for key, value in config.items():
-        if key in ("modules", "extra_config"):
-            continue
-        if isinstance(value, dict) and all(isinstance(v, dict) for v in value.values()):
-            for subkey, subvalue in value.items():
-                flat[f"{key}.{subkey}"] = subvalue
-        else:
-            flat[key] = value
-    return flat
+def _is_valid_module_path(path: str) -> bool:
+    """Return True if path is a non-empty dotted Python identifier."""
+    return bool(path) and all(part.isidentifier() for part in path.split("."))
 
 
-def _format_list(items: list[Any], indent: int = 2) -> str:
-    """Format a list as a TOML array."""
-    prefix = " " * indent
-    if not items:
-        return "[]"
-    lines = ["["]
-    for item in items:
-        if isinstance(item, str):
-            lines.append(f'{prefix}  "{item}",')
-        else:
-            lines.append(f"{prefix}  {item},")
-    lines.append(f"{prefix}]")
-    return "\n".join(lines)
-
-
-def _format_value(value: Any) -> str:
-    """Format a simple value for TOML."""
-    if isinstance(value, str):
-        return f'"{value}"'
-    return str(value)
+def _merge_params(section: str, params: dict, driver_config: dict) -> None:
+    """Merge params into driver_config, raising ValueError on key conflicts."""
+    conflicts = set(params) & set(driver_config)
+    if conflicts:
+        raise ValueError(
+            f"Parameter(s) {sorted(conflicts)} in [{section}] conflict "
+            f"with an already-defined key. Use a module-specific prefix to "
+            f"disambiguate (e.g. pmodel_method_kphio)."
+        )
+    driver_config |= params

@@ -1,0 +1,3 @@
+# `satterc.cli`
+
+::: satterc.cli

@@ -1,10 +1,13 @@
+"""Execute a pipeline defined in a configuration file."""
+
 from pathlib import Path
 from typing import Annotated
 
 import typer
 
 from ..config import load_config
-from ..driver import build_driver
+from ..dag.driver import build_driver
+from ..io import get_final_vars, get_outputs, load_inputs, save_outputs
 
 app = typer.Typer(help="Execute a pipeline defined in a configuration file.")
 
@@ -25,11 +28,16 @@ def run(
     """Execute a pipeline defined in a configuration file."""
     parsed = load_config(config_file)
 
+    inputs = load_inputs(parsed.input_specs)
+
     dr = build_driver(
-        modules=parsed["modules"],
-        config=parsed["driver_config"],
-        extra_modules=parsed.get("extra_modules"),
+        modules=parsed.modules,
+        config=parsed.driver_config,
         allow_module_overrides=allow_overrides,
     )
 
-    dr.execute(parsed["targets"])
+    if parsed.output_specs:
+        target_vars = get_final_vars(parsed.output_specs)
+        results = dr.execute(target_vars, inputs=inputs)  # type: ignore[reportArgumentType]
+        output_datasets = get_outputs(results, parsed.output_specs)
+        save_outputs(output_datasets, parsed.output_specs)

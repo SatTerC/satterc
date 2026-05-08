@@ -1,37 +1,30 @@
-name: Documentation
+name: docs
+
 on:
   push:
-    branches: [ "main" ]
-jobs:
+    branches: [main]
+  merge_group:
+    types: [checks_requested]
 
+jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      
-      - name: Install uv
-        uses: astral-sh/setup-uv@v6
-      
-      - name: Install Python
-        run: uv python install
-
-      - name: Install the project
-        run: uv sync --dev --locked
-
-      - name: Export the examples
-        run: uv run just export-all
-
-      - name: Build the documentation
-        run: uv run just docs
-
-      - name: Upload static files
-        uses: actions/upload-pages-artifact@v4
+      - uses: actions/checkout@v6
+      - uses: astral-sh/setup-uv@v8.1.0
+      - uses: extractions/setup-just@v4
+      - run: uv sync --group docs --locked
+      - run: uv run just export-all
+      - run: uv run just docs
+      - uses: actions/upload-pages-artifact@v4
+        if: github.event_name == 'push'
         with:
           path: site
 
   deploy:
     runs-on: ubuntu-latest
     needs: build
+    if: github.event_name == 'push'
     permissions:
       contents: read
       pages: write
@@ -42,3 +35,4 @@ jobs:
     steps:
       - name: Deploy to GitHub pages
         uses: actions/deploy-pages@v4
+        id: deployment

@@ -1,3 +1,5 @@
+"""Show the installed version of SatTerC."""
+
 import typer
 
 from .._version import __version__

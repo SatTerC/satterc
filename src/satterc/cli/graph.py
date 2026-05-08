@@ -1,14 +1,16 @@
+"""Visualise a pipeline defined in a configuration file."""
+
 import subprocess
 import tomllib
 from pathlib import Path
 from typing import Annotated
 
 import typer
-from hamilton import graph_types
 import xarray as xr
+from hamilton import graph_types
 
 from ..config import load_config
-from ..driver import build_driver
+from ..dag.driver import build_driver
 
 app = typer.Typer(help="Visualise a pipeline defined in a configuration file.")
 
@@ -16,7 +18,7 @@ app = typer.Typer(help="Visualise a pipeline defined in a configuration file.")
 def custom_style(
     *, node: graph_types.HamiltonNode, node_class: str
 ) -> tuple[dict, str | None, str | None]:
-    """Custom style function for the visualization."""
+    """Apply custom styling to Hamilton DAG nodes based on type and name."""
     if node.tags.get("module") == "satterc.inputs.static":
         style = ({"fillcolor": "aquamarine"}, node_class, "static inputs")
 
@@ -66,8 +68,8 @@ def graph(
     graphviz_kwargs = config.get("graphviz", None)
 
     dr = build_driver(
-        modules=parsed["modules"],
-        config=parsed["driver_config"],
+        modules=parsed.modules,
+        config=parsed.driver_config,
         allow_module_overrides=allow_overrides,
     )
 

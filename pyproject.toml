@@ -4,57 +4,112 @@ build-backend = "uv_build"
 
 [project]
 name = "satterc"
-version = "0.3.0"
+version = "0.4.0"
 description = "Add your description here"
-readme = "README.md"
 authors = [
     { name = "jmarshrossney", email = "17361029+jmarshrossney@users.noreply.github.com" }
 ]
+readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE"]
 requires-python = ">=3.13"
 dependencies = [
     "netcdf4>=1.7.4",
     "numpy>=2.4.2",
+    "pyarrow>=10.0",
     "pyproj>=3.7.2",
     "pyrealm>=2.0.0",
     "rioxarray>=0.22.0",
     "rothc-py",
     "sf-hamilton[visualization]>=1.89.0",
     "sgam",
+    "tomli-w>=1.2.0",
     "typer>=0.24.1",
     "xarray>=2026.2.0",
+    "zarr>=3.2.1",
 ]
 
 [project.scripts]
 satterc = "satterc.cli:main"
 
+[project.urls]
+Homepage = "https://SatTerC.github.io/satterc"
+Repository = "https://github.com/SatTerC/satterc"
+Documentation = "https://SatTerC.github.io/satterc"
+
 [dependency-groups]
 dev = [
     {include-group = "docs"},
-    {include-group = "examples"},
     {include-group = "test"},
     "pre-commit>=4.5.1",
+    "pyright>=1.1.409",
     "ruff>=0.15.4",
     "rust-just>=1.46.0",
 ]
 docs = [
     {include-group = "examples"},
+    "marimo>=0.23.0",
+    "marimo-md-export>=0.5.2",
     "mkdocstrings-python>=2.0.3",
     "zensical>=0.0.24",
 ]
 examples = [
-    "marimo>=0.23.0",
     "matplotlib>=3.10.8",
 ]
 test = [
-    {include-group = "examples"},
+    "coverage>=7.13.5",
     "pytest>=9.0.2",
+    "pytest-cov>=7.1.0",
 ]
 
 [tool.uv.sources]
 rothc-py = { git = "https://github.com/SatTerC/rothc_py.git" }
 sgam = { git = "https://github.com/SatTerC/sgam.git" }
 
+[tool.pyright]
+venvPath = "."
+venv = ".venv"
+include = ["src/", "tests/"]
+
 [tool.ruff]
 line-length = 88
+indent-width = 4
 target-version = "py313"
-exclude = [".venv"]
+
+[tool.ruff.lint]
+select = [
+    "E",   # pycodestyle errors
+    "D",   # pydocstyle
+    "W",   # pycodestyle warnings
+    "F",   # pyflakes
+    "UP",  # pyupgrade
+    "B",   # flake8-bugbear
+    "SIM", # flake8-simplify
+    "RUF", # ruff-specific rules
+    "PT",  # flake8-pytest-style
+    "I",   # isort
+]
+
+[tool.ruff.lint.per-file-ignores]
+# Except tests and scripts from docstring requirements
+"tests/**" = ["D", "E501"]
+"scripts/**" = ["D"]
+# Typer CLI modules use typer.Option() in function signatures as standard practice.
+"src/satterc/cli/**" = ["B008"]
+# Marimo notebooks use bare expressions for display output (B018),
+# contain prose that naturally exceeds 88 chars (E501),
+# include academic citations with en dashes (RUF001),
+# may have unused variables from exploratory cells (F841),
+# use scientific notation with Greek letters (RUF003),
+# and are exploratory notebooks without module docstrings (D100, D401).
+"examples/**" = ["B018", "E501", "F841", "RUF001", "RUF003", "D100", "D401"]
+
+[tool.ruff.lint.pydocstyle]
+convention = "numpy"
+
+[tool.pytest.ini_options]
+filterwarnings = [
+    "ignore:'where' used without 'out':UserWarning",
+    "ignore:\\s*Pyrealm 2\\.0\\.0 uses a new default.*:UserWarning",
+    "ignore::pyrealm.core.experimental.ExperimentalFeatureWarning",
+]

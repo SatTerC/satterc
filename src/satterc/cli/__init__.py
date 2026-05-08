@@ -1,3 +1,5 @@
+"""CLI subcommands for SatTerC."""
+
 import typer
 
 from .data_gen import app as data_gen_app
@@ -18,4 +20,5 @@ app.add_typer(version_app)
 
 
 def main() -> None:
+    """Entry point for the satterc CLI."""
     app()

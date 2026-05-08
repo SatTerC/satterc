@@ -1,5 +1,5 @@
 """
-Tests for the xarray_io decorator in satterc.pipeline.models._utils.
+Tests for the xarray_io decorator in satterc.dag._utils.
 
 This module can be run via pytest:
     pytest tests/test_xarray_io.py -v
@@ -10,7 +10,7 @@ import pandas as pd
 import pytest
 import xarray as xr
 
-from satterc.pipeline.models._utils import xarray_io
+from satterc.dag._utils import xarray_io
 
 
 @pytest.fixture
@@ -124,7 +124,7 @@ class TestInputDataArrayDimensionVariations:
             return arr * 2
 
         with pytest.raises(
-            Exception, match="None of the xarray.DataArray inputs satisfy"
+            Exception, match=r"None of the xarray\.DataArray inputs satisfy"
         ):
             func(ref_datarray_1d)
 
@@ -133,10 +133,11 @@ class TestInputDataArrayDimensionVariations:
 
         @xarray_io()
         def func(arr=None):
+            assert arr is not None
             return arr * 2
 
         with pytest.raises(
-            Exception, match="None of the xarray.DataArray inputs satisfy"
+            Exception, match=r"None of the xarray\.DataArray inputs satisfy"
         ):
             func(arr=ref_datarray_1d)
 
@@ -175,12 +176,39 @@ class TestOutputDimensionTests:
         assert result.dims == ("time", "pixel")
         np.testing.assert_array_equal(result.values, ref_datarray_2d.values * 2)
 
-    def test_output_3d_raises_error(self, ref_datarray_2d):
+    def test_output_3d_raises_not_implemented(self, ref_datarray_2d):
         @xarray_io()
         def func(arr):
             return np.expand_dims(arr, axis=0)
 
-        with pytest.raises(Exception, match="no"):
+        with pytest.raises(NotImplementedError, match="3D arrays is not supported"):
+            func(ref_datarray_2d)
+
+    def test_output_1d_ambiguous_raises(self):
+        """1D output is ambiguous when time and pixel dimensions have the same length."""
+        n = 5
+        time_index = pd.date_range("2020-01-01", periods=n, freq="D")
+        da = xr.DataArray(
+            np.arange(n * n).reshape(n, n).astype(float),
+            dims=("time", "pixel"),
+            coords={"time": time_index, "pixel": np.arange(n)},
+        )
+
+        @xarray_io()
+        def func(arr):
+            return arr.mean(axis=0)
+
+        with pytest.raises(ValueError, match=r"time length.*equals pixel length"):
+            func(da)
+
+    def test_output_1d_unknown_length_raises(self, ref_datarray_2d):
+        """1D output whose length matches neither time nor pixel raises ValueError."""
+
+        @xarray_io()
+        def func(arr):
+            return np.zeros(999)
+
+        with pytest.raises(ValueError, match="does not match time length"):
             func(ref_datarray_2d)
 
 
@@ -290,7 +318,7 @@ class TestErrorCases:
             return arr
 
         with pytest.raises(
-            Exception, match="None of the xarray.DataArray inputs satisfy"
+            Exception, match=r"None of the xarray\.DataArray inputs satisfy"
         ):
             func(da_invalid)
 
@@ -306,7 +334,7 @@ class TestErrorCases:
             return arr
 
         with pytest.raises(
-            Exception, match="None of the xarray.DataArray inputs satisfy"
+            Exception, match=r"None of the xarray\.DataArray inputs satisfy"
         ):
             func(da_invalid)
 
@@ -349,3 +377,44 @@ class TestMetadataPreservation:
 
         result = func(ref_datarray_2d)
         assert result.name is None
+
+
+class TestOutputEdgeCases:
+    """Edge cases in _repack_returns that are not covered by the main tests."""
+
+    def test_0d_ndarray_returned_unchanged(self, ref_datarray_2d):
+        """A 0D numpy ndarray (not a Python scalar) is returned as-is."""
+
+        @xarray_io()
+        def func(arr):
+            return np.array(arr.sum())  # 0D ndarray, not a float
+
+        result = func(ref_datarray_2d)
+        assert isinstance(result, np.ndarray)
+        assert result.ndim == 0
+
+    def test_1d_output_with_time_length(self, ref_datarray_2d):
+        """1D output whose length matches the time dimension gets time coords."""
+        n_time = ref_datarray_2d.sizes["time"]
+
+        @xarray_io()
+        def func(arr):
+            return arr.mean(axis=1)  # mean over pixel → shape (n_time,)
+
+        result = func(ref_datarray_2d)
+        assert isinstance(result, xr.DataArray)
+        assert result.dims == ("time",)
+        assert result.sizes["time"] == n_time
+
+    def test_2d_output_pixel_time_shape_transposed(self, ref_datarray_2d):
+        """2D output shaped (pixel, time) is transposed to (time, pixel)."""
+
+        @xarray_io()
+        def func(arr):
+            return arr.T  # inner func sees (time, pixel) → returns (pixel, time)
+
+        result = func(ref_datarray_2d)
+        assert isinstance(result, xr.DataArray)
+        assert result.dims == ("time", "pixel")
+        assert result.sizes["time"] == ref_datarray_2d.sizes["time"]
+        assert result.sizes["pixel"] == ref_datarray_2d.sizes["pixel"]
