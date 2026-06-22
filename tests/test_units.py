@@ -52,28 +52,21 @@ class TestMode:
 
 
 # ---------------------------------------------------------------------------
-# Unit resolution helpers
+# Declared-unit validation (fail fast at decoration time)
 # ---------------------------------------------------------------------------
 
 
-class TestResolution:
-    def test_resolve_input_from_declaration(self):
-        assert units.resolve_input_unit("x", {"x": "kg"}) == "kg"
+class TestAssertValidUnit:
+    @pytest.mark.parametrize(
+        "unit", ["degC", "Pa", "1", "umol m-2 s-1", "g m-2 d-1", "t ha-1 month-1"]
+    )
+    def test_valid_units_pass(self, unit):
+        units.assert_valid_unit(unit, "ctx")  # no raise
 
-    def test_resolve_input_no_declaration_is_none(self):
-        # No central registry: an undeclared input resolves to None.
-        assert units.resolve_input_unit("vpd_pa_weekly", None) is None
-        assert units.resolve_input_unit("y", {"x": "kg"}) is None
-
-    def test_resolve_output_bare_string(self):
-        assert units.resolve_output_unit("anything", "g m-2 d-1") == "g m-2 d-1"
-
-    def test_resolve_output_dict(self):
-        assert units.resolve_output_unit("gpp", {"gpp": "g m-2 d-1"}) == "g m-2 d-1"
-
-    def test_resolve_output_no_declaration_is_none(self):
-        assert units.resolve_output_unit("gpp_weekly", None) is None
-        assert units.resolve_output_unit("other", {"gpp": "g m-2 d-1"}) is None
+    @pytest.mark.parametrize("unit", ["degrees_C", "not_a_unit", "kg/"])
+    def test_invalid_units_raise_with_context(self, unit):
+        with pytest.raises(ValueError, match="not a recognised"):
+            units.assert_valid_unit(unit, "myctx input 'x'")
 
 
 # ---------------------------------------------------------------------------
@@ -267,6 +260,25 @@ class TestDeclareUnits:
         out = f(x=_da([[1.0, 2.0]], unit="degC"))
         assert out.attrs["units"] == "1"
 
+    def test_bad_input_unit_rejected_at_decoration(self):
+        with pytest.raises(ValueError, match="not a recognised"):
+
+            @declare_units
+            def f(
+                x: Annotated[xr.DataArray, "not_a_unit"],
+            ) -> Annotated[xr.DataArray, "1"]:
+                return x
+
+    def test_bad_output_unit_rejected_at_decoration(self):
+        class Out(TypedDict):
+            y: Annotated[xr.DataArray, "bogus_unit"]
+
+        with pytest.raises(ValueError, match="not a recognised"):
+
+            @declare_units
+            def f(x: Annotated[xr.DataArray, "degC"]) -> Out:
+                return {"y": x}
+
 
 # ---------------------------------------------------------------------------
 # Config [units] section
@@ -285,3 +297,64 @@ class TestConfigUnits:
     def test_invalid_mode_raises(self):
         with pytest.raises(ValueError, match="must be one of"):
             Config.loads('[units]\nmode = "bogus"\n').parse()
+
+
+# ---------------------------------------------------------------------------
+# End-to-end: units validation/conversion through a real model node
+# ---------------------------------------------------------------------------
+
+
+class TestModelNodeEndToEnd:
+    """Units behaviour through the real ``pmodel`` node, in ``strict`` mode.
+
+    Exercises the actual ``@declare_units`` + ``@xarray_io`` composition on the
+    public node (not a synthetic decorator): every declared input is validated,
+    a convertible wrong-unit input is converted, an incompatible one raises, and
+    the output is stamped — all through the pyrealm-backed implementation.
+    """
+
+    @staticmethod
+    def _pmodel_inputs(**overrides):
+        # (value, unit) per declared input; overrides replace specific entries.
+        spec = {
+            "temperature_celcius_weekly": (15.0, "degC"),
+            "vpd_pa_weekly": (1000.0, "Pa"),
+            "co2_ppm_weekly": (400.0, "ppm"),
+            "pressure_pa_weekly": (101325.0, "Pa"),
+            "fapar_weekly": (0.5, "1"),
+            "ppfd_umol_m2_s1_weekly": (500.0, "umol m-2 s-1"),
+            "mean_growth_temperature_weekly": (15.0, "degC"),
+            "aridity_index_weekly": (0.5, "1"),
+            "soil_moisture_weekly": (100.0, "mm"),
+        }
+        spec.update(overrides)
+        return {
+            name: _da([[value]] * 4, unit=unit) for name, (value, unit) in spec.items()
+        }
+
+    def test_convertible_input_accepted_and_output_stamped(self):
+        from satterc.dag.pmodel import pmodel
+
+        # Pressure supplied in hPa where Pa is declared: must convert, not fail.
+        inputs = self._pmodel_inputs(pressure_pa_weekly=(1013.25, "hPa"))
+        with units.mode("strict"):
+            out = pmodel(**inputs)
+        assert out["gpp_weekly"].attrs["units"] == "g m-2 d-1"
+
+    def test_incompatible_input_raises(self):
+        import pint
+
+        from satterc.dag.pmodel import pmodel
+
+        # VPD supplied in kg where Pa is declared: dimensionally incompatible.
+        inputs = self._pmodel_inputs(vpd_pa_weekly=(1000.0, "kg"))
+        with units.mode("strict"), pytest.raises(pint.DimensionalityError):
+            pmodel(**inputs)
+
+    def test_missing_units_strict_raises(self):
+        from satterc.dag.pmodel import pmodel
+
+        inputs = self._pmodel_inputs()
+        inputs["co2_ppm_weekly"].attrs.pop("units")
+        with units.mode("strict"), pytest.raises(ValueError, match="no 'units'"):
+            pmodel(**inputs)

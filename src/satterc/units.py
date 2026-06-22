@@ -120,31 +120,27 @@ def mode(mode: str | None):
 # ---------------------------------------------------------------------------
 
 
-def resolve_input_unit(name: str, input_units: dict[str, str] | None) -> str | None:
-    """Return the unit declared for an input parameter, or ``None``.
+def assert_valid_unit(unit: str, context: str) -> None:
+    """Raise ``ValueError`` if ``unit`` is not parseable by the registry.
 
-    Units are owned entirely by each model node's ``@xarray_io`` declaration;
-    there is no central registry. Returns ``None`` when the node does not
-    declare a unit for ``name`` (in which case the input is left unchecked).
+    Used to fail fast at decoration/import time: a malformed or undefined unit
+    string (a typo such as ``"degrees_C"``, or ``"not_a_unit"``) is rejected as
+    soon as a node is defined, rather than only when that node runs in
+    ``strict``/``warn`` mode — and never in ``off`` mode. ``context`` names the
+    offending site (e.g. ``"pmodel input 'vpd_pa_weekly'"``) for the message.
+
+    The registry raises a variety of exception types for bad input
+    (``pint.UndefinedUnitError``, ``AssertionError``, …); all are caught and
+    re-raised as a single, clear ``ValueError``.
     """
-    if input_units is None:
-        return None
-    return input_units.get(name)
-
-
-def resolve_output_unit(
-    name: str | None, output_units: dict[str, str] | str | None
-) -> str | None:
-    """Return the unit to stamp on an output array, or ``None``.
-
-    ``output_units`` may be a bare string (single-array return) or a dict keyed
-    by output name. Returns ``None`` when no unit is declared for ``name``.
-    """
-    if isinstance(output_units, str):
-        return output_units
-    if isinstance(output_units, dict) and name is not None:
-        return output_units.get(name)
-    return None
+    try:
+        _UREG.Unit(unit)
+    except Exception as exc:
+        # The registry raises several error types for bad input; normalise them.
+        raise ValueError(
+            f"{context}: declared unit {unit!r} is not a recognised "
+            f"UDUNITS/pint unit ({type(exc).__name__}: {exc})"
+        ) from exc
 
 
 def unwrap_annotated(hint: Any) -> Any:
