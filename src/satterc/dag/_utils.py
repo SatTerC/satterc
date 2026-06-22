@@ -38,22 +38,25 @@ def xarray_io(
     back into `xarray.DataArray`.
 
     Units validation/conversion happens at this boundary. Each input DataArray
-    whose name has a declared unit (via `input_units` or the central
-    `satterc.units.VARIABLE_UNITS` registry) is validated and converted to that
-    unit before reaching the wrapped function, according to the active mode
-    (`satterc.units.get_mode`). Each output DataArray is stamped with its declared
-    unit (via `output_units` or the registry) instead of inheriting an arbitrary
-    input's `units` attribute.
+    named in `input_units` is validated and converted to its declared unit before
+    reaching the wrapped function, according to the active mode
+    (`satterc.units.get_mode`). Each output DataArray named in `output_units` is
+    stamped with its declared unit instead of inheriting an arbitrary input's
+    `units` attribute. Units are owned by each node; there is no central registry.
+
+    Only DataArray arguments are unit-checked. Non-DataArray arguments
+    (`DatetimeIndex`, scalar `float`/`int`/`str` config parameters) carry no unit
+    metadata and are passed through untouched, even if named in `input_units`.
 
     Parameters
     ----------
     input_units
-        Optional mapping of parameter name to declared UDUNITS string. Names not
-        present fall back to the central registry.
+        Optional mapping of parameter name to declared UDUNITS string. Parameters
+        not listed are not unit-checked.
     output_units
         Declared output unit(s): a bare string for a single-array return, or a
-        mapping of output name to unit for dict returns. Names not present fall
-        back to the central registry.
+        mapping of output name to unit for dict returns. Outputs not listed are
+        not stamped.
 
     Note
     ----

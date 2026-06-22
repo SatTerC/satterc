@@ -17,11 +17,22 @@ from ._utils import xarray_io
 
 
 @xarray_io(
+    input_units={
+        "temperature_celcius_weekly": "degC",
+        "vpd_pa_weekly": "Pa",
+        "co2_ppm_weekly": "ppm",
+        "pressure_pa_weekly": "Pa",
+        "fapar_weekly": "1",
+        "ppfd_umol_m2_s1_weekly": "umol m-2 s-1",
+        "mean_growth_temperature_weekly": "degC",
+        "aridity_index_weekly": "1",
+        "soil_moisture_weekly": "mm",
+    },
     output_units={
         "gpp_weekly": "g m-2 d-1",
         "lue_weekly": "g MJ-1",
         "iwue_weekly": "Pa",
-    }
+    },
 )
 def _pmodel(
     temperature_celcius_weekly: NDArray,

@@ -64,14 +64,13 @@ class TestMode:
 
 
 class TestResolution:
-    def test_resolve_input_prefers_explicit(self):
+    def test_resolve_input_from_declaration(self):
         assert units.resolve_input_unit("x", {"x": "kg"}) == "kg"
 
-    def test_resolve_input_falls_back_to_registry(self):
-        assert units.resolve_input_unit("vpd_pa_weekly", None) == "Pa"
-
-    def test_resolve_input_unknown_is_none(self):
-        assert units.resolve_input_unit("not_a_var", None) is None
+    def test_resolve_input_no_declaration_is_none(self):
+        # No central registry: an undeclared input resolves to None.
+        assert units.resolve_input_unit("vpd_pa_weekly", None) is None
+        assert units.resolve_input_unit("y", {"x": "kg"}) is None
 
     def test_resolve_output_bare_string(self):
         assert units.resolve_output_unit("anything", "g m-2 d-1") == "g m-2 d-1"
@@ -79,8 +78,9 @@ class TestResolution:
     def test_resolve_output_dict(self):
         assert units.resolve_output_unit("gpp", {"gpp": "g m-2 d-1"}) == "g m-2 d-1"
 
-    def test_resolve_output_falls_back_to_registry(self):
-        assert units.resolve_output_unit("gpp_weekly", None) == "g m-2 d-1"
+    def test_resolve_output_no_declaration_is_none(self):
+        assert units.resolve_output_unit("gpp_weekly", None) is None
+        assert units.resolve_output_unit("other", {"gpp": "g m-2 d-1"}) is None
 
 
 # ---------------------------------------------------------------------------

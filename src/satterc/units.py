@@ -1,8 +1,15 @@
-"""Unit declarations and runtime unit validation for the SatTerC DAG.
+"""Runtime unit validation helpers for the SatTerC DAG.
 
-This module is the single source of truth for the physical units that model
-nodes expect (``VARIABLE_UNITS``) and provides the runtime validation/conversion
-helpers used by the :func:`satterc.dag._utils.xarray_io` decorator.
+Each model node owns its own unit declarations via the
+:func:`satterc.dag._utils.xarray_io` decorator (``input_units`` / ``output_units``);
+there is deliberately no central registry of variable units, so the framework
+never has to anticipate what inputs a user might bring. This module provides the
+validation/conversion helpers and the validation-mode state used by that decorator.
+
+Only ``DataArray`` inputs/outputs carry units and are validated/stamped. Other
+node arguments (``DatetimeIndex``, scalar ``float``/``int``/``str`` config
+parameters) have no attached unit metadata at runtime, so there is nothing to
+validate or convert and they are left untouched.
 
 Importing this module configures ``pint-xarray`` to use the UDUNITS-aware pint
 registry shipped by ``cf-xarray``. That registry parses CF-convention unit
@@ -42,53 +49,6 @@ DEFAULT_MODE: Mode = "warn"
 MODE_ENV_VAR = "SATTERC_UNITS_MODE"
 
 _process_mode: Mode | None = None
-
-
-# ---------------------------------------------------------------------------
-# Central name -> unit registry
-# ---------------------------------------------------------------------------
-# Keyed by Hamilton variable (node) name. Because Hamilton wires edges by name,
-# the edge identity and the unit key are the same string, so a single table
-# pins both the producer's stamped output unit and each consumer's expected
-# input unit. Only variables that genuinely carry units at runtime (CF leaf
-# inputs and model outputs stamped by ``xarray_io``) are listed here; structural
-# / dimensionless bridge nodes are intentionally omitted so they are not
-# spuriously flagged as "missing units".
-VARIABLE_UNITS: dict[str, str] = {
-    # --- climate / environmental leaf inputs ---
-    "temperature_celcius_daily": "degC",
-    "temperature_celcius_weekly": "degC",
-    "temperature_celcius_monthly": "degC",
-    "mean_growth_temperature_weekly": "degC",
-    "vpd_pa_weekly": "Pa",
-    "co2_ppm_weekly": "ppm",
-    "pressure_pa_weekly": "Pa",
-    "fapar_weekly": "1",
-    "ppfd_umol_m2_s1_weekly": "umol m-2 s-1",
-    "aridity_index_weekly": "1",
-    "sunshine_fraction_daily": "1",
-    "precipitation_mm_daily": "mm",
-    "precipitation_mm_monthly": "mm",
-    "evaporation_monthly": "mm",
-    "lai_daily": "1",
-    # --- pmodel outputs ---
-    "gpp_daily": "g m-2 d-1",
-    "gpp_weekly": "g m-2 d-1",
-    "lue_weekly": "g MJ-1",
-    "iwue_weekly": "Pa",
-    # --- splash outputs ---
-    "actual_evapotranspiration_daily": "mm d-1",
-    "runoff_daily": "mm d-1",
-    "soil_moisture_daily": "mm",
-    "soil_moisture_weekly": "mm",
-    # --- rothc outputs (tonnes C per hectare) ---
-    "decomposable_plant_material_monthly": "t ha-1",
-    "resistant_plant_material_monthly": "t ha-1",
-    "microbial_biomass_monthly": "t ha-1",
-    "humified_organic_matter_monthly": "t ha-1",
-    "soil_organic_carbon_monthly": "t ha-1",
-    "heterotrophic_respiration_monthly": "t ha-1",
-}
 
 
 # ---------------------------------------------------------------------------
@@ -134,30 +94,29 @@ def get_mode() -> Mode:
 
 
 def resolve_input_unit(name: str, input_units: dict[str, str] | None) -> str | None:
-    """Return the declared unit for an input parameter.
+    """Return the unit declared for an input parameter, or ``None``.
 
-    Prefers an explicit ``input_units`` mapping, falling back to
-    :data:`VARIABLE_UNITS`. Returns ``None`` if neither declares the name.
+    Units are owned entirely by each model node's ``@xarray_io`` declaration;
+    there is no central registry. Returns ``None`` when the node does not
+    declare a unit for ``name`` (in which case the input is left unchecked).
     """
-    if input_units is not None and name in input_units:
-        return input_units[name]
-    return VARIABLE_UNITS.get(name)
+    if input_units is None:
+        return None
+    return input_units.get(name)
 
 
 def resolve_output_unit(
     name: str | None, output_units: dict[str, str] | str | None
 ) -> str | None:
-    """Return the declared unit to stamp on an output array.
+    """Return the unit to stamp on an output array, or ``None``.
 
-    ``output_units`` may be a bare string (single-array return), a dict keyed by
-    output name, or ``None`` (fall back to :data:`VARIABLE_UNITS`).
+    ``output_units`` may be a bare string (single-array return) or a dict keyed
+    by output name. Returns ``None`` when no unit is declared for ``name``.
     """
     if isinstance(output_units, str):
         return output_units
-    if isinstance(output_units, dict) and name is not None and name in output_units:
-        return output_units[name]
-    if name is not None:
-        return VARIABLE_UNITS.get(name)
+    if isinstance(output_units, dict) and name is not None:
+        return output_units.get(name)
     return None
 
 

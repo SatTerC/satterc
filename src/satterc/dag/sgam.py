@@ -87,7 +87,14 @@ def pft_params(plant_type: xr.DataArray) -> xr.Dataset:
     return _build_pft_params_dataset(plant_type)
 
 
-@xarray_io(output_units="1")
+@xarray_io(
+    input_units={
+        "temperature_celcius_daily": "degC",
+        "gpp_daily": "g m-2 d-1",
+        "lai_daily": "1",
+    },
+    output_units="1",
+)
 def _disturbances_daily(
     temperature_celcius_daily: NDArray,
     gpp_daily: NDArray,
@@ -135,6 +142,17 @@ def disturbances_daily(
 
 
 @xarray_io(
+    input_units={
+        "temperature_celcius_weekly": "degC",
+        "gpp_weekly": "g m-2 d-1",
+        "soil_moisture_weekly": "mm",
+        "vpd_pa_weekly": "Pa",
+        "lue_weekly": "g MJ-1",
+        "iwue_weekly": "Pa",
+        "leaf_pool_init": "g m-2",
+        "stem_pool_init": "g m-2",
+        "root_pool_init": "g m-2",
+    },
     output_units={
         # carbon pools and fluxes (carbon mass per unit area, gC m-2)
         "leaf_pool_weekly": "g m-2",
@@ -162,7 +180,7 @@ def disturbances_daily(
         "drought_modifier_weekly": "1",
         "lue_score_weekly": "1",
         "iwue_score_weekly": "1",
-    }
+    },
 )
 def _sgam(
     plant_type: NDArray[np.int_],

@@ -18,11 +18,18 @@ from ._utils import xarray_io
 
 
 @xarray_io(
+    input_units={
+        "sunshine_fraction_daily": "1",
+        "temperature_celcius_daily": "degC",
+        "precipitation_mm_daily": "mm",
+        "elevation": "m",
+        "max_soil_moisture": "mm",
+    },
     output_units={
         "actual_evapotranspiration_daily": "mm d-1",
         "soil_moisture_daily": "mm",
         "runoff_daily": "mm d-1",
-    }
+    },
 )
 def _splash(
     sunshine_fraction_daily: NDArray[np.float64],
