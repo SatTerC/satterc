@@ -12,15 +12,6 @@ from satterc.config import Config
 from satterc.dag._utils import xarray_io
 
 
-@pytest.fixture(autouse=True)
-def _reset_mode(monkeypatch):
-    """Ensure each test starts from a clean, default mode."""
-    monkeypatch.delenv(units.MODE_ENV_VAR, raising=False)
-    units.set_mode(None)
-    yield
-    units.set_mode(None)
-
-
 def _da(values, unit=None):
     """Build a (time, pixel) DataArray, optionally with a units attribute."""
     arr = np.asarray(values, dtype=float)
@@ -42,16 +33,17 @@ def _da(values, unit=None):
 
 class TestMode:
     def test_default_mode_is_warn(self):
-        assert units.get_mode() == "warn"
+        with units.mode(None):
+            assert units.get_mode() == "warn"
 
     def test_set_mode(self):
-        units.set_mode("strict")
-        assert units.get_mode() == "strict"
+        with units.mode("strict"):
+            assert units.get_mode() == "strict"
 
     def test_env_overrides_process_mode(self, monkeypatch):
-        units.set_mode("off")
-        monkeypatch.setenv(units.MODE_ENV_VAR, "strict")
-        assert units.get_mode() == "strict"
+        with units.mode("off"):
+            monkeypatch.setenv(units.MODE_ENV_VAR, "strict")
+            assert units.get_mode() == "strict"
 
     def test_invalid_mode_raises(self):
         with pytest.raises(ValueError, match="Invalid units mode"):
@@ -155,7 +147,8 @@ class TestDecoratorIntegration:
             # vpd reaches the inner function as plain ndarray in declared units
             return {"out": vpd}
 
-        result = f(vpd=_da([[10.0, 20.0]], unit="hPa"))
+        with units.mode("warn"):
+            result = f(vpd=_da([[10.0, 20.0]], unit="hPa"))
         np.testing.assert_allclose(result["out"].values, [[1000.0, 2000.0]])
 
     def test_output_stamped_with_declared_unit_not_inherited(self):
@@ -177,10 +170,12 @@ class TestDecoratorIntegration:
         def consumer(gpp_weekly):
             return {"npp": gpp_weekly}
 
-        units.set_mode("strict")
-        produced = producer(temperature_celcius_weekly=_da([[1.0, 2.0]], unit="degC"))
-        # No exception: the stamped 'g m-2 d-1' output validates as consumer input.
-        consumed = consumer(gpp_weekly=produced["gpp_weekly"])
+        with units.mode("strict"):
+            produced = producer(
+                temperature_celcius_weekly=_da([[1.0, 2.0]], unit="degC")
+            )
+            # No exception: the stamped 'g m-2 d-1' output validates as consumer input.
+            consumed = consumer(gpp_weekly=produced["gpp_weekly"])
         np.testing.assert_allclose(consumed["npp"].values, [[1.0, 2.0]])
 
     def test_off_mode_skips_validation(self):
@@ -188,10 +183,9 @@ class TestDecoratorIntegration:
         def f(vpd):
             return {"out": vpd}
 
-        units.set_mode("off")
-        # Input has no units; strict would raise, but off skips validation and
-        # leaves the data unconverted.
-        with warnings.catch_warnings():
+        with units.mode("off"), warnings.catch_warnings():
+            # Input has no units; strict would raise, but off skips validation and
+            # leaves the data unconverted.
             warnings.simplefilter("error")
             result = f(vpd=_da([[10.0, 20.0]]))
         np.testing.assert_allclose(result["out"].values, [[10.0, 20.0]])
@@ -201,8 +195,8 @@ class TestDecoratorIntegration:
         def f(temperature_celcius_weekly):
             return {"gpp_weekly": temperature_celcius_weekly}
 
-        units.set_mode("off")
-        out = f(temperature_celcius_weekly=_da([[1.0, 2.0]], unit="degC"))
+        with units.mode("off"):
+            out = f(temperature_celcius_weekly=_da([[1.0, 2.0]], unit="degC"))
         # The output-stamp fix applies regardless of mode (it is labelling, not
         # validation): the inherited 'degC' must not leak onto the output.
         assert out["gpp_weekly"].attrs["units"] == "g m-2 d-1"

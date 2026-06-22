@@ -23,6 +23,7 @@ Units are declared in canonical UDUNITS style (e.g. ``"umol m-2 s-1"``, not
 
 import os
 import warnings
+from contextlib import contextmanager
 from typing import Literal
 
 import cf_xarray.units  # noqa: F401 -- registers the UDUNITS-aware pint registry
@@ -86,6 +87,24 @@ def get_mode() -> Mode:
     if _process_mode is not None:
         return _process_mode
     return DEFAULT_MODE
+
+
+@contextmanager
+def mode(mode: str | None):
+    """Temporarily override the unit validation mode.
+
+    Restores the previous mode on exit, even if an exception is raised.
+
+    >>> with units.mode("strict"):
+    ...     check_units(da, "Pa", "vpd", get_mode())
+    """
+    global _process_mode
+    old = _process_mode
+    set_mode(mode)
+    try:
+        yield
+    finally:
+        _process_mode = old
 
 
 # ---------------------------------------------------------------------------
