@@ -13,7 +13,16 @@ from xarray import DataArray
 from ._utils import xarray_io
 
 
-@xarray_io()
+@xarray_io(
+    output_units={
+        "decomposable_plant_material_monthly": "t ha-1",
+        "resistant_plant_material_monthly": "t ha-1",
+        "microbial_biomass_monthly": "t ha-1",
+        "humified_organic_matter_monthly": "t ha-1",
+        "soil_organic_carbon_monthly": "t ha-1",
+        "heterotrophic_respiration_monthly": "t ha-1",
+    }
+)
 def _rothc(
     temperature_celcius_monthly: NDArray[np.float64],
     precipitation_mm_monthly: NDArray[np.float64],

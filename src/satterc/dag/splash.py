@@ -17,7 +17,13 @@ from xarray import DataArray
 from ._utils import xarray_io
 
 
-@xarray_io()
+@xarray_io(
+    output_units={
+        "actual_evapotranspiration_daily": "mm d-1",
+        "soil_moisture_daily": "mm",
+        "runoff_daily": "mm d-1",
+    }
+)
 def _splash(
     sunshine_fraction_daily: NDArray[np.float64],
     temperature_celcius_daily: NDArray[np.float64],

@@ -1,10 +1,13 @@
 import functools
+import inspect
 from collections.abc import Callable
 from typing import Any
 
 import numpy as np
 import pandas as pd
 import xarray as xr
+
+from ..units import check_units, get_mode, resolve_input_unit, resolve_output_unit
 
 # Define the supported backends explicitly
 SupportedArrayTypes: tuple[type, ...] = (np.ndarray,)
@@ -19,8 +22,12 @@ except ImportError:
     HAS_JAX = False
 
 
-def xarray_io() -> Callable[[Callable[..., Any]], Callable[..., Any]]:
-    """Bridge xarray.DataArray inputs to NumPy/JAX functions.
+def xarray_io(
+    *,
+    input_units: dict[str, str] | None = None,
+    output_units: dict[str, str] | str | None = None,
+) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
+    """Bridge xarray.DataArray inputs to NumPy/JAX functions, with unit checks.
 
     This is designed to decorate functions that take one of the `SupportedArrayTypes`
     (`numpy.ndarray` or `jax.Array`) as arguments, to allow them to take
@@ -30,12 +37,23 @@ def xarray_io() -> Callable[[Callable[..., Any]], Callable[..., Any]]:
     Similarly, any returned values that are `SupportedArrayTypes` will be converted
     back into `xarray.DataArray`.
 
+    Units validation/conversion happens at this boundary. Each input DataArray
+    whose name has a declared unit (via `input_units` or the central
+    `satterc.units.VARIABLE_UNITS` registry) is validated and converted to that
+    unit before reaching the wrapped function, according to the active mode
+    (`satterc.units.get_mode`). Each output DataArray is stamped with its declared
+    unit (via `output_units` or the registry) instead of inheriting an arbitrary
+    input's `units` attribute.
+
     Parameters
     ----------
-    inject_time
-        If non-False, pass the datetime index of the first `xarray.DataArray` to
-        the decorated function kwargs. If `True`, the kwarg will be called `time`.
-        If instead a `str` is provided, this will be used instead.
+    input_units
+        Optional mapping of parameter name to declared UDUNITS string. Names not
+        present fall back to the central registry.
+    output_units
+        Declared output unit(s): a bare string for a single-array return, or a
+        mapping of output name to unit for dict returns. Names not present fall
+        back to the central registry.
 
     Note
     ----
@@ -44,8 +62,23 @@ def xarray_io() -> Callable[[Callable[..., Any]], Callable[..., Any]]:
     """
 
     def decorator(func: Callable[..., Any]) -> Callable[..., Any]:
+        sig = inspect.signature(func)
+
         @functools.wraps(func)
         def wrapper(*args: Any, **kwargs: Any) -> Any:
+            # Validate/convert declared inputs before any further processing.
+            # Bind by signature so names resolve regardless of call style.
+            mode = get_mode()
+            if mode != "off":
+                bound = sig.bind_partial(*args, **kwargs)
+                for name, val in list(bound.arguments.items()):
+                    if not isinstance(val, xr.DataArray):
+                        continue
+                    declared = resolve_input_unit(name, input_units)
+                    if declared is not None:
+                        bound.arguments[name] = check_units(val, declared, name, mode)
+                args, kwargs = bound.args, bound.kwargs
+
             # Check if one or more xarray.DataArrays were provided as input.
             # Pull out the first DataArray to use as a metadata template
             all_inputs = list(args) + list(kwargs.values())
@@ -126,6 +159,16 @@ def xarray_io() -> Callable[[Callable[..., Any]], Callable[..., Any]]:
                             "0D, 1D, or 2D arrays."
                         )
 
+                    # Stamp the declared output unit instead of inheriting the
+                    # reference input's `units` attribute (which is meaningless
+                    # for a transformed output and was a latent mislabelling bug).
+                    out_attrs = {
+                        k: val for k, val in reference_da.attrs.items() if k != "units"
+                    }
+                    declared_out = resolve_output_unit(name, output_units)
+                    if declared_out is not None:
+                        out_attrs["units"] = declared_out
+
                     return xr.DataArray(
                         v,
                         coords={
@@ -134,7 +177,7 @@ def xarray_io() -> Callable[[Callable[..., Any]], Callable[..., Any]]:
                             if d in reference_da.coords
                         },
                         dims=new_dims,
-                        attrs=reference_da.attrs,
+                        attrs=out_attrs,
                         name=name,
                     )
                 elif isinstance(v, dict):
@@ -146,6 +189,11 @@ def xarray_io() -> Callable[[Callable[..., Any]], Callable[..., Any]]:
 
             return _repack_returns(inner_returns)
 
+        # Expose declarations for the (Phase 2) static DAG consistency check.
+        wrapper.__satterc_units__ = {  # type: ignore[attr-defined]
+            "inputs": input_units,
+            "output": output_units,
+        }
         return wrapper
 
     return decorator

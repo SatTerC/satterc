@@ -16,7 +16,13 @@ from xarray import DataArray
 from ._utils import xarray_io
 
 
-@xarray_io()
+@xarray_io(
+    output_units={
+        "gpp_weekly": "g m-2 d-1",
+        "lue_weekly": "g MJ-1",
+        "iwue_weekly": "Pa",
+    }
+)
 def _pmodel(
     temperature_celcius_weekly: NDArray,
     vpd_pa_weekly: NDArray,

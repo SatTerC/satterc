@@ -44,6 +44,10 @@ def run(
     """Execute a pipeline defined in a configuration file."""
     parsed = load_config(config_file)
 
+    from ..units import set_mode
+
+    set_mode(parsed.units_mode)
+
     cache_spec = _resolve_cache(parsed.cache_spec, cache, cache_dir)
 
     inputs = load_inputs(parsed.input_specs)

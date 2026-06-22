@@ -146,6 +146,7 @@ class ParsedConfig:
     input_specs: dict[str, "IOSpec"] = field(default_factory=dict)
     output_specs: dict[str, "IOSpec"] = field(default_factory=dict)
     cache_spec: "CacheSpec | None" = None
+    units_mode: str | None = None
 
 
 class Config:
@@ -288,6 +289,21 @@ class Config:
             return None
         return CacheSpec.from_config(entry)
 
+    def _parse_units(self, data: dict) -> str | None:
+        """Handle the [units] section.
+
+        Returns the validation mode string, or None if no [units] section.
+        """
+        entry = data.pop("units", None)
+        if entry is None:
+            return None
+        mode = entry.get("mode")
+        if mode is not None and mode not in ("strict", "warn", "off"):
+            raise ValueError(
+                f"[units] 'mode' must be one of 'strict', 'warn', 'off', got {mode!r}."
+            )
+        return mode
+
     def _parse_external_modules(self, data: dict, driver_config: dict) -> list[str]:
         """Handle remaining sections as external modules."""
         modules: list[str] = []
@@ -320,6 +336,7 @@ class Config:
         - [[derive]]      — config-driven derived variable nodes
         - [[resample]]    — temporal resampling module
         - [cache]         — Hamilton result caching (path, recompute, disable)
+        - [units]         — unit validation mode ('strict', 'warn', 'off')
 
         All other top-level sections are treated as external modules and must
         include a '_import_path = "pkg.module"' key specifying the importable
@@ -338,6 +355,7 @@ class Config:
         modules += self._parse_derive(data, driver_config)
         modules += self._parse_resample(data, driver_config)
         cache_spec = self._parse_cache(data)
+        units_mode = self._parse_units(data)
         modules += self._parse_external_modules(data, driver_config)
         return ParsedConfig(
             modules=modules,
@@ -345,6 +363,7 @@ class Config:
             input_specs=input_specs,
             output_specs=output_specs,
             cache_spec=cache_spec,
+            units_mode=units_mode,
         )
 
 

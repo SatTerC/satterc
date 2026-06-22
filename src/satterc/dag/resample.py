@@ -31,4 +31,8 @@ def resample(var_in: xr.DataArray, aggfunc: str, freq: str) -> xr.DataArray:
     freq must be a valid pandas offset alias (e.g. '7D', '1ME').
     # TODO: consider closed/label options for finer control over bin edges
     """
-    return getattr(var_in.resample(time=freq), aggfunc)()
+    out = getattr(var_in.resample(time=freq), aggfunc)()
+    # Preserve attrs (notably CF 'units') across this internal edge so unit
+    # validation downstream sees the resampled variable's units.
+    out.attrs = dict(var_in.attrs)
+    return out

@@ -87,7 +87,7 @@ def pft_params(plant_type: xr.DataArray) -> xr.Dataset:
     return _build_pft_params_dataset(plant_type)
 
 
-@xarray_io()
+@xarray_io(output_units="1")
 def _disturbances_daily(
     temperature_celcius_daily: NDArray,
     gpp_daily: NDArray,
@@ -134,7 +134,36 @@ def disturbances_daily(
     )
 
 
-@xarray_io()
+@xarray_io(
+    output_units={
+        # carbon pools and fluxes (carbon mass per unit area, gC m-2)
+        "leaf_pool_weekly": "g m-2",
+        "stem_pool_weekly": "g m-2",
+        "root_pool_weekly": "g m-2",
+        "litter_pool_weekly": "g m-2",
+        "removed_pool_weekly": "g m-2",
+        "npp_leaf_weekly": "g m-2",
+        "npp_stem_weekly": "g m-2",
+        "npp_root_weekly": "g m-2",
+        "turnover_leaf_weekly": "g m-2",
+        "turnover_stem_weekly": "g m-2",
+        "turnover_root_weekly": "g m-2",
+        "respiration_leaf_weekly": "g m-2",
+        "respiration_stem_weekly": "g m-2",
+        "respiration_root_weekly": "g m-2",
+        "disturbance_leaf_weekly": "g m-2",
+        "disturbance_stem_weekly": "g m-2",
+        "disturbance_root_weekly": "g m-2",
+        # dimensionless diagnostics
+        "cue_weekly": "1",
+        "allocation_leaf_weekly": "1",
+        "allocation_stem_weekly": "1",
+        "allocation_root_weekly": "1",
+        "drought_modifier_weekly": "1",
+        "lue_score_weekly": "1",
+        "iwue_score_weekly": "1",
+    }
+)
 def _sgam(
     plant_type: NDArray[np.int_],
     pft_params: xr.Dataset,

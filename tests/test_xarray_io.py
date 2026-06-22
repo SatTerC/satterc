@@ -342,13 +342,28 @@ class TestErrorCases:
 class TestMetadataPreservation:
     """Tests that metadata (attrs, coords) is correctly preserved."""
 
-    def test_attrs_preserved_in_output(self, ref_datarray_2d):
+    def test_non_unit_attrs_preserved_in_output(self, ref_datarray_2d):
         @xarray_io()
         def func(arr):
             return arr * 2
 
         result = func(ref_datarray_2d)
-        assert result.attrs == ref_datarray_2d.attrs
+        # Non-unit attrs are carried over from the reference input...
+        assert result.attrs.get("long_name") == ref_datarray_2d.attrs["long_name"]
+
+    def test_units_not_inherited_from_reference(self, ref_datarray_2d):
+        """Regression: output must not inherit the reference input's 'units'.
+
+        With no declared output unit, the output carries no 'units' attribute
+        (rather than the meaningless inherited one).
+        """
+
+        @xarray_io()
+        def func(arr):
+            return arr * 2
+
+        result = func(ref_datarray_2d)
+        assert "units" not in result.attrs
 
     def test_coords_preserved_in_output_2d(self, ref_datarray_2d):
         @xarray_io()
