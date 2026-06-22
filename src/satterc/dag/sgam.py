@@ -8,7 +8,7 @@ from numpy.typing import NDArray
 from sgam import Disturbances, Sgam
 from sgam.pft import PftParams, PlantFunctionalType, get_default_pft_params
 
-from ._utils import xarray_io
+from ._utils import ndarray_impl, xarray_io
 
 
 def _pft_int_to_enum(value: int) -> PlantFunctionalType:
@@ -87,14 +87,7 @@ def pft_params(plant_type: xr.DataArray) -> xr.Dataset:
     return _build_pft_params_dataset(plant_type)
 
 
-@xarray_io(
-    input_units={
-        "temperature_celcius_daily": "degC",
-        "gpp_daily": "g m-2 d-1",
-        "lai_daily": "1",
-    },
-    output_units="1",
-)
+@ndarray_impl
 def _disturbances_daily(
     temperature_celcius_daily: NDArray,
     gpp_daily: NDArray,
@@ -109,6 +102,14 @@ def _disturbances_daily(
     )
 
 
+@xarray_io(
+    input_units={
+        "temperature_celcius_daily": "degC",
+        "gpp_daily": "g m-2 d-1",
+        "lai_daily": "1",
+    },
+    output_units="1",
+)
 def disturbances_daily(
     temperature_celcius_daily: xr.DataArray,
     gpp_daily: xr.DataArray,
@@ -137,51 +138,11 @@ def disturbances_daily(
         Daily disturbance indicators.
     """
     return _disturbances_daily(
-        temperature_celcius_daily, gpp_daily, lai_daily, plant_type.values, latitude
+        temperature_celcius_daily, gpp_daily, lai_daily, plant_type, latitude
     )
 
 
-@xarray_io(
-    input_units={
-        "temperature_celcius_weekly": "degC",
-        "gpp_weekly": "g m-2 d-1",
-        "soil_moisture_weekly": "mm",
-        "vpd_pa_weekly": "Pa",
-        "lue_weekly": "g MJ-1",
-        "iwue_weekly": "Pa",
-        "leaf_pool_init": "g m-2",
-        "stem_pool_init": "g m-2",
-        "root_pool_init": "g m-2",
-    },
-    output_units={
-        # carbon pools and fluxes (carbon mass per unit area, gC m-2)
-        "leaf_pool_weekly": "g m-2",
-        "stem_pool_weekly": "g m-2",
-        "root_pool_weekly": "g m-2",
-        "litter_pool_weekly": "g m-2",
-        "removed_pool_weekly": "g m-2",
-        "npp_leaf_weekly": "g m-2",
-        "npp_stem_weekly": "g m-2",
-        "npp_root_weekly": "g m-2",
-        "turnover_leaf_weekly": "g m-2",
-        "turnover_stem_weekly": "g m-2",
-        "turnover_root_weekly": "g m-2",
-        "respiration_leaf_weekly": "g m-2",
-        "respiration_stem_weekly": "g m-2",
-        "respiration_root_weekly": "g m-2",
-        "disturbance_leaf_weekly": "g m-2",
-        "disturbance_stem_weekly": "g m-2",
-        "disturbance_root_weekly": "g m-2",
-        # dimensionless diagnostics
-        "cue_weekly": "1",
-        "allocation_leaf_weekly": "1",
-        "allocation_stem_weekly": "1",
-        "allocation_root_weekly": "1",
-        "drought_modifier_weekly": "1",
-        "lue_score_weekly": "1",
-        "iwue_score_weekly": "1",
-    },
-)
+@ndarray_impl
 def _sgam(
     plant_type: NDArray[np.int_],
     pft_params: xr.Dataset,
@@ -303,6 +264,47 @@ def _sgam(
         "iwue_score_weekly",
     ]
 )
+@xarray_io(
+    input_units={
+        "temperature_celcius_weekly": "degC",
+        "gpp_weekly": "g m-2 d-1",
+        "soil_moisture_weekly": "mm",
+        "vpd_pa_weekly": "Pa",
+        "lue_weekly": "g MJ-1",
+        "iwue_weekly": "Pa",
+        "leaf_pool_init": "g m-2",
+        "stem_pool_init": "g m-2",
+        "root_pool_init": "g m-2",
+    },
+    output_units={
+        # carbon pools and fluxes (carbon mass per unit area, gC m-2)
+        "leaf_pool_weekly": "g m-2",
+        "stem_pool_weekly": "g m-2",
+        "root_pool_weekly": "g m-2",
+        "litter_pool_weekly": "g m-2",
+        "removed_pool_weekly": "g m-2",
+        "npp_leaf_weekly": "g m-2",
+        "npp_stem_weekly": "g m-2",
+        "npp_root_weekly": "g m-2",
+        "turnover_leaf_weekly": "g m-2",
+        "turnover_stem_weekly": "g m-2",
+        "turnover_root_weekly": "g m-2",
+        "respiration_leaf_weekly": "g m-2",
+        "respiration_stem_weekly": "g m-2",
+        "respiration_root_weekly": "g m-2",
+        "disturbance_leaf_weekly": "g m-2",
+        "disturbance_stem_weekly": "g m-2",
+        "disturbance_root_weekly": "g m-2",
+        # dimensionless diagnostics
+        "cue_weekly": "1",
+        "allocation_leaf_weekly": "1",
+        "allocation_stem_weekly": "1",
+        "allocation_root_weekly": "1",
+        "drought_modifier_weekly": "1",
+        "lue_score_weekly": "1",
+        "iwue_score_weekly": "1",
+    },
+)
 def sgam(
     plant_type: xr.DataArray,
     pft_params: xr.Dataset,
@@ -372,7 +374,7 @@ def sgam(
         Dictionary containing vegetation pool sizes, fluxes, and diagnostics.
     """
     return _sgam(
-        plant_type=plant_type.values,
+        plant_type=plant_type,
         pft_params=pft_params,
         temperature_celcius_weekly=temperature_celcius_weekly,
         gpp_weekly=gpp_weekly,

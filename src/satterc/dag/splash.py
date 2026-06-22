@@ -14,23 +14,10 @@ from numpy.typing import NDArray
 from pandas import DatetimeIndex
 from xarray import DataArray
 
-from ._utils import xarray_io
+from ._utils import ndarray_impl, xarray_io
 
 
-@xarray_io(
-    input_units={
-        "sunshine_fraction_daily": "1",
-        "temperature_celcius_daily": "degC",
-        "precipitation_mm_daily": "mm",
-        "elevation": "m",
-        "max_soil_moisture": "mm",
-    },
-    output_units={
-        "actual_evapotranspiration_daily": "mm d-1",
-        "soil_moisture_daily": "mm",
-        "runoff_daily": "mm d-1",
-    },
-)
+@ndarray_impl
 def _splash(
     sunshine_fraction_daily: NDArray[np.float64],
     temperature_celcius_daily: NDArray[np.float64],
@@ -72,6 +59,20 @@ def _splash(
     "actual_evapotranspiration_daily",
     "soil_moisture_daily",
     "runoff_daily",
+)
+@xarray_io(
+    input_units={
+        "sunshine_fraction_daily": "1",
+        "temperature_celcius_daily": "degC",
+        "precipitation_mm_daily": "mm",
+        "elevation": "m",
+        "max_soil_moisture": "mm",
+    },
+    output_units={
+        "actual_evapotranspiration_daily": "mm d-1",
+        "soil_moisture_daily": "mm",
+        "runoff_daily": "mm d-1",
+    },
 )
 def splash(
     dates_daily: DatetimeIndex,

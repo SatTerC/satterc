@@ -10,29 +10,10 @@ from rothc_py import RothC, RothCParams, percent_modern_c
 from rothc_py.containers import InputData
 from xarray import DataArray
 
-from ._utils import xarray_io
+from ._utils import ndarray_impl, xarray_io
 
 
-@xarray_io(
-    input_units={
-        "temperature_celcius_monthly": "degC",
-        "precipitation_mm_monthly": "mm",
-        "evaporation_monthly": "mm",
-        "soil_carbon_input_monthly": "t ha-1 month-1",
-        "farmyard_manure_input_monthly": "t ha-1 month-1",
-        "clay_content": "percent",
-        "soil_depth": "cm",
-        "inert_organic_matter": "t ha-1",
-    },
-    output_units={
-        "decomposable_plant_material_monthly": "t ha-1",
-        "resistant_plant_material_monthly": "t ha-1",
-        "microbial_biomass_monthly": "t ha-1",
-        "humified_organic_matter_monthly": "t ha-1",
-        "soil_organic_carbon_monthly": "t ha-1",
-        "heterotrophic_respiration_monthly": "t ha-1",
-    },
-)
+@ndarray_impl
 def _rothc(
     temperature_celcius_monthly: NDArray[np.float64],
     precipitation_mm_monthly: NDArray[np.float64],
@@ -136,6 +117,26 @@ def _rothc(
         "soil_organic_carbon_monthly",
         "heterotrophic_respiration_monthly",
     ]
+)
+@xarray_io(
+    input_units={
+        "temperature_celcius_monthly": "degC",
+        "precipitation_mm_monthly": "mm",
+        "evaporation_monthly": "mm",
+        "soil_carbon_input_monthly": "t ha-1 month-1",
+        "farmyard_manure_input_monthly": "t ha-1 month-1",
+        "clay_content": "percent",
+        "soil_depth": "cm",
+        "inert_organic_matter": "t ha-1",
+    },
+    output_units={
+        "decomposable_plant_material_monthly": "t ha-1",
+        "resistant_plant_material_monthly": "t ha-1",
+        "microbial_biomass_monthly": "t ha-1",
+        "humified_organic_matter_monthly": "t ha-1",
+        "soil_organic_carbon_monthly": "t ha-1",
+        "heterotrophic_respiration_monthly": "t ha-1",
+    },
 )
 def rothc(
     temperature_celcius_monthly: DataArray,

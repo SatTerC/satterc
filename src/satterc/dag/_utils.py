@@ -22,6 +22,20 @@ except ImportError:
     HAS_JAX = False
 
 
+def ndarray_impl(func: Callable[..., Any]) -> Callable[..., Any]:
+    """Mark a pure-NumPy implementation called by an ``@xarray_io`` node.
+
+    Identity at runtime — it returns ``func`` unchanged. Its only effect is
+    static: it widens the decorated function's type to ``Callable[..., Any]``
+    so a ``DataArray``-typed public node (the Hamilton node, which
+    ``@xarray_io`` has already converted to ndarrays) can forward straight to
+    it without ``DataArray`` → ``NDArray`` argument friction. The implementation
+    keeps its honest ``NDArray`` signature, which is still type-checked inside
+    its own body.
+    """
+    return func
+
+
 def xarray_io(
     *,
     input_units: dict[str, str] | None = None,
