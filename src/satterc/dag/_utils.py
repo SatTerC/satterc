@@ -7,7 +7,7 @@ import numpy as np
 import pandas as pd
 import xarray as xr
 
-from ..units import check_units, get_mode, resolve_input_unit, resolve_output_unit
+from ..units import check_units, get_mode, units_from_signature
 
 # Define the supported backends explicitly
 SupportedArrayTypes: tuple[type, ...] = (np.ndarray,)
@@ -22,26 +22,65 @@ except ImportError:
     HAS_JAX = False
 
 
-def ndarray_impl(func: Callable[..., Any]) -> Callable[..., Any]:
-    """Mark a pure-NumPy implementation called by an ``@xarray_io`` node.
+def declare_units(func: Callable[..., Any]) -> Callable[..., Any]:
+    """Apply a node's signature-declared units at runtime.
 
-    Identity at runtime — it returns ``func`` unchanged. Its only effect is
-    static: it widens the decorated function's type to ``Callable[..., Any]``
-    so a ``DataArray``-typed public node (the Hamilton node, which
-    ``@xarray_io`` has already converted to ndarrays) can forward straight to
-    it without ``DataArray`` → ``NDArray`` argument friction. The implementation
-    keeps its honest ``NDArray`` signature, which is still type-checked inside
-    its own body.
+    Reads the decorated node's own type annotations once, via
+    :func:`satterc.units.units_from_signature`: parameters annotated
+    ``Annotated[DataArray, "<unit>"]` declare input units, and a ``TypedDict``
+    return (or a bare ``Annotated[DataArray, "<unit>"]`` return) declares output
+    units. Those annotations are the single source of truth — the same one the
+    (Phase 2) static DAG check reads off the Hamilton node — so units are never
+    duplicated.
+
+    At call time the wrapper:
+
+    1. validates/converts each declared ``DataArray`` input to its unit via
+       :func:`satterc.units.check_units`, honouring the active mode
+       (`satterc.units.get_mode`); validation is skipped entirely in ``off`` mode;
+    2. runs the node body;
+    3. stamps each declared output ``DataArray`` with its unit (a ``dict`` return
+       is stamped per output name; a single ``DataArray`` return is stamped with
+       the bare declared unit).
+
+    Only ``DataArray`` values are validated/stamped. Non-``DataArray`` arguments
+    (`DatetimeIndex`, `Dataset`, scalar config parameters) carry no unit metadata
+    and pass through untouched. This decorator does **not** convert between
+    ``DataArray`` and ``ndarray`` — that boundary belongs to :func:`xarray_io` on
+    the inner numpy implementation.
     """
-    return func
+    input_units, output_units = units_from_signature(func)
+    sig = inspect.signature(func)
+
+    def _stamp(result: Any) -> Any:
+        if isinstance(output_units, str):
+            if isinstance(result, xr.DataArray):
+                result.attrs["units"] = output_units
+        elif isinstance(output_units, dict) and isinstance(result, dict):
+            for name, value in result.items():
+                declared = output_units.get(name)
+                if declared is not None and isinstance(value, xr.DataArray):
+                    value.attrs["units"] = declared
+        return result
+
+    @functools.wraps(func)
+    def wrapper(*args: Any, **kwargs: Any) -> Any:
+        mode = get_mode()
+        if mode != "off" and input_units:
+            bound = sig.bind_partial(*args, **kwargs)
+            for name, val in list(bound.arguments.items()):
+                declared = input_units.get(name)
+                if declared is not None and isinstance(val, xr.DataArray):
+                    bound.arguments[name] = check_units(val, declared, name, mode)
+            args, kwargs = bound.args, bound.kwargs
+
+        return _stamp(func(*args, **kwargs))
+
+    return wrapper
 
 
-def xarray_io(
-    *,
-    input_units: dict[str, str] | None = None,
-    output_units: dict[str, str] | str | None = None,
-) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
-    """Bridge xarray.DataArray inputs to NumPy/JAX functions, with unit checks.
+def xarray_io() -> Callable[[Callable[..., Any]], Callable[..., Any]]:
+    """Bridge xarray.DataArray inputs to NumPy/JAX functions.
 
     This is designed to decorate functions that take one of the `SupportedArrayTypes`
     (`numpy.ndarray` or `jax.Array`) as arguments, to allow them to take
@@ -51,26 +90,11 @@ def xarray_io(
     Similarly, any returned values that are `SupportedArrayTypes` will be converted
     back into `xarray.DataArray`.
 
-    Units validation/conversion happens at this boundary. Each input DataArray
-    named in `input_units` is validated and converted to its declared unit before
-    reaching the wrapped function, according to the active mode
-    (`satterc.units.get_mode`). Each output DataArray named in `output_units` is
-    stamped with its declared unit instead of inheriting an arbitrary input's
-    `units` attribute. Units are owned by each node; there is no central registry.
-
-    Only DataArray arguments are unit-checked. Non-DataArray arguments
-    (`DatetimeIndex`, scalar `float`/`int`/`str` config parameters) carry no unit
-    metadata and are passed through untouched, even if named in `input_units`.
-
-    Parameters
-    ----------
-    input_units
-        Optional mapping of parameter name to declared UDUNITS string. Parameters
-        not listed are not unit-checked.
-    output_units
-        Declared output unit(s): a bare string for a single-array return, or a
-        mapping of output name to unit for dict returns. Outputs not listed are
-        not stamped.
+    This decorator handles the ``DataArray`` ↔ ``ndarray`` boundary only; unit
+    declaration, validation and stamping live in :func:`declare_units` on the
+    public node. Output DataArrays built here never inherit a ``units`` attribute
+    from the reference input (a latent mislabelling bug); the declared unit is
+    stamped later by :func:`declare_units`.
 
     Note
     ----
@@ -79,23 +103,8 @@ def xarray_io(
     """
 
     def decorator(func: Callable[..., Any]) -> Callable[..., Any]:
-        sig = inspect.signature(func)
-
         @functools.wraps(func)
         def wrapper(*args: Any, **kwargs: Any) -> Any:
-            # Validate/convert declared inputs before any further processing.
-            # Bind by signature so names resolve regardless of call style.
-            mode = get_mode()
-            if mode != "off":
-                bound = sig.bind_partial(*args, **kwargs)
-                for name, val in list(bound.arguments.items()):
-                    if not isinstance(val, xr.DataArray):
-                        continue
-                    declared = resolve_input_unit(name, input_units)
-                    if declared is not None:
-                        bound.arguments[name] = check_units(val, declared, name, mode)
-                args, kwargs = bound.args, bound.kwargs
-
             # Check if one or more xarray.DataArrays were provided as input.
             # Pull out the first DataArray to use as a metadata template
             all_inputs = list(args) + list(kwargs.values())
@@ -176,15 +185,13 @@ def xarray_io(
                             "0D, 1D, or 2D arrays."
                         )
 
-                    # Stamp the declared output unit instead of inheriting the
-                    # reference input's `units` attribute (which is meaningless
-                    # for a transformed output and was a latent mislabelling bug).
+                    # Do not inherit the reference input's `units` attribute: it
+                    # is meaningless for a transformed output and was a latent
+                    # mislabelling bug. The declared output unit is stamped later
+                    # by `declare_units` on the public node.
                     out_attrs = {
                         k: val for k, val in reference_da.attrs.items() if k != "units"
                     }
-                    declared_out = resolve_output_unit(name, output_units)
-                    if declared_out is not None:
-                        out_attrs["units"] = declared_out
 
                     return xr.DataArray(
                         v,
@@ -206,11 +213,6 @@ def xarray_io(
 
             return _repack_returns(inner_returns)
 
-        # Expose declarations for the (Phase 2) static DAG consistency check.
-        wrapper.__satterc_units__ = {  # type: ignore[attr-defined]
-            "inputs": input_units,
-            "output": output_units,
-        }
         return wrapper
 
     return decorator

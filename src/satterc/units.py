@@ -24,7 +24,15 @@ Units are declared in canonical UDUNITS style (e.g. ``"umol m-2 s-1"``, not
 import os
 import warnings
 from contextlib import contextmanager
-from typing import Literal
+from typing import (
+    Annotated,
+    Any,
+    Literal,
+    get_args,
+    get_origin,
+    get_type_hints,
+    is_typeddict,
+)
 
 import cf_xarray.units  # noqa: F401 -- registers the UDUNITS-aware pint registry
 import pint
@@ -137,6 +145,73 @@ def resolve_output_unit(
     if isinstance(output_units, dict) and name is not None:
         return output_units.get(name)
     return None
+
+
+def unwrap_annotated(hint: Any) -> Any:
+    """Return the underlying type of an ``Annotated`` hint, else the hint itself.
+
+    ``Annotated[DataArray, "degC"]`` → ``DataArray``; a non-``Annotated`` hint is
+    returned unchanged. Lets type comparisons (e.g. ``t is DataArray``) see through
+    the unit metadata that signature-native declarations attach to node parameters.
+    """
+    return get_args(hint)[0] if get_origin(hint) is Annotated else hint
+
+
+def _annotated_unit(hint: Any) -> str | None:
+    """Return the declared unit carried by an ``Annotated`` type hint, or ``None``.
+
+    A unit is the first ``str`` in the ``Annotated`` metadata, e.g.
+    ``Annotated[DataArray, "degC"]`` → ``"degC"``. Non-``Annotated`` hints, or
+    ``Annotated`` hints whose metadata holds no string, return ``None``.
+    """
+    if get_origin(hint) is not Annotated:
+        return None
+    # get_args(Annotated[T, m1, m2, ...]) == (T, m1, m2, ...); skip the base type.
+    for meta in get_args(hint)[1:]:
+        if isinstance(meta, str):
+            return meta
+    return None
+
+
+def units_from_signature(
+    func: object,
+) -> tuple[dict[str, str], dict[str, str] | str | None]:
+    """Extract declared units from a node function's type annotations.
+
+    Reads ``get_type_hints(func, include_extras=True)`` and interprets
+    ``Annotated[..., "<unit>"]`` metadata as unit declarations:
+
+    - **inputs**: every parameter whose hint is ``Annotated`` with a string unit
+      contributes to the returned ``input_units`` mapping (others are ignored);
+    - **output**: if the return hint is a ``TypedDict``, each field name maps to
+      its ``Annotated`` unit (a ``dict``); if it is a bare ``Annotated[DataArray,
+      unit]`` return, the bare unit ``str``; otherwise ``None``.
+
+    This is the single source the runtime :func:`satterc.dag._utils.declare_units`
+    decorator and the (Phase 2) static DAG check both read, so unit declarations
+    live in one place — the node's own signature.
+    """
+    hints = get_type_hints(func, include_extras=True)
+    ret = hints.pop("return", None)
+
+    input_units = {
+        name: unit
+        for name, hint in hints.items()
+        if (unit := _annotated_unit(hint)) is not None
+    }
+
+    output_units: dict[str, str] | str | None
+    if is_typeddict(ret):
+        ret_hints = get_type_hints(ret, include_extras=True)
+        output_units = {
+            name: unit
+            for name, hint in ret_hints.items()
+            if (unit := _annotated_unit(hint)) is not None
+        }
+    else:
+        output_units = _annotated_unit(ret)
+
+    return input_units, output_units
 
 
 def check_units(da: xr.DataArray, declared: str, name: str, mode: Mode) -> xr.DataArray:

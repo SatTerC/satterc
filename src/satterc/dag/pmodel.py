@@ -6,6 +6,8 @@ to calculate gross primary productivity (GPP), light use efficiency (LUE),
 and intrinsic water use efficiency (IWUE) from environmental inputs.
 """
 
+from typing import Annotated, TypedDict
+
 import numpy as np
 import pyrealm.pmodel
 import xarray as xr
@@ -13,10 +15,18 @@ from hamilton.function_modifiers import extract_fields
 from numpy.typing import NDArray
 from xarray import DataArray
 
-from ._utils import ndarray_impl, xarray_io
+from ._utils import declare_units, xarray_io
 
 
-@ndarray_impl
+class PModelOut(TypedDict):
+    """Outputs of the :func:`pmodel` node, with their declared units."""
+
+    gpp_weekly: Annotated[DataArray, "g m-2 d-1"]
+    lue_weekly: Annotated[DataArray, "g MJ-1"]
+    iwue_weekly: Annotated[DataArray, "Pa"]
+
+
+@xarray_io()
 def _pmodel(
     temperature_celcius_weekly: NDArray,
     vpd_pa_weekly: NDArray,
@@ -61,41 +71,24 @@ def _pmodel(
     return dict(gpp_weekly=gpp, lue_weekly=lue, iwue_weekly=iwue)
 
 
-@extract_fields("gpp_weekly", "lue_weekly", "iwue_weekly")
-@xarray_io(
-    input_units={
-        "temperature_celcius_weekly": "degC",
-        "vpd_pa_weekly": "Pa",
-        "co2_ppm_weekly": "ppm",
-        "pressure_pa_weekly": "Pa",
-        "fapar_weekly": "1",
-        "ppfd_umol_m2_s1_weekly": "umol m-2 s-1",
-        "mean_growth_temperature_weekly": "degC",
-        "aridity_index_weekly": "1",
-        "soil_moisture_weekly": "mm",
-    },
-    output_units={
-        "gpp_weekly": "g m-2 d-1",
-        "lue_weekly": "g MJ-1",
-        "iwue_weekly": "Pa",
-    },
-)
+@extract_fields()
+@declare_units
 def pmodel(
-    temperature_celcius_weekly: DataArray,
-    vpd_pa_weekly: DataArray,
-    co2_ppm_weekly: DataArray,
-    pressure_pa_weekly: DataArray,
-    fapar_weekly: DataArray,
-    ppfd_umol_m2_s1_weekly: DataArray,
-    mean_growth_temperature_weekly: DataArray,
-    aridity_index_weekly: DataArray,
-    soil_moisture_weekly: DataArray,
+    temperature_celcius_weekly: Annotated[DataArray, "degC"],
+    vpd_pa_weekly: Annotated[DataArray, "Pa"],
+    co2_ppm_weekly: Annotated[DataArray, "ppm"],
+    pressure_pa_weekly: Annotated[DataArray, "Pa"],
+    fapar_weekly: Annotated[DataArray, "1"],
+    ppfd_umol_m2_s1_weekly: Annotated[DataArray, "umol m-2 s-1"],
+    mean_growth_temperature_weekly: Annotated[DataArray, "degC"],
+    aridity_index_weekly: Annotated[DataArray, "1"],
+    soil_moisture_weekly: Annotated[DataArray, "mm"],
     *,
     method_optchi: str = "prentice14",
     method_jmaxlim: str = "wang17",
     method_kphio: str = "temperature",
     method_arrhenius: str = "simple",
-) -> dict[str, DataArray]:
+) -> PModelOut:
     """Run the P-Model to calculate GPP, LUE, and IWUE.
 
     Parameters

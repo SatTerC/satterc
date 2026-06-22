@@ -1,5 +1,7 @@
 """Storage Gap Model (SGAM) vegetation model interface for the SatTerC pipeline."""
 
+from typing import Annotated, TypedDict
+
 import numpy as np
 import pandas as pd
 import xarray as xr
@@ -8,7 +10,40 @@ from numpy.typing import NDArray
 from sgam import Disturbances, Sgam
 from sgam.pft import PftParams, PlantFunctionalType, get_default_pft_params
 
-from ._utils import ndarray_impl, xarray_io
+from ._utils import declare_units, xarray_io
+
+
+class SgamOut(TypedDict):
+    """Outputs of the :func:`sgam` node, with their declared units.
+
+    Carbon pools and fluxes are carbon mass per unit area (gC m-2); the
+    remaining diagnostics are dimensionless.
+    """
+
+    leaf_pool_weekly: Annotated[xr.DataArray, "g m-2"]
+    stem_pool_weekly: Annotated[xr.DataArray, "g m-2"]
+    root_pool_weekly: Annotated[xr.DataArray, "g m-2"]
+    litter_pool_weekly: Annotated[xr.DataArray, "g m-2"]
+    removed_pool_weekly: Annotated[xr.DataArray, "g m-2"]
+    npp_leaf_weekly: Annotated[xr.DataArray, "g m-2"]
+    npp_stem_weekly: Annotated[xr.DataArray, "g m-2"]
+    npp_root_weekly: Annotated[xr.DataArray, "g m-2"]
+    turnover_leaf_weekly: Annotated[xr.DataArray, "g m-2"]
+    turnover_stem_weekly: Annotated[xr.DataArray, "g m-2"]
+    turnover_root_weekly: Annotated[xr.DataArray, "g m-2"]
+    respiration_leaf_weekly: Annotated[xr.DataArray, "g m-2"]
+    respiration_stem_weekly: Annotated[xr.DataArray, "g m-2"]
+    respiration_root_weekly: Annotated[xr.DataArray, "g m-2"]
+    disturbance_leaf_weekly: Annotated[xr.DataArray, "g m-2"]
+    disturbance_stem_weekly: Annotated[xr.DataArray, "g m-2"]
+    disturbance_root_weekly: Annotated[xr.DataArray, "g m-2"]
+    cue_weekly: Annotated[xr.DataArray, "1"]
+    allocation_leaf_weekly: Annotated[xr.DataArray, "1"]
+    allocation_stem_weekly: Annotated[xr.DataArray, "1"]
+    allocation_root_weekly: Annotated[xr.DataArray, "1"]
+    drought_modifier_weekly: Annotated[xr.DataArray, "1"]
+    lue_score_weekly: Annotated[xr.DataArray, "1"]
+    iwue_score_weekly: Annotated[xr.DataArray, "1"]
 
 
 def _pft_int_to_enum(value: int) -> PlantFunctionalType:
@@ -87,7 +122,7 @@ def pft_params(plant_type: xr.DataArray) -> xr.Dataset:
     return _build_pft_params_dataset(plant_type)
 
 
-@ndarray_impl
+@xarray_io()
 def _disturbances_daily(
     temperature_celcius_daily: NDArray,
     gpp_daily: NDArray,
@@ -102,21 +137,14 @@ def _disturbances_daily(
     )
 
 
-@xarray_io(
-    input_units={
-        "temperature_celcius_daily": "degC",
-        "gpp_daily": "g m-2 d-1",
-        "lai_daily": "1",
-    },
-    output_units="1",
-)
+@declare_units
 def disturbances_daily(
-    temperature_celcius_daily: xr.DataArray,
-    gpp_daily: xr.DataArray,
-    lai_daily: xr.DataArray,
+    temperature_celcius_daily: Annotated[xr.DataArray, "degC"],
+    gpp_daily: Annotated[xr.DataArray, "g m-2 d-1"],
+    lai_daily: Annotated[xr.DataArray, "1"],
     plant_type: xr.DataArray,
     latitude: xr.DataArray,
-) -> xr.DataArray:
+) -> Annotated[xr.DataArray, "1"]:
     """Calculate daily disturbance events.
 
     Parameters
@@ -142,7 +170,7 @@ def disturbances_daily(
     )
 
 
-@ndarray_impl
+@xarray_io()
 def _sgam(
     plant_type: NDArray[np.int_],
     pft_params: xr.Dataset,
@@ -236,95 +264,28 @@ def _sgam(
     return results_stacked
 
 
-@extract_fields(
-    [
-        "leaf_pool_weekly",
-        "stem_pool_weekly",
-        "root_pool_weekly",
-        "litter_pool_weekly",
-        "removed_pool_weekly",
-        "npp_leaf_weekly",
-        "npp_stem_weekly",
-        "npp_root_weekly",
-        "turnover_leaf_weekly",
-        "turnover_stem_weekly",
-        "turnover_root_weekly",
-        "respiration_leaf_weekly",
-        "respiration_stem_weekly",
-        "respiration_root_weekly",
-        "disturbance_leaf_weekly",
-        "disturbance_stem_weekly",
-        "disturbance_root_weekly",
-        "cue_weekly",
-        "allocation_leaf_weekly",
-        "allocation_stem_weekly",
-        "allocation_root_weekly",
-        "drought_modifier_weekly",
-        "lue_score_weekly",
-        "iwue_score_weekly",
-    ]
-)
-@xarray_io(
-    input_units={
-        "temperature_celcius_weekly": "degC",
-        "gpp_weekly": "g m-2 d-1",
-        "soil_moisture_weekly": "mm",
-        "vpd_pa_weekly": "Pa",
-        "lue_weekly": "g MJ-1",
-        "iwue_weekly": "Pa",
-        "leaf_pool_init": "g m-2",
-        "stem_pool_init": "g m-2",
-        "root_pool_init": "g m-2",
-    },
-    output_units={
-        # carbon pools and fluxes (carbon mass per unit area, gC m-2)
-        "leaf_pool_weekly": "g m-2",
-        "stem_pool_weekly": "g m-2",
-        "root_pool_weekly": "g m-2",
-        "litter_pool_weekly": "g m-2",
-        "removed_pool_weekly": "g m-2",
-        "npp_leaf_weekly": "g m-2",
-        "npp_stem_weekly": "g m-2",
-        "npp_root_weekly": "g m-2",
-        "turnover_leaf_weekly": "g m-2",
-        "turnover_stem_weekly": "g m-2",
-        "turnover_root_weekly": "g m-2",
-        "respiration_leaf_weekly": "g m-2",
-        "respiration_stem_weekly": "g m-2",
-        "respiration_root_weekly": "g m-2",
-        "disturbance_leaf_weekly": "g m-2",
-        "disturbance_stem_weekly": "g m-2",
-        "disturbance_root_weekly": "g m-2",
-        # dimensionless diagnostics
-        "cue_weekly": "1",
-        "allocation_leaf_weekly": "1",
-        "allocation_stem_weekly": "1",
-        "allocation_root_weekly": "1",
-        "drought_modifier_weekly": "1",
-        "lue_score_weekly": "1",
-        "iwue_score_weekly": "1",
-    },
-)
+@extract_fields()
+@declare_units
 def sgam(
     plant_type: xr.DataArray,
     pft_params: xr.Dataset,
-    temperature_celcius_weekly: xr.DataArray,
-    gpp_weekly: xr.DataArray,
-    soil_moisture_weekly: xr.DataArray,
-    vpd_pa_weekly: xr.DataArray,
-    lue_weekly: xr.DataArray,
-    iwue_weekly: xr.DataArray,
+    temperature_celcius_weekly: Annotated[xr.DataArray, "degC"],
+    gpp_weekly: Annotated[xr.DataArray, "g m-2 d-1"],
+    soil_moisture_weekly: Annotated[xr.DataArray, "mm"],
+    vpd_pa_weekly: Annotated[xr.DataArray, "Pa"],
+    lue_weekly: Annotated[xr.DataArray, "g MJ-1"],
+    iwue_weekly: Annotated[xr.DataArray, "Pa"],
     disturbances_weekly: xr.DataArray,
     dates_weekly: pd.Index,
-    leaf_pool_init: xr.DataArray,
-    stem_pool_init: xr.DataArray,
-    root_pool_init: xr.DataArray,
+    leaf_pool_init: Annotated[xr.DataArray, "g m-2"],
+    stem_pool_init: Annotated[xr.DataArray, "g m-2"],
+    root_pool_init: Annotated[xr.DataArray, "g m-2"],
     latitude: xr.DataArray,
     litter_pool_init: xr.DataArray | None = None,
     removed_init: xr.DataArray | None = None,
     use_dynamic_allocation: bool = True,
     strict_mass_balance: bool = False,
-) -> dict[str, xr.DataArray]:
+) -> SgamOut:
     """Run the Storage Gap Model (SGAM) vegetation model.
 
     Parameters

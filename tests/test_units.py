@@ -1,6 +1,7 @@
 """Tests for unit declarations and runtime unit validation."""
 
 import warnings
+from typing import Annotated, TypedDict
 
 import numpy as np
 import pint
@@ -9,7 +10,7 @@ import xarray as xr
 
 from satterc import units
 from satterc.config import Config
-from satterc.dag._utils import xarray_io
+from satterc.dag._utils import declare_units
 
 
 def _da(values, unit=None):
@@ -136,15 +137,55 @@ class TestCFParsing:
 
 
 # ---------------------------------------------------------------------------
-# Decorator integration: input validation + output stamping + edge propagation
+# units_from_signature: reading declarations off a node's annotations
 # ---------------------------------------------------------------------------
 
 
-class TestDecoratorIntegration:
-    def test_input_converted_before_reaching_function(self):
-        @xarray_io(input_units={"vpd": "Pa"}, output_units="Pa")
-        def f(vpd):
-            # vpd reaches the inner function as plain ndarray in declared units
+class TestUnitsFromSignature:
+    def test_extracts_inputs_and_typeddict_outputs(self):
+        class Out(TypedDict):
+            gpp: Annotated[xr.DataArray, "g m-2 d-1"]
+            lue: Annotated[xr.DataArray, "g MJ-1"]
+
+        def node(
+            temp: Annotated[xr.DataArray, "degC"],
+            plain: xr.DataArray,
+            scalar: int = 3,
+        ) -> Out: ...
+
+        inputs, outputs = units.units_from_signature(node)
+        # Only Annotated params with a string unit contribute; others are ignored.
+        assert inputs == {"temp": "degC"}
+        assert outputs == {"gpp": "g m-2 d-1", "lue": "g MJ-1"}
+
+    def test_bare_annotated_return(self):
+        def node(x: Annotated[xr.DataArray, "1"]) -> Annotated[xr.DataArray, "1"]: ...
+
+        inputs, outputs = units.units_from_signature(node)
+        assert inputs == {"x": "1"}
+        assert outputs == "1"
+
+    def test_no_annotations(self):
+        def node(x: xr.DataArray) -> xr.DataArray: ...
+
+        inputs, outputs = units.units_from_signature(node)
+        assert inputs == {}
+        assert outputs is None
+
+
+# ---------------------------------------------------------------------------
+# declare_units: input validation + output stamping + edge propagation
+# ---------------------------------------------------------------------------
+
+
+class TestDeclareUnits:
+    def test_input_converted_before_reaching_body(self):
+        class Out(TypedDict):
+            out: Annotated[xr.DataArray, "Pa"]
+
+        @declare_units
+        def f(vpd: Annotated[xr.DataArray, "Pa"]) -> Out:
+            # vpd reaches the body as a DataArray already converted to declared units
             return {"out": vpd}
 
         with units.mode("warn"):
@@ -152,8 +193,11 @@ class TestDecoratorIntegration:
         np.testing.assert_allclose(result["out"].values, [[1000.0, 2000.0]])
 
     def test_output_stamped_with_declared_unit_not_inherited(self):
-        @xarray_io(output_units={"gpp_weekly": "g m-2 d-1"})
-        def f(temperature_celcius_weekly):
+        class Out(TypedDict):
+            gpp_weekly: Annotated[xr.DataArray, "g m-2 d-1"]
+
+        @declare_units
+        def f(temperature_celcius_weekly: Annotated[xr.DataArray, "degC"]) -> Out:
             return {"gpp_weekly": temperature_celcius_weekly * 2}
 
         out = f(temperature_celcius_weekly=_da([[1.0, 2.0]], unit="degC"))
@@ -162,12 +206,20 @@ class TestDecoratorIntegration:
     def test_edge_propagation_two_node_chain(self):
         """An internal edge is validated using the upstream node's stamped output."""
 
-        @xarray_io(output_units={"gpp_weekly": "g m-2 d-1"})
-        def producer(temperature_celcius_weekly):
+        class ProducerOut(TypedDict):
+            gpp_weekly: Annotated[xr.DataArray, "g m-2 d-1"]
+
+        class ConsumerOut(TypedDict):
+            npp: Annotated[xr.DataArray, "g m-2 d-1"]
+
+        @declare_units
+        def producer(
+            temperature_celcius_weekly: Annotated[xr.DataArray, "degC"],
+        ) -> ProducerOut:
             return {"gpp_weekly": temperature_celcius_weekly}
 
-        @xarray_io(input_units={"gpp_weekly": "g m-2 d-1"}, output_units="g m-2 d-1")
-        def consumer(gpp_weekly):
+        @declare_units
+        def consumer(gpp_weekly: Annotated[xr.DataArray, "g m-2 d-1"]) -> ConsumerOut:
             return {"npp": gpp_weekly}
 
         with units.mode("strict"):
@@ -179,8 +231,11 @@ class TestDecoratorIntegration:
         np.testing.assert_allclose(consumed["npp"].values, [[1.0, 2.0]])
 
     def test_off_mode_skips_validation(self):
-        @xarray_io(input_units={"vpd": "Pa"})
-        def f(vpd):
+        class Out(TypedDict):
+            out: Annotated[xr.DataArray, "Pa"]
+
+        @declare_units
+        def f(vpd: Annotated[xr.DataArray, "Pa"]) -> Out:
             return {"out": vpd}
 
         with units.mode("off"), warnings.catch_warnings():
@@ -191,15 +246,26 @@ class TestDecoratorIntegration:
         np.testing.assert_allclose(result["out"].values, [[10.0, 20.0]])
 
     def test_off_mode_still_stamps_output(self):
-        @xarray_io(output_units={"gpp_weekly": "g m-2 d-1"})
-        def f(temperature_celcius_weekly):
+        class Out(TypedDict):
+            gpp_weekly: Annotated[xr.DataArray, "g m-2 d-1"]
+
+        @declare_units
+        def f(temperature_celcius_weekly: Annotated[xr.DataArray, "degC"]) -> Out:
             return {"gpp_weekly": temperature_celcius_weekly}
 
         with units.mode("off"):
             out = f(temperature_celcius_weekly=_da([[1.0, 2.0]], unit="degC"))
-        # The output-stamp fix applies regardless of mode (it is labelling, not
-        # validation): the inherited 'degC' must not leak onto the output.
+        # Stamping applies regardless of mode (it is labelling, not validation):
+        # the inherited 'degC' must not leak onto the output.
         assert out["gpp_weekly"].attrs["units"] == "g m-2 d-1"
+
+    def test_bare_annotated_single_output_stamped(self):
+        @declare_units
+        def f(x: Annotated[xr.DataArray, "degC"]) -> Annotated[xr.DataArray, "1"]:
+            return x
+
+        out = f(x=_da([[1.0, 2.0]], unit="degC"))
+        assert out.attrs["units"] == "1"
 
 
 # ---------------------------------------------------------------------------

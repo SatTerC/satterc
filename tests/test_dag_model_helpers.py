@@ -287,15 +287,11 @@ class TestPmodelHelpers:
 
 
 class TestPmodelExecution:
-    """Smoke test: the pmodel() node runs end-to-end with minimal synthetic inputs.
-
-    Calls the public node directly (not via the Hamilton driver); the public
-    node owns the xarray<->ndarray bridging and unit handling via ``@xarray_io``.
-    """
+    """Smoke test: _pmodel() runs end-to-end with minimal synthetic inputs."""
 
     @pytest.fixture(scope="class")
     def pmodel_result(self):
-        from satterc.dag.pmodel import pmodel
+        from satterc.dag.pmodel import _pmodel
 
         n_weeks = 52
         n_pixels = 1
@@ -307,7 +303,7 @@ class TestPmodelExecution:
                 data, dims=["time", "pixel"], coords={"time": time, "pixel": pixel}
             )
 
-        return pmodel(
+        return _pmodel(
             temperature_celcius_weekly=_da(np.full((n_weeks, n_pixels), 15.0)),
             vpd_pa_weekly=_da(np.full((n_weeks, n_pixels), 1000.0)),
             co2_ppm_weekly=_da(np.full((n_weeks, n_pixels), 400.0)),
@@ -344,15 +340,11 @@ class TestPmodelExecution:
 
 
 class TestRothcExecution:
-    """Smoke test: the rothc() node runs end-to-end with minimal synthetic inputs.
-
-    Calls the public node directly (not via the Hamilton driver); the public
-    node owns the xarray<->ndarray bridging and unit handling via ``@xarray_io``.
-    """
+    """Smoke test: _rothc() runs end-to-end with minimal synthetic inputs."""
 
     @pytest.fixture(scope="class")
     def rothc_result(self):
-        from satterc.dag.rothc import rothc
+        from satterc.dag.rothc import _rothc
 
         n_months = 24
         n_pixels = 1
@@ -367,7 +359,7 @@ class TestRothcExecution:
         def _static_da(values):
             return xr.DataArray(values, dims=["pixel"], coords={"pixel": pixel})
 
-        return rothc(
+        return _rothc(
             temperature_celcius_monthly=_da(np.full((n_months, n_pixels), 10.0)),
             precipitation_mm_monthly=_da(np.full((n_months, n_pixels), 50.0)),
             evaporation_monthly=_da(np.full((n_months, n_pixels), 30.0)),
@@ -632,15 +624,11 @@ class TestDisturbancesDaily:
 
 
 class TestSplashExecution:
-    """Smoke test: the splash() node runs end-to-end with minimal synthetic inputs.
-
-    Calls the public node directly (not via the Hamilton driver); the public
-    node owns the xarray<->ndarray bridging and unit handling via ``@xarray_io``.
-    """
+    """Smoke test: splash() and _splash() run end-to-end with minimal synthetic inputs."""
 
     @pytest.fixture(scope="class")
     def splash_result(self):
-        from satterc.dag.splash import splash
+        from satterc.dag.splash import _splash
 
         n_days = 366  # 2020 is a leap year; SPLASH needs a full year
         n_pixels = 2
@@ -656,7 +644,7 @@ class TestSplashExecution:
         def _static_da(values):
             return xr.DataArray(values, dims=["pixel"], coords={"pixel": pixel})
 
-        return splash(
+        return _splash(
             sunshine_fraction_daily=_da(
                 np.clip(rng.normal(0.5, 0.2, (n_days, n_pixels)), 0, 1)
             ),

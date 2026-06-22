@@ -1,5 +1,7 @@
 """RothC soil carbon model interface for the SatTerC pipeline."""
 
+from typing import Annotated, TypedDict
+
 import numpy as np
 import pandas as pd
 import xarray as xr
@@ -10,10 +12,21 @@ from rothc_py import RothC, RothCParams, percent_modern_c
 from rothc_py.containers import InputData
 from xarray import DataArray
 
-from ._utils import ndarray_impl, xarray_io
+from ._utils import declare_units, xarray_io
 
 
-@ndarray_impl
+class RothCOut(TypedDict):
+    """Outputs of the :func:`rothc` node (all carbon pools/fluxes in tC/ha)."""
+
+    decomposable_plant_material_monthly: Annotated[DataArray, "t ha-1"]
+    resistant_plant_material_monthly: Annotated[DataArray, "t ha-1"]
+    microbial_biomass_monthly: Annotated[DataArray, "t ha-1"]
+    humified_organic_matter_monthly: Annotated[DataArray, "t ha-1"]
+    soil_organic_carbon_monthly: Annotated[DataArray, "t ha-1"]
+    heterotrophic_respiration_monthly: Annotated[DataArray, "t ha-1"]
+
+
+@xarray_io()
 def _rothc(
     temperature_celcius_monthly: NDArray[np.float64],
     precipitation_mm_monthly: NDArray[np.float64],
@@ -108,47 +121,19 @@ def _rothc(
     )
 
 
-@extract_fields(
-    [
-        "decomposable_plant_material_monthly",
-        "resistant_plant_material_monthly",
-        "microbial_biomass_monthly",
-        "humified_organic_matter_monthly",
-        "soil_organic_carbon_monthly",
-        "heterotrophic_respiration_monthly",
-    ]
-)
-@xarray_io(
-    input_units={
-        "temperature_celcius_monthly": "degC",
-        "precipitation_mm_monthly": "mm",
-        "evaporation_monthly": "mm",
-        "soil_carbon_input_monthly": "t ha-1 month-1",
-        "farmyard_manure_input_monthly": "t ha-1 month-1",
-        "clay_content": "percent",
-        "soil_depth": "cm",
-        "inert_organic_matter": "t ha-1",
-    },
-    output_units={
-        "decomposable_plant_material_monthly": "t ha-1",
-        "resistant_plant_material_monthly": "t ha-1",
-        "microbial_biomass_monthly": "t ha-1",
-        "humified_organic_matter_monthly": "t ha-1",
-        "soil_organic_carbon_monthly": "t ha-1",
-        "heterotrophic_respiration_monthly": "t ha-1",
-    },
-)
+@extract_fields()
+@declare_units
 def rothc(
-    temperature_celcius_monthly: DataArray,
-    precipitation_mm_monthly: DataArray,
-    evaporation_monthly: DataArray,
+    temperature_celcius_monthly: Annotated[DataArray, "degC"],
+    precipitation_mm_monthly: Annotated[DataArray, "mm"],
+    evaporation_monthly: Annotated[DataArray, "mm"],
     plant_cover_monthly: DataArray,
     dpm_rpm_ratio_monthly: DataArray,
-    soil_carbon_input_monthly: DataArray,
-    farmyard_manure_input_monthly: DataArray,
-    clay_content: DataArray,
-    inert_organic_matter: DataArray,
-    soil_depth: DataArray,
+    soil_carbon_input_monthly: Annotated[DataArray, "t ha-1 month-1"],
+    farmyard_manure_input_monthly: Annotated[DataArray, "t ha-1 month-1"],
+    clay_content: Annotated[DataArray, "percent"],
+    inert_organic_matter: Annotated[DataArray, "t ha-1"],
+    soil_depth: Annotated[DataArray, "cm"],
     dates_monthly: pd.Index,
     *,
     n_years_spinup: int = 1,
@@ -159,7 +144,7 @@ def rothc(
     evap_factor: float = 0.75,
     equilibrium_threshold: float = 1e-6,
     zero_threshold: float = 1e-8,
-) -> dict[str, DataArray]:
+) -> RothCOut:
     """
     Rothamsted Carbon model.
 
