@@ -139,7 +139,7 @@ def xarray_io() -> Callable[[Callable[..., Any]], Callable[..., Any]]:
                     )
                 elif isinstance(v, dict):
                     return {kk: _repack_returns(vv, name=kk) for kk, vv in v.items()}
-                elif isinstance(inner_returns, (list, tuple)):
+                elif isinstance(inner_returns, list | tuple):
                     return type(inner_returns)([_repack_returns(vv) for vv in v])
                 else:
                     return v

@@ -238,6 +238,59 @@ Omit `[[derive]]` entirely if no derived variables are needed.
 
 ---
 
+### Caching
+
+Add a `[cache]` section to cache intermediate results to disk. On subsequent runs,
+nodes whose code and inputs are unchanged are read from the cache instead of being
+recomputed.
+
+```toml
+[cache]
+path = ".satterc_cache"   # default; resolved relative to the config file
+```
+
+This builds on [Hamilton's caching](https://hamilton.apache.org/concepts/caching/):
+each node is keyed on a fingerprint of its code plus the fingerprints of its inputs,
+so the cache invalidates automatically when either changes.
+
+#### Why this matters: calibration loops
+
+The main motivation is iterative workflows that re-run the pipeline many times while
+changing only a few parameters — for example, an MCMC calibration of `sgam` in a
+`splash → pmodel → sgam → rothc` pipeline. Because only `sgam`'s parameters change
+between iterations, the upstream `splash` and `pmodel` outputs keep the same
+fingerprint and are served straight from the cache, so only `sgam` (and downstream)
+is recomputed. No manual selection of which nodes to cache is required.
+
+#### Options
+
+| Key | Description |
+|-----|-------------|
+| `path` | Directory for the cache store (default `.satterc_cache`). Relative paths are resolved against the config file's directory. |
+| `enabled` | Set to `false` to keep the section but turn caching off. |
+| `recompute` | `true`, or a list of node names, to force recomputation (and re-cache) of those nodes even on a hit. |
+| `disable` | `true`, or a list of node names, to bypass the cache entirely for those nodes. |
+
+```toml
+[cache]
+path = "runs/cache"
+recompute = ["sgam"]   # always re-run sgam; reuse cached splash/pmodel
+```
+
+The `satterc run` command also exposes `--cache/--no-cache` and `--cache-dir` to
+override these settings without editing the config. Omit `[cache]` entirely to
+disable caching.
+
+/// admonition | xarray fingerprinting
+    type: note
+
+SatTerC registers a content-based fingerprint for `xarray.DataArray` so that array
+inputs and outputs are versioned by their contents. Without it, Hamilton would treat
+DataArrays as unhashable and caching would not survive across separate processes.
+///
+
+---
+
 ## Custom modules
 
 You can extend the pipeline with any importable Python module by adding a section

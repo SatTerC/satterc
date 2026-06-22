@@ -96,6 +96,40 @@ class DeriveSpec:
 
 
 @dataclass
+class CacheSpec:
+    """Specification for the [cache] section.
+
+    ``recompute`` and ``disable`` follow Hamilton's caching API: each is either
+    a boolean (apply to all nodes) or a list of node names.
+    """
+
+    path: str = ".satterc_cache"
+    recompute: bool | list[str] = field(default_factory=list)
+    disable: bool | list[str] = field(default_factory=list)
+
+    @classmethod
+    def from_config(cls, entry: dict) -> "CacheSpec":
+        """Construct and validate from a raw [cache] TOML entry."""
+
+        def _coerce(key: str) -> bool | list[str]:
+            val = entry.get(key, [])
+            if isinstance(val, bool):
+                return val
+            if isinstance(val, list) and all(isinstance(v, str) for v in val):
+                return val
+            raise ValueError(
+                f"[cache] '{key}' must be a boolean or a list of node names, "
+                f"got {val!r}."
+            )
+
+        return cls(
+            path=entry.get("path", ".satterc_cache"),
+            recompute=_coerce("recompute"),
+            disable=_coerce("disable"),
+        )
+
+
+@dataclass
 class IOSpec:
     """I/O specification for a single input or output section."""
 
@@ -111,6 +145,7 @@ class ParsedConfig:
     driver_config: dict[str, Any]
     input_specs: dict[str, "IOSpec"] = field(default_factory=dict)
     output_specs: dict[str, "IOSpec"] = field(default_factory=dict)
+    cache_spec: "CacheSpec | None" = None
 
 
 class Config:
@@ -240,6 +275,19 @@ class Config:
             return ["derive"]
         return []
 
+    def _parse_cache(self, data: dict) -> "CacheSpec | None":
+        """Handle the [cache] section.
+
+        Returns None if there is no [cache] section, or if it sets
+        ``enabled = false``.
+        """
+        entry = data.pop("cache", None)
+        if entry is None:
+            return None
+        if not entry.get("enabled", True):
+            return None
+        return CacheSpec.from_config(entry)
+
     def _parse_external_modules(self, data: dict, driver_config: dict) -> list[str]:
         """Handle remaining sections as external modules."""
         modules: list[str] = []
@@ -271,6 +319,7 @@ class Config:
         - [models.*]      — built-in model modules
         - [[derive]]      — config-driven derived variable nodes
         - [[resample]]    — temporal resampling module
+        - [cache]         — Hamilton result caching (path, recompute, disable)
 
         All other top-level sections are treated as external modules and must
         include a '_import_path = "pkg.module"' key specifying the importable
@@ -288,12 +337,14 @@ class Config:
         modules += self._parse_models(data, driver_config)
         modules += self._parse_derive(data, driver_config)
         modules += self._parse_resample(data, driver_config)
+        cache_spec = self._parse_cache(data)
         modules += self._parse_external_modules(data, driver_config)
         return ParsedConfig(
             modules=modules,
             driver_config=driver_config,
             input_specs=input_specs,
             output_specs=output_specs,
+            cache_spec=cache_spec,
         )
 
 
@@ -308,6 +359,9 @@ def _resolve_paths(data: dict, base: Path) -> None:
         for params in data.get(section, {}).values():
             if "path" in params and not Path(params["path"]).is_absolute():
                 params["path"] = str(base / params["path"])
+    cache = data.get("cache")
+    if cache and "path" in cache and not Path(cache["path"]).is_absolute():
+        cache["path"] = str(base / cache["path"])
 
 
 def _is_valid_module_path(path: str) -> bool:

@@ -117,6 +117,23 @@ satterc run config.toml
 
 This reads the config, builds the DAG, executes all required nodes in dependency order, and writes output files as specified in the `[outputs.*]` sections.
 
+### Caching
+
+To reuse unchanged intermediate results between runs, enable caching — either via a
+[`[cache]` section](config.md#caching) in the config, or with these flags:
+
+| Flag | Description |
+|------|-------------|
+| `--cache` / `--no-cache` | Force caching on or off, overriding the config. |
+| `--cache-dir` | Directory for the cache store (implies `--cache`). |
+
+```sh
+satterc run config.toml --cache --cache-dir runs/cache
+```
+
+This is especially useful for calibration loops that re-run the pipeline while
+changing only a few parameters; see [Caching](config.md#caching) for details.
+
 ## Inspecting Results
 
 The output files are NetCDF (or whatever format you specified). Load them in Python:
