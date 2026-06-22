@@ -35,7 +35,7 @@ SatTerC is a data-driven terrestrial carbon modelling framework. It uses [Hamilt
 
 ### Core modules
 
-**`src/satterc/config.py`** — parses TOML config files into a `ParsedConfig` dataclass. Recognised top-level sections: `[inputs.*]`, `[outputs.*]`, `[grid]` (silently ignored — grid computation is in `io.py`), `[models.*]`, `[[derive]]`, `[[resample]]`. Any other section is treated as an external module and must include `_import_path`. Key types exported: `Config`, `ParsedConfig`, `IOSpec`, `ResampleSpec`, `DeriveSpec`.
+**`src/satterc/config.py`** — parses TOML config files into a `ParsedConfig` dataclass. Recognised top-level sections: `[inputs.*]`, `[outputs.*]`, `[grid]` (silently ignored — grid computation is in `io.py`), `[models.*]`, `[[derive]]`, `[[resample]]`, `[cache]` (Hamilton result caching → `ParsedConfig.cache_spec`). Any other section is treated as an external module and must include `_import_path`. Key types exported: `Config`, `ParsedConfig`, `IOSpec`, `ResampleSpec`, `DeriveSpec`, `CacheSpec`.
 
 **`src/satterc/dag/driver.py`** — builds Hamilton `Driver` objects from a `ParsedConfig`. The `MODULES` dict maps config section names (e.g. `"models.pmodel"`) to importable paths (e.g. `"satterc.dag.pmodel"`). External modules are imported directly.
 
@@ -49,6 +49,7 @@ SatTerC is a data-driven terrestrial carbon modelling framework. It uses [Hamilt
 - `pmodel.py`, `splash.py`, `sgam.py`, `rothc.py` — ecological model wrappers
 - `resample.py` — temporal resampling (daily ↔ weekly ↔ monthly), driven by `resample_specs` in driver config
 - `derive.py` — dynamically generates Hamilton-compatible modules from `[[derive]]` config entries using `exec()`; supports inline expressions or import-path + function name
+- `caching.py` — registers a content-based fingerprint for `xarray.DataArray` (Hamilton can't hash them by default) and applies `Builder.with_cache()` from a `CacheSpec`; imported lazily by `driver.build_driver` when caching is enabled
 - `_utils.py` — `@xarray_io()` decorator that wraps numpy functions to accept/return xarray objects
 - `_hamilton_fixes.py` — workarounds for Hamilton edge cases
 

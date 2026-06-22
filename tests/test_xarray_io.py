@@ -151,7 +151,7 @@ class TestOutputDimensionTests:
             return float(arr.sum())
 
         result = func(ref_datarray_2d)
-        assert isinstance(result, (float, np.floating))
+        assert isinstance(result, float | np.floating)
         assert result == float(ref_datarray_2d.values.sum())
 
     def test_output_1d(self, ref_datarray_2d):

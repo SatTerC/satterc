@@ -1,11 +1,12 @@
 """Execute a pipeline defined in a configuration file."""
 
+from dataclasses import replace
 from pathlib import Path
 from typing import Annotated
 
 import typer
 
-from ..config import load_config
+from ..config import CacheSpec, load_config
 from ..dag.driver import build_driver
 from ..io import get_final_vars, get_outputs, load_inputs, save_outputs
 
@@ -24,9 +25,26 @@ def run(
             help="Allow later modules to override earlier ones.",
         ),
     ] = False,
+    cache: Annotated[
+        bool | None,
+        typer.Option(
+            "--cache/--no-cache",
+            help="Enable or disable result caching, overriding the [cache] "
+            "section of the config.",
+        ),
+    ] = None,
+    cache_dir: Annotated[
+        Path | None,
+        typer.Option(
+            "--cache-dir",
+            help="Directory for cached results (implies caching is enabled).",
+        ),
+    ] = None,
 ) -> None:
     """Execute a pipeline defined in a configuration file."""
     parsed = load_config(config_file)
+
+    cache_spec = _resolve_cache(parsed.cache_spec, cache, cache_dir)
 
     inputs = load_inputs(parsed.input_specs)
 
@@ -34,6 +52,7 @@ def run(
         modules=parsed.modules,
         config=parsed.driver_config,
         allow_module_overrides=allow_overrides,
+        cache=cache_spec,
     )
 
     if parsed.output_specs:
@@ -41,3 +60,23 @@ def run(
         results = dr.execute(target_vars, inputs=inputs)  # type: ignore[reportArgumentType]
         output_datasets = get_outputs(results, parsed.output_specs)
         save_outputs(output_datasets, parsed.output_specs)
+
+
+def _resolve_cache(
+    config_cache: "CacheSpec | None",
+    cache_flag: bool | None,
+    cache_dir: Path | None,
+) -> "CacheSpec | None":
+    """Combine the config's [cache] spec with CLI overrides.
+
+    ``--no-cache`` always wins. ``--cache`` or ``--cache-dir`` enable caching
+    with defaults when the config has no [cache] section.
+    """
+    if cache_flag is False:
+        return None
+    spec = config_cache
+    if cache_flag is True and spec is None:
+        spec = CacheSpec()
+    if cache_dir is not None:
+        spec = replace(spec or CacheSpec(), path=str(cache_dir))
+    return spec
