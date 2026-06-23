@@ -6,7 +6,7 @@ to calculate gross primary productivity (GPP), light use efficiency (LUE),
 and intrinsic water use efficiency (IWUE) from environmental inputs.
 """
 
-from typing import Annotated, TypedDict
+from typing import Annotated, TypedDict, cast
 
 import numpy as np
 import pyrealm.pmodel
@@ -15,7 +15,7 @@ from hamilton.function_modifiers import extract_fields
 from numpy.typing import NDArray
 from xarray import DataArray
 
-from ._utils import declare_units, xarray_io
+from ._utils import declare_units
 
 
 class PModelOut(TypedDict):
@@ -26,8 +26,7 @@ class PModelOut(TypedDict):
     iwue_weekly: Annotated[DataArray, "Pa"]
 
 
-@xarray_io()
-def _pmodel(
+def _pmodel_block(
     temperature_celcius_weekly: NDArray,
     vpd_pa_weekly: NDArray,
     co2_ppm_weekly: NDArray,
@@ -37,11 +36,20 @@ def _pmodel(
     mean_growth_temperature_weekly: NDArray,
     aridity_index_weekly: NDArray,
     soil_moisture_weekly: NDArray,
+    *,
     method_optchi: str,
     method_jmaxlim: str,
     method_kphio: str,
     method_arrhenius: str,
-) -> dict[str, NDArray]:
+) -> tuple[NDArray, NDArray, NDArray]:
+    """Run the P-Model on a whole numpy block (element-wise over every cell).
+
+    pyrealm's P-Model is vectorised over the spatial axis, so this kernel runs on the
+    full array — or a single dask chunk — in one call; there is no per-pixel loop.
+    Returns ``(gpp, lue, iwue)`` arrays matching the input shape, ordered as the fields
+    of :class:`PModelOut`. This is the unit mapped over the block by :func:`_pmodel` via
+    :func:`xarray.apply_ufunc`.
+    """
     # Environmental drivers computed upon instantiation of PModelEnvironment
     env = pyrealm.pmodel.PModelEnvironment(
         tc=temperature_celcius_weekly,
@@ -68,7 +76,57 @@ def _pmodel(
     lue = np.nan_to_num(model.lue, nan=0.0)
     iwue = np.nan_to_num(model.iwue, nan=0.0)
 
-    return dict(gpp_weekly=gpp, lue_weekly=lue, iwue_weekly=iwue)
+    return gpp, lue, iwue
+
+
+def _pmodel(
+    temperature_celcius_weekly: DataArray,
+    vpd_pa_weekly: DataArray,
+    co2_ppm_weekly: DataArray,
+    pressure_pa_weekly: DataArray,
+    fapar_weekly: DataArray,
+    ppfd_umol_m2_s1_weekly: DataArray,
+    mean_growth_temperature_weekly: DataArray,
+    aridity_index_weekly: DataArray,
+    soil_moisture_weekly: DataArray,
+    method_optchi: str,
+    method_jmaxlim: str,
+    method_kphio: str,
+    method_arrhenius: str,
+) -> PModelOut:
+    """Apply the P-Model to a ``(time, pixel)`` block via :func:`xarray.apply_ufunc`.
+
+    The P-Model is element-wise (every cell independent), so no core dimensions are
+    declared and ``apply_ufunc`` broadcasts over both ``time`` and ``pixel``; pyrealm
+    still vectorises within each call. ``dask="parallelized"`` is a no-op for eager
+    numpy inputs but keeps the node compatible with a future dask-backed (chunked)
+    execution strategy.
+    """
+    gpp, lue, iwue = xr.apply_ufunc(
+        _pmodel_block,
+        temperature_celcius_weekly,
+        vpd_pa_weekly,
+        co2_ppm_weekly,
+        pressure_pa_weekly,
+        fapar_weekly,
+        ppfd_umol_m2_s1_weekly,
+        mean_growth_temperature_weekly,
+        aridity_index_weekly,
+        soil_moisture_weekly,
+        kwargs={
+            "method_optchi": method_optchi,
+            "method_jmaxlim": method_jmaxlim,
+            "method_kphio": method_kphio,
+            "method_arrhenius": method_arrhenius,
+        },
+        output_core_dims=[[], [], []],
+        dask="parallelized",
+        output_dtypes=[float, float, float],
+    )
+    return cast(
+        PModelOut,
+        {"gpp_weekly": gpp, "lue_weekly": lue, "iwue_weekly": iwue},
+    )
 
 
 @extract_fields()
