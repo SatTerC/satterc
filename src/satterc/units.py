@@ -1,7 +1,7 @@
 """Runtime unit validation helpers for the SatTerC DAG.
 
 Each model node owns its own unit declarations via the
-:func:`satterc.dag._utils.xarray_io` decorator (``input_units`` / ``output_units``);
+:func:`satterc.dag._utils.declare_units` decorator (``input_units`` / ``output_units``);
 there is deliberately no central registry of variable units, so the framework
 never has to anticipate what inputs a user might bring. This module provides the
 validation/conversion helpers and the validation-mode state used by that decorator.

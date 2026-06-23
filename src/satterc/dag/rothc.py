@@ -1,6 +1,6 @@
 """RothC soil carbon model interface for the SatTerC pipeline."""
 
-from typing import Annotated, TypedDict
+from typing import Annotated, TypedDict, cast
 
 import numpy as np
 import pandas as pd
@@ -12,7 +12,7 @@ from rothc_py import RothC, RothCParams, percent_modern_c
 from rothc_py.containers import InputData
 from xarray import DataArray
 
-from ._utils import declare_units, xarray_io
+from ._utils import declare_units
 
 
 class RothCOut(TypedDict):
@@ -26,19 +26,107 @@ class RothCOut(TypedDict):
     heterotrophic_respiration_monthly: Annotated[DataArray, "t ha-1"]
 
 
-@xarray_io()
+# RothC output keys, in the order they are returned by `_rothc_1px` and mapped
+# onto the DAG node names below.
+_ROTHC_OUTPUT_KEYS: tuple[str, ...] = (
+    "DPM_t_C_ha",
+    "RPM_t_C_ha",
+    "BIO_t_C_ha",
+    "HUM_t_C_ha",
+    "SOC_t_C_ha",
+    "CO2_t_C_ha",
+)
+_ROTHC_OUTPUT_NAMES: tuple[str, ...] = (
+    "decomposable_plant_material_monthly",
+    "resistant_plant_material_monthly",
+    "microbial_biomass_monthly",
+    "humified_organic_matter_monthly",
+    "soil_organic_carbon_monthly",
+    "heterotrophic_respiration_monthly",
+)
+
+
+def _rothc_1px(
+    temperature: NDArray[np.float64],
+    precipitation: NDArray[np.float64],
+    evaporation: NDArray[np.float64],
+    plant_cover: NDArray[np.bool_],
+    dpm_rpm_ratio: NDArray[np.float64],
+    soil_carbon_input: NDArray[np.float64],
+    farmyard_manure_input: NDArray[np.float64],
+    clay: float,
+    depth: float,
+    iom: float,
+    *,
+    t_mod: list[float],
+    n_spinup_months: int,
+    dpm_rate: float,
+    rpm_rate: float,
+    bio_rate: float,
+    hum_rate: float,
+    evap_factor: float,
+    equilibrium_threshold: float,
+    zero_threshold: float,
+) -> tuple[NDArray[np.float64], ...]:
+    """Run RothC for a single pixel.
+
+    The climate/driver arguments are 1D ``(time,)`` arrays for one pixel; ``clay``,
+    ``depth`` and ``iom`` are per-pixel scalars. ``t_mod`` (the percent-modern-carbon
+    series) depends only on the date range, so it is computed once in :func:`_rothc`
+    and passed through unchanged. Returns one ``(time,)`` array per output pool/flux,
+    ordered as :data:`_ROTHC_OUTPUT_KEYS`. This is the per-pixel kernel mapped over the
+    ``pixel`` dimension by :func:`_rothc` via :func:`xarray.apply_ufunc`.
+    """
+    params = RothCParams(
+        clay=float(clay),
+        depth=float(depth),
+        iom=float(iom),
+        dpm_rate=dpm_rate,
+        rpm_rate=rpm_rate,
+        bio_rate=bio_rate,
+        hum_rate=hum_rate,
+        evap_factor=evap_factor,
+        equilibrium_threshold=equilibrium_threshold,
+        zero_threshold=zero_threshold,
+    )
+    model = RothC(params)
+    data: InputData = {
+        "t_tmp": temperature.tolist(),
+        "t_rain": precipitation.tolist(),
+        "t_evap": evaporation.tolist(),
+        "t_PC": plant_cover.astype(int).tolist(),
+        "t_DPM_RPM": dpm_rpm_ratio.tolist(),
+        "t_C_Inp": soil_carbon_input.tolist(),
+        "t_FYM_Inp": farmyard_manure_input.tolist(),
+        "t_mod": t_mod,
+    }
+    spinup_data: InputData = {
+        "t_tmp": data["t_tmp"][:n_spinup_months],
+        "t_rain": data["t_rain"][:n_spinup_months],
+        "t_evap": data["t_evap"][:n_spinup_months],
+        "t_PC": data["t_PC"][:n_spinup_months],
+        "t_DPM_RPM": data["t_DPM_RPM"][:n_spinup_months],
+        "t_C_Inp": data["t_C_Inp"][:n_spinup_months],
+        "t_FYM_Inp": data["t_FYM_Inp"][:n_spinup_months],
+        "t_mod": data["t_mod"][:n_spinup_months],
+    }
+
+    _, outputs = model(data, spinup_data)
+    return tuple(np.asarray(outputs[key], dtype=float) for key in _ROTHC_OUTPUT_KEYS)
+
+
 def _rothc(
-    temperature_celcius_monthly: NDArray[np.float64],
-    precipitation_mm_monthly: NDArray[np.float64],
-    evaporation_monthly: NDArray[np.float64],
-    plant_cover_monthly: NDArray[np.bool],
-    dpm_rpm_ratio_monthly: NDArray[np.float64],
-    soil_carbon_input_monthly: NDArray[np.float64],
-    farmyard_manure_input_monthly: NDArray[np.float64],
-    clay_content: NDArray[np.float64],
-    soil_depth: NDArray[np.float64],
-    inert_organic_matter: NDArray[np.float64],
-    dates_monthly: DatetimeIndex,
+    temperature_celcius_monthly: DataArray,
+    precipitation_mm_monthly: DataArray,
+    evaporation_monthly: DataArray,
+    plant_cover_monthly: DataArray,
+    dpm_rpm_ratio_monthly: DataArray,
+    soil_carbon_input_monthly: DataArray,
+    farmyard_manure_input_monthly: DataArray,
+    clay_content: DataArray,
+    soil_depth: DataArray,
+    inert_organic_matter: DataArray,
+    dates_monthly: pd.Index,
     *,
     n_years_spinup: int,
     dpm_rate: float = 10.0,
@@ -48,76 +136,67 @@ def _rothc(
     evap_factor: float = 0.75,
     equilibrium_threshold: float = 1e-6,
     zero_threshold: float = 1e-8,
-) -> dict[str, NDArray]:
-    n_months, n_pixels = temperature_celcius_monthly.shape
-    n_spinup_months = n_years_spinup * 12
+) -> RothCOut:
+    """Map :func:`_rothc_1px` over the stacked ``pixel`` dimension.
+
+    The per-pixel RothC kernel is applied via :func:`xarray.apply_ufunc` with ``time``
+    as the input/output core dimension and ``pixel`` as the broadcast (mapped) dim.
+    The 2D ``(time, pixel)`` climate/driver inputs declare ``time`` as their core dim;
+    the 1D ``(pixel,)`` soil inputs declare no core dim (so each call receives a
+    per-pixel scalar). ``t_mod`` and the rate constants are pixel-invariant constants
+    passed through ``kwargs``. ``dask="parallelized"`` is a no-op for eager numpy
+    inputs but keeps the node compatible with a future dask-backed (chunked-``pixel``)
+    execution strategy.
+    """
+    n_months = temperature_celcius_monthly.sizes["time"]
 
     # NOTE: need to pass a datetime.datetime object (not a numpy.datetime64)
     # DatetimeIndex.to_pydatetime() exists at runtime but is missing from
     # the pandas type stubs, hence the type: ignore.
     start_date = dates_monthly.to_pydatetime()[0]  # type: ignore[reportAttributeAccessIssue]
 
+    # t_mod depends only on the date range, so compute it once and share across pixels.
     t_mod = percent_modern_c(start_date=start_date, n_months=n_months)
 
-    pixel_outputs = []
-    for i in range(n_pixels):
-        pixel_params = RothCParams(
-            clay=clay_content[i],
-            depth=soil_depth[i],
-            iom=inert_organic_matter[i],
-            dpm_rate=dpm_rate,
-            rpm_rate=rpm_rate,
-            bio_rate=bio_rate,
-            hum_rate=hum_rate,
-            evap_factor=evap_factor,
-            equilibrium_threshold=equilibrium_threshold,
-            zero_threshold=zero_threshold,
-        )
-        model = RothC(pixel_params)
-        data: InputData = {
-            "t_tmp": temperature_celcius_monthly[:, i].tolist(),
-            "t_rain": precipitation_mm_monthly[:, i].tolist(),
-            "t_evap": evaporation_monthly[:, i].tolist(),
-            "t_PC": plant_cover_monthly[:, i].astype(int).tolist(),
-            "t_DPM_RPM": dpm_rpm_ratio_monthly[:, i].tolist(),
-            "t_C_Inp": soil_carbon_input_monthly[:, i].tolist(),
-            "t_FYM_Inp": farmyard_manure_input_monthly[:, i].tolist(),
+    outputs = xr.apply_ufunc(
+        _rothc_1px,
+        temperature_celcius_monthly,
+        precipitation_mm_monthly,
+        evaporation_monthly,
+        plant_cover_monthly,
+        dpm_rpm_ratio_monthly,
+        soil_carbon_input_monthly,
+        farmyard_manure_input_monthly,
+        clay_content,
+        soil_depth,
+        inert_organic_matter,
+        input_core_dims=[["time"]] * 7 + [[]] * 3,
+        output_core_dims=[["time"]] * 6,
+        kwargs={
             "t_mod": t_mod,
-        }
+            "n_spinup_months": n_years_spinup * 12,
+            "dpm_rate": dpm_rate,
+            "rpm_rate": rpm_rate,
+            "bio_rate": bio_rate,
+            "hum_rate": hum_rate,
+            "evap_factor": evap_factor,
+            "equilibrium_threshold": equilibrium_threshold,
+            "zero_threshold": zero_threshold,
+        },
+        vectorize=True,
+        dask="parallelized",
+        output_dtypes=[float] * 6,
+    )
 
-        spinup_data: InputData = {
-            "t_tmp": data["t_tmp"][:n_spinup_months],
-            "t_rain": data["t_rain"][:n_spinup_months],
-            "t_evap": data["t_evap"][:n_spinup_months],
-            "t_PC": data["t_PC"][:n_spinup_months],
-            "t_DPM_RPM": data["t_DPM_RPM"][:n_spinup_months],
-            "t_C_Inp": data["t_C_Inp"][:n_spinup_months],
-            "t_FYM_Inp": data["t_FYM_Inp"][:n_spinup_months],
-            "t_mod": t_mod[:n_spinup_months],
-        }
-
-        _, outputs = model(data, spinup_data)
-        pixel_outputs.append(outputs)
-
-    return dict(
-        decomposable_plant_material_monthly=np.column_stack(
-            [out["DPM_t_C_ha"] for out in pixel_outputs]
-        ),
-        resistant_plant_material_monthly=np.column_stack(
-            [out["RPM_t_C_ha"] for out in pixel_outputs]
-        ),
-        microbial_biomass_monthly=np.column_stack(
-            [out["BIO_t_C_ha"] for out in pixel_outputs]
-        ),
-        humified_organic_matter_monthly=np.column_stack(
-            [out["HUM_t_C_ha"] for out in pixel_outputs]
-        ),
-        soil_organic_carbon_monthly=np.column_stack(
-            [out["SOC_t_C_ha"] for out in pixel_outputs]
-        ),
-        heterotrophic_respiration_monthly=np.column_stack(
-            [out["CO2_t_C_ha"] for out in pixel_outputs]
-        ),
+    # apply_ufunc drops the `time` coordinate (a core dim) and orders outputs as
+    # (pixel, time); reattach the coordinate and restore the canonical (time, pixel).
+    time_coord = temperature_celcius_monthly.coords["time"]
+    return cast(
+        RothCOut,
+        {
+            name: da.assign_coords(time=time_coord).transpose("time", "pixel")
+            for name, da in zip(_ROTHC_OUTPUT_NAMES, outputs, strict=True)
+        },
     )
 
 

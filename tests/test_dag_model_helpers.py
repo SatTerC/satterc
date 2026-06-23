@@ -528,7 +528,7 @@ class TestSgamInnerExecution:
             )
 
         result = _sgam(
-            plant_type=plant_type_da.values.astype(int),
+            plant_type=plant_type_da,
             pft_params=pft_params_ds,
             temperature_celcius_weekly=_da(15.0),
             gpp_weekly=_da(5.0),
@@ -573,7 +573,7 @@ class TestSgamInnerExecution:
             )
 
         result = _sgam(
-            plant_type=plant_type_da.values.astype(int),
+            plant_type=plant_type_da,
             pft_params=pft_params_ds,
             temperature_celcius_weekly=_da(15.0),
             gpp_weekly=_da(5.0),
