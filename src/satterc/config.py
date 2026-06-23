@@ -70,6 +70,7 @@ class DeriveSpec:
     expression: str | None
     import_path: str | None
     function: str | None
+    units: str | None = None
 
     @classmethod
     def from_config(cls, entry: dict) -> "DeriveSpec":
@@ -86,12 +87,19 @@ class DeriveSpec:
                 f"Derive entry for '{entry.get('output')}' must specify either "
                 "'expression' or ('_import_path' + 'function')."
             )
+        units = entry.get("units")
+        if units is not None:
+            # Fail fast on a malformed/unknown unit, at parse time.
+            from .units import assert_valid_unit
+
+            assert_valid_unit(units, f"derive '{entry.get('output')}' units")
         return cls(
             output=entry["output"],
             inputs=entry["inputs"],
             expression=entry.get("expression"),
             import_path=entry.get("_import_path"),
             function=entry.get("function"),
+            units=units,
         )
 
 

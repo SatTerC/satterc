@@ -12,6 +12,7 @@ from hamilton.function_modifiers import extract_fields
 from hamilton.settings import ENABLE_POWER_USER_MODE
 
 from satterc import units
+from satterc.config import DeriveSpec, ResampleSpec
 from satterc.dag._utils import declare_units
 from satterc.dag.driver import build_driver
 from satterc.dag.unit_check import check_dag_units
@@ -68,25 +69,28 @@ def _producer(unit: str):
     return producer
 
 
-def _consumer(unit: str, name: str = "consumer"):
-    """A node consuming ``gpp_weekly`` with the given declared input unit.
+def _consumer(unit: str, name: str = "consumer", in_name: str = "gpp_weekly"):
+    """A node consuming ``in_name`` with the given declared input unit.
 
-    The output node is named ``f"{name}_out"`` so multiple consumers can coexist
-    in one graph without a node-name collision.
+    Built via ``exec`` so the consumed parameter (= the upstream node name) and
+    the function name are both dynamic. The output node is named ``f"{name}_out"``
+    so multiple consumers can coexist in one graph without a name collision.
     """
-    out_name = f"{name}_out"
-    # Functional TypedDict with a dynamic key: pyright can't statically verify the
-    # variable entry name, but units_from_signature reads it fine at runtime.
-    Out = TypedDict(f"{name}_Out", {out_name: Annotated[xr.DataArray, "t ha-1"]})  # type: ignore[misc]
-
-    @extract_fields()
-    @declare_units
-    def _node(gpp_weekly: Annotated[xr.DataArray, unit]) -> Out:  # type: ignore[valid-type]
-        return {out_name: gpp_weekly}  # type: ignore[return-value]
-
-    _node.__name__ = name
-    _node.__qualname__ = name
-    return _node
+    src = (
+        "from typing import Annotated, TypedDict\n"
+        "import xarray as xr\n"
+        "from hamilton.function_modifiers import extract_fields\n"
+        "from satterc.dag._utils import declare_units\n"
+        f"class _Out(TypedDict):\n"
+        f"    {name}_out: Annotated[xr.DataArray, 't ha-1']\n"
+        "@extract_fields()\n"
+        "@declare_units\n"
+        f"def {name}({in_name}: Annotated[xr.DataArray, {unit!r}]) -> _Out:\n"
+        f"    return {{{name + '_out'!r}: {in_name}}}\n"
+    )
+    ns: dict = {}
+    exec(src, ns)
+    return ns[name]
 
 
 # ---------------------------------------------------------------------------
@@ -204,3 +208,63 @@ class TestBuildDriverIntegration:
         register("ub2_cons", _consumer("kg"))
         with units.mode("off"):
             build_driver(["ub2_prod", "ub2_cons"], {})  # no raise despite mismatch
+
+
+# ---------------------------------------------------------------------------
+# Resample propagation: a resampled var inherits its source's unit
+# ---------------------------------------------------------------------------
+
+
+class TestResamplePropagation:
+    """The real ``pmodel`` emits ``gpp_weekly`` ('g m-2 d-1'); resampling to
+    ``gpp_monthly`` should propagate that unit so a downstream consumer is
+    checked against it."""
+
+    def _build(self, register, consumer_unit):
+        register("rs_cons", _consumer(consumer_unit, in_name="gpp_monthly"))
+        specs = [
+            ResampleSpec(vars=["gpp"], source_freq="weekly", target_freq="monthly")
+        ]
+        return build_driver(
+            ["models.pmodel", "resample", "rs_cons"], {"resample_specs": specs}
+        )
+
+    def test_incompatible_consumer_of_resampled_var_raises(self, register):
+        with (
+            units.mode("strict"),
+            pytest.raises(ValueError, match="gpp_monthly"),
+        ):
+            self._build(register, "kg")
+
+    def test_compatible_consumer_of_resampled_var_passes(self, register):
+        with units.mode("strict"):
+            self._build(register, "g m-2 d-1")  # matches propagated unit
+
+
+# ---------------------------------------------------------------------------
+# Derive: a declared `units=` makes the node a checkable producer
+# ---------------------------------------------------------------------------
+
+
+class TestDerivePropagation:
+    def _build(self, register, consumer_unit):
+        register("dv_cons", _consumer(consumer_unit, in_name="flux"))
+        specs = [
+            DeriveSpec(
+                output="flux",
+                inputs=["a", "b"],
+                expression="a + b",
+                import_path=None,
+                function=None,
+                units="g m-2 d-1",
+            )
+        ]
+        return build_driver(["derive", "dv_cons"], {"derive_specs": specs})
+
+    def test_incompatible_consumer_of_derived_var_raises(self, register):
+        with units.mode("strict"), pytest.raises(ValueError, match="flux"):
+            self._build(register, "kg")
+
+    def test_compatible_consumer_of_derived_var_passes(self, register):
+        with units.mode("strict"):
+            self._build(register, "g m-2 d-1")

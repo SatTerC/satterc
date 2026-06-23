@@ -30,6 +30,7 @@ from ..units import (
     get_exact_match,
     get_mode,
     units_compatible,
+    units_equal,
     units_from_signature,
 )
 
@@ -93,6 +94,23 @@ def check_dag_units(
         for name, unit in in_units.items():
             consumed.setdefault(name, []).append((unit, fn_name))
 
+    # Resampling is unit-preserving (the node copies the source's `units` attr),
+    # so a resample target's unit equals its source's. Propagate to a fixpoint so
+    # resampled edges become checkable; chained resamples resolve over iterations.
+    resample_edges = {
+        node.name: next(iter(node.required_dependencies))
+        for node in hg.nodes
+        if node.tags.get("module") == "satterc.dag.resample"
+        and len(node.required_dependencies) == 1
+    }
+    changed = True
+    while changed:
+        changed = False
+        for target, source in resample_edges.items():
+            if target not in produced and source in produced:
+                produced[target] = (produced[source][0], f"resample of {source}")
+                changed = True
+
     findings: list[str] = []
     for name, consumers in consumed.items():
         candidates: list[tuple[str, str]] = []
@@ -110,7 +128,7 @@ def check_dag_units(
                     f"  {name!r}: {base_src} declares {base_unit!r} but {src} "
                     f"declares {unit!r} (dimensionally incompatible)"
                 )
-            elif exact and unit != base_unit:
+            elif exact and not units_equal(base_unit, unit):
                 findings.append(
                     f"  {name!r}: {base_src} declares {base_unit!r} but {src} "
                     f"declares {unit!r} (units differ; exact match required)"

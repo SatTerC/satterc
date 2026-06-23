@@ -10,6 +10,7 @@ import xarray as xr
 from ..units import (
     assert_valid_unit,
     check_units,
+    get_exact_match,
     get_mode,
     units_from_signature,
 )
@@ -86,11 +87,14 @@ def declare_units(func: Callable[..., Any]) -> Callable[..., Any]:
     def wrapper(*args: Any, **kwargs: Any) -> Any:
         mode = get_mode()
         if mode != "off" and input_units:
+            exact = get_exact_match()
             bound = sig.bind_partial(*args, **kwargs)
             for name, val in list(bound.arguments.items()):
                 declared = input_units.get(name)
                 if declared is not None and isinstance(val, xr.DataArray):
-                    bound.arguments[name] = check_units(val, declared, name, mode)
+                    bound.arguments[name] = check_units(
+                        val, declared, name, mode, exact
+                    )
             args, kwargs = bound.args, bound.kwargs
 
         return _stamp(func(*args, **kwargs))

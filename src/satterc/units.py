@@ -201,6 +201,18 @@ def units_compatible(a: str, b: str) -> bool:
     return _UREG.Unit(a).is_compatible_with(_UREG.Unit(b))
 
 
+def units_equal(a: str, b: str) -> bool:
+    """Return whether two units are the *same* unit (no conversion needed).
+
+    Compares the parsed units, so different spellings of the same unit are equal
+    (``"Pa"`` == ``"pascal"``, ``"1"`` == ``"dimensionless"``) while a prefixed
+    unit differs (``"hPa"`` != ``"Pa"``). This is the notion of *exact* used by
+    both the build-time check and the runtime ``exact`` mode: "exact" forbids any
+    value-changing conversion but tolerates equivalent spellings.
+    """
+    return _UREG.Unit(a) == _UREG.Unit(b)
+
+
 def unwrap_annotated(hint: Any) -> Any:
     """Return the underlying type of an ``Annotated`` hint, else the hint itself.
 
@@ -268,7 +280,9 @@ def units_from_signature(
     return input_units, output_units
 
 
-def check_units(da: xr.DataArray, declared: str, name: str, mode: Mode) -> xr.DataArray:
+def check_units(
+    da: xr.DataArray, declared: str, name: str, mode: Mode, exact: bool = False
+) -> xr.DataArray:
     """Validate and convert an input ``DataArray`` to its declared unit.
 
     Returns a ``DataArray`` whose data is expressed in ``declared`` and whose
@@ -276,6 +290,12 @@ def check_units(da: xr.DataArray, declared: str, name: str, mode: Mode) -> xr.Da
     attribute, behaviour follows ``mode`` (``strict`` raises, ``warn`` warns and
     returns the array unchanged, ``off`` returns unchanged). A dimensional
     incompatibility raises ``pint.DimensionalityError`` regardless of mode.
+
+    When ``exact`` is ``True``, an input whose unit is dimensionally compatible
+    with ``declared`` but is *not the same unit* (i.e. conversion would change the
+    values, e.g. ``"hPa"`` where ``"Pa"`` is declared) raises ``ValueError``
+    instead of being silently converted. Equivalent spellings (``"pascal"`` for
+    ``"Pa"``) are still accepted, since no value change is implied.
     """
     have = da.attrs.get("units")
     if have is None:
@@ -290,6 +310,11 @@ def check_units(da: xr.DataArray, declared: str, name: str, mode: Mode) -> xr.Da
                 stacklevel=2,
             )
         return da
+    if exact and units_compatible(have, declared) and not units_equal(have, declared):
+        raise ValueError(
+            f"input {name!r}: unit {have!r} differs from declared {declared!r} "
+            f"and exact unit matching is enabled (no implicit conversion)"
+        )
     try:
         converted = da.pint.quantify().pint.to(declared).pint.dequantify()
     except PintExceptionGroup as group:

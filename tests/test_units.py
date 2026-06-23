@@ -111,6 +111,24 @@ class TestCheckUnits:
         assert "units" not in out.attrs
         np.testing.assert_array_equal(out.values, da.values)
 
+    def test_exact_forbids_converting_input(self):
+        # hPa where Pa is declared: would scale values, so exact mode must raise.
+        da = _da([[10.0, 20.0]], unit="hPa")
+        with pytest.raises(ValueError, match="exact unit matching is enabled"):
+            units.check_units(da, "Pa", "vpd", "strict", exact=True)
+
+    def test_exact_accepts_equivalent_spelling(self):
+        # 'pascal' is the same unit as 'Pa' (no value change), so exact accepts it.
+        da = _da([[10.0, 20.0]], unit="pascal")
+        out = units.check_units(da, "Pa", "vpd", "strict", exact=True)
+        assert out.attrs["units"] == "Pa"
+        np.testing.assert_allclose(out.values, [[10.0, 20.0]])
+
+    def test_exact_still_raises_on_incompatible(self):
+        da = _da([[1.0, 2.0]], unit="degC")
+        with pytest.raises(pint.DimensionalityError):
+            units.check_units(da, "kg", "x", "strict", exact=True)
+
 
 # ---------------------------------------------------------------------------
 # CF / UDUNITS string parsing
@@ -148,6 +166,21 @@ class TestUnitsCompatible:
     )
     def test_incompatible(self, a, b):
         assert not units.units_compatible(a, b)
+
+
+class TestUnitsEqual:
+    @pytest.mark.parametrize(
+        ("a", "b"),
+        [("Pa", "pascal"), ("1", "dimensionless"), ("g m-2 d-1", "g m-2 d-1")],
+    )
+    def test_equal(self, a, b):
+        assert units.units_equal(a, b)
+
+    @pytest.mark.parametrize(("a", "b"), [("hPa", "Pa"), ("g", "kg"), ("degC", "K")])
+    def test_not_equal(self, a, b):
+        # Compatible but value-changing → not equal.
+        assert units.units_compatible(a, b)
+        assert not units.units_equal(a, b)
 
 
 # ---------------------------------------------------------------------------
