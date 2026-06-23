@@ -147,6 +147,7 @@ class ParsedConfig:
     output_specs: dict[str, "IOSpec"] = field(default_factory=dict)
     cache_spec: "CacheSpec | None" = None
     units_mode: str | None = None
+    units_exact: bool | None = None
 
 
 class Config:
@@ -289,20 +290,25 @@ class Config:
             return None
         return CacheSpec.from_config(entry)
 
-    def _parse_units(self, data: dict) -> str | None:
+    def _parse_units(self, data: dict) -> tuple[str | None, bool | None]:
         """Handle the [units] section.
 
-        Returns the validation mode string, or None if no [units] section.
+        Returns ``(mode, exact)``: the validation mode string (or ``None``) and
+        the exact-unit-match flag for the build-time check (or ``None`` when not
+        given). Both are ``None`` if there is no [units] section.
         """
         entry = data.pop("units", None)
         if entry is None:
-            return None
+            return None, None
         mode = entry.get("mode")
         if mode is not None and mode not in ("strict", "warn", "off"):
             raise ValueError(
                 f"[units] 'mode' must be one of 'strict', 'warn', 'off', got {mode!r}."
             )
-        return mode
+        exact = entry.get("exact")
+        if exact is not None and not isinstance(exact, bool):
+            raise ValueError(f"[units] 'exact' must be a boolean, got {exact!r}.")
+        return mode, exact
 
     def _parse_external_modules(self, data: dict, driver_config: dict) -> list[str]:
         """Handle remaining sections as external modules."""
@@ -355,7 +361,7 @@ class Config:
         modules += self._parse_derive(data, driver_config)
         modules += self._parse_resample(data, driver_config)
         cache_spec = self._parse_cache(data)
-        units_mode = self._parse_units(data)
+        units_mode, units_exact = self._parse_units(data)
         modules += self._parse_external_modules(data, driver_config)
         return ParsedConfig(
             modules=modules,
@@ -364,6 +370,7 @@ class Config:
             output_specs=output_specs,
             cache_spec=cache_spec,
             units_mode=units_mode,
+            units_exact=units_exact,
         )
 
 

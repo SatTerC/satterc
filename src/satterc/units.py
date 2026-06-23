@@ -57,7 +57,21 @@ DEFAULT_MODE: Mode = "warn"
 #: Environment variable that overrides the configured/default mode.
 MODE_ENV_VAR = "SATTERC_UNITS_MODE"
 
+#: Default for the build-time *exact-unit-match* check. When ``False`` the static
+#: check only flags dimensionally incompatible edges; when ``True`` it also flags
+#: dimensionally compatible but non-identical unit strings (e.g. ``"Pa"`` vs
+#: ``"hPa"``). Off by default, since the framework auto-converts compatible units.
+DEFAULT_EXACT: bool = False
+
+#: Environment variable that overrides the configured/default exact-match flag.
+EXACT_ENV_VAR = "SATTERC_UNITS_EXACT"
+
+#: String values (lower-cased) accepted for the exact-match environment variable.
+_TRUTHY: frozenset[str] = frozenset({"1", "true", "yes", "on"})
+_FALSEY: frozenset[str] = frozenset({"0", "false", "no", "off"})
+
 _process_mode: Mode | None = None
+_process_exact: bool | None = None
 
 
 # ---------------------------------------------------------------------------
@@ -115,6 +129,38 @@ def mode(mode: str | None):
         _process_mode = old
 
 
+def set_exact_match(exact: bool | None) -> None:
+    """Set the process-wide exact-unit-match flag for the build-time check.
+
+    Passing ``None`` clears the process override so the default (or the
+    ``SATTERC_UNITS_EXACT`` environment variable) applies.
+    """
+    global _process_exact
+    _process_exact = None if exact is None else bool(exact)
+
+
+def get_exact_match() -> bool:
+    """Resolve the active exact-unit-match flag.
+
+    Resolution order: ``SATTERC_UNITS_EXACT`` environment variable, then the
+    value set via :func:`set_exact_match`, then :data:`DEFAULT_EXACT`.
+    """
+    env = os.environ.get(EXACT_ENV_VAR)
+    if env:
+        lowered = env.lower()
+        if lowered in _TRUTHY:
+            return True
+        if lowered in _FALSEY:
+            return False
+        raise ValueError(
+            f"Invalid {EXACT_ENV_VAR} value {env!r}. "
+            f"Use one of {sorted(_TRUTHY | _FALSEY)}."
+        )
+    if _process_exact is not None:
+        return _process_exact
+    return DEFAULT_EXACT
+
+
 # ---------------------------------------------------------------------------
 # Unit resolution & checking
 # ---------------------------------------------------------------------------
@@ -141,6 +187,18 @@ def assert_valid_unit(unit: str, context: str) -> None:
             f"{context}: declared unit {unit!r} is not a recognised "
             f"UDUNITS/pint unit ({type(exc).__name__}: {exc})"
         ) from exc
+
+
+def units_compatible(a: str, b: str) -> bool:
+    """Return whether two declared units are *dimensionally* compatible.
+
+    Mirrors the runtime conversion semantics of :func:`check_units`: ``"hPa"`` and
+    ``"Pa"`` are compatible (one converts to the other), whereas ``"Pa"`` and
+    ``"kg"`` are not. Used by the build-time DAG check
+    (:func:`satterc.dag.unit_check.check_dag_units`). Both strings are assumed
+    already validated by :func:`assert_valid_unit` at decoration time.
+    """
+    return _UREG.Unit(a).is_compatible_with(_UREG.Unit(b))
 
 
 def unwrap_annotated(hint: Any) -> Any:

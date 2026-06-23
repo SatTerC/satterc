@@ -49,6 +49,11 @@ def run(
 
         set_mode(parsed.units_mode)
 
+    if parsed.units_exact is not None:
+        from ..units import set_exact_match
+
+        set_exact_match(parsed.units_exact)
+
     cache_spec = _resolve_cache(parsed.cache_spec, cache, cache_dir)
 
     inputs = load_inputs(parsed.input_specs)

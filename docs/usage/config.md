@@ -283,6 +283,30 @@ In practice you are unlikely to alter metadata without also changing values.
 
 ---
 
+### Units
+
+Each model node declares the physical units of its inputs and outputs in its signature. The optional `[units]` section controls how those declarations are validated.
+
+```toml
+[units]
+mode = "strict"   # "strict" | "warn" | "off"  (default: "warn")
+exact = false     # require identical unit strings on each edge (default: false)
+```
+
+| Key | Description |
+|-----|-------------|
+| `mode` | Validation strictness. `strict` raises on a unit problem, `warn` emits a warning and continues, `off` disables unit checking. Defaults to `warn`. |
+| `exact` | Build-time check only. When `true`, an edge whose producer and consumer declare *dimensionally compatible but non-identical* units (e.g. `Pa` vs `hPa`) is flagged; when `false`, only dimensionally incompatible edges are flagged (compatible units are auto-converted at runtime). Defaults to `false`. |
+
+Validation happens at two points:
+
+- **Build time** — when the driver is built, every internal edge where both ends declare a unit is checked for consistency (subject to `mode` and `exact`), so a mismatch is caught before the pipeline runs. Edges through resampling/derived variables or fed by input files declare no producer unit and are checked at run time instead.
+- **Run time** — as each node executes, every `DataArray` input is validated against its declared unit and converted if necessary; dimensionally incompatible inputs always raise. A missing `units` attribute on an input follows `mode` (raise / warn / ignore).
+
+Both settings can also be overridden per-process via the `SATTERC_UNITS_MODE` and `SATTERC_UNITS_EXACT` environment variables. Omit `[units]` to keep the defaults (`warn`, no exact match).
+
+---
+
 ## Custom modules
 
 You can extend the pipeline with any importable Python module by adding a section

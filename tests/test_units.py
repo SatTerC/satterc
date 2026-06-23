@@ -130,6 +130,59 @@ class TestCFParsing:
 
 
 # ---------------------------------------------------------------------------
+# Dimensional compatibility (used by the build-time DAG check)
+# ---------------------------------------------------------------------------
+
+
+class TestUnitsCompatible:
+    @pytest.mark.parametrize(
+        ("a", "b"),
+        [("Pa", "hPa"), ("g m-2 d-1", "kg m-2 s-1"), ("1", "dimensionless")],
+    )
+    def test_compatible(self, a, b):
+        assert units.units_compatible(a, b)
+
+    @pytest.mark.parametrize(
+        ("a", "b"),
+        [("Pa", "kg"), ("g m-2 d-1", "Pa"), ("mm", "1")],
+    )
+    def test_incompatible(self, a, b):
+        assert not units.units_compatible(a, b)
+
+
+# ---------------------------------------------------------------------------
+# Exact-match flag resolution
+# ---------------------------------------------------------------------------
+
+
+class TestExactMatchFlag:
+    def test_default_is_false(self):
+        units.set_exact_match(None)
+        assert units.get_exact_match() is False
+
+    def test_set_exact_match(self):
+        try:
+            units.set_exact_match(True)
+            assert units.get_exact_match() is True
+        finally:
+            units.set_exact_match(None)
+
+    @pytest.mark.parametrize(("env", "expected"), [("1", True), ("off", False)])
+    def test_env_overrides_process_flag(self, monkeypatch, env, expected):
+        units.set_exact_match(not expected)  # process value the env must override
+        try:
+            monkeypatch.setenv(units.EXACT_ENV_VAR, env)
+            assert units.get_exact_match() is expected
+        finally:
+            units.set_exact_match(None)
+
+    def test_invalid_env_raises(self, monkeypatch):
+        monkeypatch.setenv(units.EXACT_ENV_VAR, "maybe")
+        with pytest.raises(ValueError, match=units.EXACT_ENV_VAR):
+            units.get_exact_match()
+
+
+# ---------------------------------------------------------------------------
 # units_from_signature: reading declarations off a node's annotations
 # ---------------------------------------------------------------------------
 
@@ -293,10 +346,19 @@ class TestConfigUnits:
     def test_no_units_section_is_none(self):
         parsed = Config.loads("").parse()
         assert parsed.units_mode is None
+        assert parsed.units_exact is None
 
     def test_invalid_mode_raises(self):
         with pytest.raises(ValueError, match="must be one of"):
             Config.loads('[units]\nmode = "bogus"\n').parse()
+
+    def test_parse_units_exact(self):
+        parsed = Config.loads("[units]\nexact = true\n").parse()
+        assert parsed.units_exact is True
+
+    def test_invalid_exact_raises(self):
+        with pytest.raises(ValueError, match="'exact' must be a boolean"):
+            Config.loads('[units]\nexact = "yes"\n').parse()
 
 
 # ---------------------------------------------------------------------------
