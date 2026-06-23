@@ -58,16 +58,40 @@ def run(
 
     inputs = load_inputs(parsed.input_specs)
 
+    target_vars = get_final_vars(parsed.output_specs) if parsed.output_specs else []
+
+    # Blocking is only meaningful when there are outputs to collect.
+    blocking = parsed.blocking_spec if target_vars else None
+    pixel_inputs = None
+    if blocking is not None:
+        from ..dag.blocking import pixel_input_names
+
+        pixel_inputs = pixel_input_names(inputs)
+
     dr = build_driver(
         modules=parsed.modules,
         config=parsed.driver_config,
         allow_module_overrides=allow_overrides,
         cache=cache_spec,
+        blocking=blocking,
+        pixel_inputs=pixel_inputs,
+        output_nodes=target_vars if blocking is not None else None,
     )
 
     if parsed.output_specs:
-        target_vars = get_final_vars(parsed.output_specs)
-        results = dr.execute(target_vars, inputs=inputs)  # type: ignore[reportArgumentType]
+        if blocking is not None and pixel_inputs is not None:
+            from ..dag.blocking import (
+                collected_name,
+                decollect_results,
+                rewrite_inputs_for_blocking,
+            )
+
+            exec_inputs = rewrite_inputs_for_blocking(inputs, blocking, pixel_inputs)
+            exec_vars = [collected_name(v) for v in target_vars]
+            results = dr.execute(exec_vars, inputs=exec_inputs)  # type: ignore[reportArgumentType]
+            results = decollect_results(results, target_vars)
+        else:
+            results = dr.execute(target_vars, inputs=inputs)  # type: ignore[reportArgumentType]
         output_datasets = get_outputs(results, parsed.output_specs)
         save_outputs(output_datasets, parsed.output_specs)
 

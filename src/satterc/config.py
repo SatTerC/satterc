@@ -138,6 +138,53 @@ class CacheSpec:
 
 
 @dataclass
+class BlockingSpec:
+    """Specification for the [blocking] section (outer grid-level parallelism).
+
+    Partitions the stacked ``pixel`` axis into fixed-size blocks and runs the
+    model DAG once per block under Hamilton dynamic execution, bounding the
+    in-memory working set to one block (``synchronous``) or ``max_tasks`` blocks
+    (``threading``). See ``notes/parallelism.md`` sections 7-8.
+    """
+
+    block_size: int
+    executor: str = "synchronous"
+    max_tasks: int | None = None
+
+    _EXECUTORS = ("synchronous", "threading")
+
+    @classmethod
+    def from_config(cls, entry: dict) -> "BlockingSpec":
+        """Construct and validate from a raw [blocking] TOML entry."""
+        block_size = entry.get("block_size")
+        if (
+            not isinstance(block_size, int)
+            or isinstance(block_size, bool)
+            or (block_size < 1)
+        ):
+            raise ValueError(
+                f"[blocking] 'block_size' must be a positive integer, "
+                f"got {block_size!r}."
+            )
+        executor = entry.get("executor", "synchronous")
+        if executor not in cls._EXECUTORS:
+            raise ValueError(
+                f"[blocking] 'executor' must be one of {cls._EXECUTORS}, "
+                f"got {executor!r}."
+            )
+        max_tasks = entry.get("max_tasks")
+        if max_tasks is not None and (
+            not isinstance(max_tasks, int)
+            or isinstance(max_tasks, bool)
+            or max_tasks < 1
+        ):
+            raise ValueError(
+                f"[blocking] 'max_tasks' must be a positive integer, got {max_tasks!r}."
+            )
+        return cls(block_size=block_size, executor=executor, max_tasks=max_tasks)
+
+
+@dataclass
 class IOSpec:
     """I/O specification for a single input or output section."""
 
@@ -154,6 +201,7 @@ class ParsedConfig:
     input_specs: dict[str, "IOSpec"] = field(default_factory=dict)
     output_specs: dict[str, "IOSpec"] = field(default_factory=dict)
     cache_spec: "CacheSpec | None" = None
+    blocking_spec: "BlockingSpec | None" = None
     units_mode: str | None = None
     units_exact: bool | None = None
 
@@ -298,6 +346,19 @@ class Config:
             return None
         return CacheSpec.from_config(entry)
 
+    def _parse_blocking(self, data: dict) -> "BlockingSpec | None":
+        """Handle the [blocking] section.
+
+        Returns None if there is no [blocking] section, or if it sets
+        ``enabled = false``.
+        """
+        entry = data.pop("blocking", None)
+        if entry is None:
+            return None
+        if not entry.get("enabled", True):
+            return None
+        return BlockingSpec.from_config(entry)
+
     def _parse_units(self, data: dict) -> tuple[str | None, bool | None]:
         """Handle the [units] section.
 
@@ -350,6 +411,7 @@ class Config:
         - [[derive]]      — config-driven derived variable nodes
         - [[resample]]    — temporal resampling module
         - [cache]         — Hamilton result caching (path, recompute, disable)
+        - [blocking]      — outer grid-level pixel blocking (block_size, executor)
         - [units]         — unit validation mode ('strict', 'warn', 'off')
 
         All other top-level sections are treated as external modules and must
@@ -369,6 +431,7 @@ class Config:
         modules += self._parse_derive(data, driver_config)
         modules += self._parse_resample(data, driver_config)
         cache_spec = self._parse_cache(data)
+        blocking_spec = self._parse_blocking(data)
         units_mode, units_exact = self._parse_units(data)
         modules += self._parse_external_modules(data, driver_config)
         return ParsedConfig(
@@ -377,6 +440,7 @@ class Config:
             input_specs=input_specs,
             output_specs=output_specs,
             cache_spec=cache_spec,
+            blocking_spec=blocking_spec,
             units_mode=units_mode,
             units_exact=units_exact,
         )
