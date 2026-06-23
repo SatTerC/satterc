@@ -129,6 +129,22 @@ class TestCheckUnits:
         with pytest.raises(pint.DimensionalityError):
             units.check_units(da, "kg", "x", "strict", exact=True)
 
+    def test_exact_forbids_affine_conversion(self):
+        # K -> degC is an *affine* (offset) conversion, not just a scale; it still
+        # changes the values, so exact mode must reject it like the hPa/Pa case.
+        da = _da([[300.0]], unit="K")
+        with pytest.raises(ValueError, match="exact unit matching is enabled"):
+            units.check_units(da, "degC", "temperature", "strict", exact=True)
+
+    def test_missing_units_off_passes_through_silently(self):
+        # off mode neither raises (unlike strict) nor warns (unlike warn).
+        da = _da([[1.0, 2.0]])
+        with warnings.catch_warnings():
+            warnings.simplefilter("error")
+            out = units.check_units(da, "Pa", "vpd", "off")
+        assert "units" not in out.attrs
+        np.testing.assert_array_equal(out.values, da.values)
+
 
 # ---------------------------------------------------------------------------
 # CF / UDUNITS string parsing
@@ -250,6 +266,45 @@ class TestUnitsFromSignature:
         inputs, outputs = units.units_from_signature(node)
         assert inputs == {}
         assert outputs is None
+
+    def test_partial_typeddict_only_annotated_fields_contribute(self):
+        # A future model with a mix of unit-carrying and metadata-free outputs:
+        # only the annotated fields appear in the declared output units.
+        class Out(TypedDict):
+            gpp: Annotated[xr.DataArray, "g m-2 d-1"]
+            diagnostic: xr.DataArray  # no unit annotation
+
+        def node() -> Out: ...
+
+        _, outputs = units.units_from_signature(node)
+        assert outputs == {"gpp": "g m-2 d-1"}
+
+    def test_metadata_on_non_dataarray_param_is_read_as_unit(self):
+        # KNOWN FOOTGUN / regression pin: `units_from_signature` treats *any*
+        # string in `Annotated` metadata as a unit, regardless of the base type.
+        # So a descriptive note on a non-DataArray config parameter is mis-read
+        # as a (bogus) unit -- and `declare_units` then fails fast at import.
+        def node(flag: Annotated[bool, "toggles X"] = True) -> xr.DataArray: ...
+
+        inputs, _ = units.units_from_signature(node)
+        assert inputs == {"flag": "toggles X"}
+
+        with pytest.raises(ValueError, match="not a recognised"):
+            declare_units(node)
+
+
+# ---------------------------------------------------------------------------
+# unwrap_annotated: seeing through unit metadata to the base type
+# ---------------------------------------------------------------------------
+
+
+class TestUnwrapAnnotated:
+    def test_unwraps_annotated_to_base_type(self):
+        assert units.unwrap_annotated(Annotated[xr.DataArray, "degC"]) is xr.DataArray
+
+    def test_passes_through_plain_types(self):
+        assert units.unwrap_annotated(xr.DataArray) is xr.DataArray
+        assert units.unwrap_annotated(int) is int
 
 
 # ---------------------------------------------------------------------------

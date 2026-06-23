@@ -93,6 +93,50 @@ def _consumer(unit: str, name: str = "consumer", in_name: str = "gpp_weekly"):
     return ns[name]
 
 
+def _bare_producer(unit: str, name: str = "flux"):
+    """A *single-output* node producing ``name`` via a bare ``Annotated`` return.
+
+    Unlike :func:`_producer` (a ``TypedDict`` + ``extract_fields`` multi-output
+    node), this exercises the static check's other producer shape: a node whose
+    own name *is* the produced variable and whose unit is the bare return
+    annotation. Future model components may use either shape.
+    """
+    src = (
+        "from typing import Annotated\n"
+        "import xarray as xr\n"
+        "from satterc.dag._utils import declare_units\n"
+        "@declare_units\n"
+        f"def {name}() -> Annotated[xr.DataArray, {unit!r}]:\n"
+        "    return xr.DataArray([1.0])\n"
+    )
+    ns: dict = {}
+    exec(src, ns)
+    return ns[name]
+
+
+def _plain_consumer(name: str = "plain_cons", in_name: str = "gpp_weekly"):
+    """A consumer of ``in_name`` that declares **no** unit on the input.
+
+    Used to pin the opt-in contract: an un-annotated consumer of a typed
+    producer contributes no declaration, so the edge is not checked.
+    """
+    src = (
+        "from typing import Annotated, TypedDict\n"
+        "import xarray as xr\n"
+        "from hamilton.function_modifiers import extract_fields\n"
+        "from satterc.dag._utils import declare_units\n"
+        f"class _Out(TypedDict):\n"
+        f"    {name}_out: Annotated[xr.DataArray, 't ha-1']\n"
+        "@extract_fields()\n"
+        "@declare_units\n"
+        f"def {name}({in_name}: xr.DataArray) -> _Out:\n"
+        f"    return {{{name + '_out'!r}: {in_name}}}\n"
+    )
+    ns: dict = {}
+    exec(src, ns)
+    return ns[name]
+
+
 # ---------------------------------------------------------------------------
 # Dimensional incompatibility (always a finding)
 # ---------------------------------------------------------------------------
@@ -173,6 +217,84 @@ class TestSharedInputConflict:
 # ---------------------------------------------------------------------------
 
 
+class TestBareReturnProducer:
+    """A single-output node (bare ``Annotated`` return) is a checkable producer.
+
+    The existing producer tests all use ``TypedDict`` + ``extract_fields``; this
+    covers the other node shape so the static check stays robust to model
+    components that emit a single declared output.
+    """
+
+    def _dr(self, register, prod_unit, cons_unit):
+        prod = register("br_prod", _bare_producer(prod_unit, name="flux"))
+        cons = register("br_cons", _consumer(cons_unit, in_name="flux"))
+        return _build(prod, cons)
+
+    def test_incompatible_raises(self, register):
+        dr = self._dr(register, "g m-2 d-1", "kg")
+        with pytest.raises(ValueError, match="dimensionally incompatible"):
+            check_dag_units(dr, mode="strict")
+
+    def test_compatible_passes_under_exact(self, register):
+        dr = self._dr(register, "g m-2 d-1", "g m-2 d-1")
+        with warnings.catch_warnings():
+            warnings.simplefilter("error")
+            check_dag_units(dr, mode="strict", exact=True)
+
+    def test_exact_string_mismatch_flagged(self, register):
+        # Bare-return producer 'Pa' feeding a consumer 'hPa': value-changing.
+        dr = self._dr(register, "Pa", "hPa")
+        with pytest.raises(ValueError, match="exact match required"):
+            check_dag_units(dr, mode="strict", exact=True)
+
+
+class TestOptInContract:
+    """Unit checking is opt-in per edge: an edge is only compared when *both*
+    sides declare a unit. An un-annotated consumer (or producer) is skipped, so
+    partially-annotated future models never trigger false positives."""
+
+    def test_unannotated_consumer_of_typed_producer_not_checked(self, register):
+        # Producer declares 'Pa'; consumer declares nothing. Even an "exact"
+        # strict check must stay silent — there is nothing to compare against.
+        prod = register("oc_prod", _producer("Pa"))
+        cons = register("oc_cons", _plain_consumer())
+        dr = _build(prod, cons)
+        with warnings.catch_warnings():
+            warnings.simplefilter("error")
+            check_dag_units(dr, mode="strict", exact=True)
+
+
+class TestDefaultResolution:
+    """``check_dag_units`` resolves ``mode``/``exact`` from the global state when
+    its arguments are left as ``None`` (the path ``build_driver`` relies on)."""
+
+    def test_mode_resolves_from_global_when_none(self, register):
+        prod = register("dm_prod", _producer("g m-2 d-1"))
+        cons = register("dm_cons", _consumer("kg"))
+        dr = _build(prod, cons)
+        with units.mode("strict"), pytest.raises(ValueError, match="incompatible"):
+            check_dag_units(dr)  # mode=None -> global "strict"
+
+    def test_off_global_skips_when_mode_none(self, register):
+        prod = register("dm2_prod", _producer("g m-2 d-1"))
+        cons = register("dm2_cons", _consumer("kg"))
+        dr = _build(prod, cons)
+        with units.mode("off"), warnings.catch_warnings():
+            warnings.simplefilter("error")
+            check_dag_units(dr)  # global "off" -> silent despite mismatch
+
+    def test_exact_resolves_from_global_when_none(self, register):
+        prod = register("de_prod", _producer("Pa"))
+        cons = register("de_cons", _consumer("hPa"))
+        dr = _build(prod, cons)
+        units.set_exact_match(True)
+        try:
+            with pytest.raises(ValueError, match="exact match required"):
+                check_dag_units(dr, mode="strict")  # exact=None -> global True
+        finally:
+            units.set_exact_match(None)
+
+
 class TestConsistent:
     def test_matching_units_pass_even_under_exact(self, register):
         prod = register("uk_prod", _producer("Pa"))
@@ -239,6 +361,30 @@ class TestResamplePropagation:
     def test_compatible_consumer_of_resampled_var_passes(self, register):
         with units.mode("strict"):
             self._build(register, "g m-2 d-1")  # matches propagated unit
+
+    def test_chained_resample_propagates_through_multiple_hops(self, register):
+        """The unit must propagate across a *chain* of resamples
+        (daily -> weekly -> monthly), exercising the fixpoint loop, so a
+        consumer of the twice-resampled variable is still checked."""
+
+        class _P(TypedDict):
+            gpp_daily: Annotated[xr.DataArray, "g m-2 d-1"]
+
+        @extract_fields()
+        @declare_units
+        def prod() -> _P:  # type: ignore[valid-type]
+            return {"gpp_daily": _da()}
+
+        register("crp_prod", prod)
+        register("crp_cons", _consumer("kg", in_name="gpp_monthly"))
+        specs = [
+            ResampleSpec(vars=["gpp"], source_freq="daily", target_freq="weekly"),
+            ResampleSpec(vars=["gpp"], source_freq="weekly", target_freq="monthly"),
+        ]
+        with units.mode("strict"), pytest.raises(ValueError, match="gpp_monthly"):
+            build_driver(
+                ["crp_prod", "resample", "crp_cons"], {"resample_specs": specs}
+            )
 
 
 # ---------------------------------------------------------------------------
