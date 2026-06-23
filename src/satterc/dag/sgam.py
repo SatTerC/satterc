@@ -10,7 +10,7 @@ from numpy.typing import NDArray
 from sgam import Disturbances, Sgam
 from sgam.pft import PftParams, PlantFunctionalType, get_default_pft_params
 
-from ._utils import declare_units, xarray_io
+from ._utils import declare_units
 
 # SGAM output node names, in the order they are returned by `_sgam_1px` and mapped
 # onto the DAG node names below.
@@ -151,19 +151,59 @@ def pft_params(plant_type: xr.DataArray) -> xr.Dataset:
     return _build_pft_params_dataset(plant_type)
 
 
-@xarray_io()
-def _disturbances_daily(
-    temperature_celcius_daily: NDArray,
-    gpp_daily: NDArray,
-    lai_daily: NDArray,
-    plant_type: NDArray,
-    latitude: NDArray,
-) -> NDArray:
+def _disturbances_block(
+    temperature: NDArray[np.float64],
+    gpp: NDArray[np.float64],
+    lai: NDArray[np.float64],
+) -> NDArray[np.float64]:
+    """Run disturbance detection on a whole pixel-block (vectorised over pixels).
+
+    ``apply_ufunc`` places the ``time`` core dim last, so each input arrives as
+    ``(pixel, time)`` (or ``(time,)`` with no pixel broadcast).
+    :meth:`Disturbances.forward` diffs GPP/LAI along axis 0, so ``time`` is moved to
+    the front for the call and the result moved back to ``(pixel, time)``.
+    ``moveaxis`` is a no-op on a 1D ``(time,)`` array, so the single-pixel case is
+    handled too.
+    """
+    temp = np.moveaxis(np.asarray(temperature, dtype=float), -1, 0)
+    g = np.moveaxis(np.asarray(gpp, dtype=float), -1, 0)
+    la = np.moveaxis(np.asarray(lai, dtype=float), -1, 0)
     # TODO: upgrade growing_season_limit to a function of pft and latitude!
     # TODO: upgrade disturbance_threshold to a function of pft!
-    return Disturbances(growing_season_limit=10.0, disturbance_threshold=0.3)(
-        temperature_celcius_daily, gpp_daily, lai_daily, aggregate=False
+    result = Disturbances(growing_season_limit=10.0, disturbance_threshold=0.3).forward(
+        temp, g, la, aggregate=False
     )
+    return np.moveaxis(result, 0, -1)
+
+
+def _disturbances_daily(
+    temperature_celcius_daily: xr.DataArray,
+    gpp_daily: xr.DataArray,
+    lai_daily: xr.DataArray,
+) -> xr.DataArray:
+    """Apply disturbance detection over the ``(time, pixel)`` block via apply_ufunc.
+
+    Disturbance detection diffs along ``time`` (so ``time`` is the input/output core
+    dim) but is otherwise element-wise over ``pixel`` (the broadcast/mapped dim).
+    ``vectorize`` is left ``False`` so the whole pixel-block reaches the numpy kernel
+    in one call; ``dask="parallelized"`` keeps a future dask-backed (chunked-``pixel``)
+    run reachable.
+    """
+    out = xr.apply_ufunc(
+        _disturbances_block,
+        temperature_celcius_daily,
+        gpp_daily,
+        lai_daily,
+        input_core_dims=[["time"]] * 3,
+        output_core_dims=[["time"]],
+        dask="parallelized",
+        output_dtypes=[float],
+    )
+
+    # apply_ufunc drops the `time` coord (a core dim) and orders the output as
+    # (pixel, time); reattach the coord and restore the canonical (time, pixel).
+    time_coord = temperature_celcius_daily.coords["time"]
+    return out.assign_coords(time=time_coord).transpose("time", "pixel")
 
 
 @declare_units
@@ -194,9 +234,9 @@ def disturbances_daily(
     xr.DataArray
         Daily disturbance indicators.
     """
-    return _disturbances_daily(
-        temperature_celcius_daily, gpp_daily, lai_daily, plant_type, latitude
-    )
+    # plant_type/latitude are declared dependencies for forthcoming pft-/hemisphere-
+    # aware thresholds (see the TODOs in _disturbances_block) but are not used yet.
+    return _disturbances_daily(temperature_celcius_daily, gpp_daily, lai_daily)
 
 
 def _sgam_1px(
