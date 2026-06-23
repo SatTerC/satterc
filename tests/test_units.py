@@ -279,18 +279,24 @@ class TestUnitsFromSignature:
         _, outputs = units.units_from_signature(node)
         assert outputs == {"gpp": "g m-2 d-1"}
 
-    def test_metadata_on_non_dataarray_param_is_read_as_unit(self):
-        # KNOWN FOOTGUN / regression pin: `units_from_signature` treats *any*
-        # string in `Annotated` metadata as a unit, regardless of the base type.
-        # So a descriptive note on a non-DataArray config parameter is mis-read
-        # as a (bogus) unit -- and `declare_units` then fails fast at import.
+    def test_metadata_on_non_dataarray_param_is_not_a_unit(self):
+        # A descriptive string on a *non-DataArray* parameter is metadata, not a
+        # unit: only DataArray annotations carry units. So a config param like a
+        # documented flag is ignored, and declaring the node does not fail.
         def node(flag: Annotated[bool, "toggles X"] = True) -> xr.DataArray: ...
 
         inputs, _ = units.units_from_signature(node)
-        assert inputs == {"flag": "toggles X"}
+        assert inputs == {}
+        declare_units(node)  # no raise: the metadata is never parsed as a unit
 
-        with pytest.raises(ValueError, match="not a recognised"):
-            declare_units(node)
+    def test_unit_on_optional_dataarray_param_is_read(self):
+        # An optional DataArray (DataArray | None) still carries its declared unit.
+        def node(
+            x: Annotated[xr.DataArray | None, "g m-2"] = None,
+        ) -> xr.DataArray: ...
+
+        inputs, _ = units.units_from_signature(node)
+        assert inputs == {"x": "g m-2"}
 
 
 # ---------------------------------------------------------------------------

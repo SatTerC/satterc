@@ -22,12 +22,14 @@ Units are declared in canonical UDUNITS style (e.g. ``"umol m-2 s-1"``, not
 """
 
 import os
+import types
 import warnings
 from contextlib import contextmanager
 from typing import (
     Annotated,
     Any,
     Literal,
+    Union,
     get_args,
     get_origin,
     get_type_hints,
@@ -223,17 +225,40 @@ def unwrap_annotated(hint: Any) -> Any:
     return get_args(hint)[0] if get_origin(hint) is Annotated else hint
 
 
+def _is_dataarray_type(tp: Any) -> bool:
+    """Return whether ``tp`` is ``DataArray`` (possibly wrapped in a Union).
+
+    Accepts a bare ``DataArray`` as well as ``DataArray | None`` /
+    ``Optional[DataArray]`` (and any other union that includes ``DataArray``), so
+    an optional DataArray parameter can still carry a declared unit. Anything
+    else (scalars, ``str``, ``bool``, ``Dataset``, ``DatetimeIndex``, …) is not a
+    unit-bearing type.
+    """
+    if tp is xr.DataArray:
+        return True
+    if get_origin(tp) in (Union, types.UnionType):
+        return any(_is_dataarray_type(arg) for arg in get_args(tp))
+    return False
+
+
 def _annotated_unit(hint: Any) -> str | None:
     """Return the declared unit carried by an ``Annotated`` type hint, or ``None``.
 
     A unit is the first ``str`` in the ``Annotated`` metadata, e.g.
-    ``Annotated[DataArray, "degC"]`` → ``"degC"``. Non-``Annotated`` hints, or
-    ``Annotated`` hints whose metadata holds no string, return ``None``.
+    ``Annotated[DataArray, "degC"]`` → ``"degC"``. The metadata is only
+    interpreted as a unit when the annotated base type is a ``DataArray`` (the
+    only type that carries units); a descriptive string on a non-``DataArray``
+    parameter (e.g. ``Annotated[bool, "toggles X"]``) is *not* a unit and yields
+    ``None``. Non-``Annotated`` hints, or ``Annotated`` hints whose metadata
+    holds no string, also return ``None``.
     """
     if get_origin(hint) is not Annotated:
         return None
     # get_args(Annotated[T, m1, m2, ...]) == (T, m1, m2, ...); skip the base type.
-    for meta in get_args(hint)[1:]:
+    args = get_args(hint)
+    if not _is_dataarray_type(args[0]):
+        return None
+    for meta in args[1:]:
         if isinstance(meta, str):
             return meta
     return None
