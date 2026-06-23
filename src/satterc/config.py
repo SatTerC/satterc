@@ -70,6 +70,7 @@ class DeriveSpec:
     expression: str | None
     import_path: str | None
     function: str | None
+    units: str | None = None
 
     @classmethod
     def from_config(cls, entry: dict) -> "DeriveSpec":
@@ -86,12 +87,19 @@ class DeriveSpec:
                 f"Derive entry for '{entry.get('output')}' must specify either "
                 "'expression' or ('_import_path' + 'function')."
             )
+        units = entry.get("units")
+        if units is not None:
+            # Fail fast on a malformed/unknown unit, at parse time.
+            from .units import assert_valid_unit
+
+            assert_valid_unit(units, f"derive '{entry.get('output')}' units")
         return cls(
             output=entry["output"],
             inputs=entry["inputs"],
             expression=entry.get("expression"),
             import_path=entry.get("_import_path"),
             function=entry.get("function"),
+            units=units,
         )
 
 
@@ -146,6 +154,8 @@ class ParsedConfig:
     input_specs: dict[str, "IOSpec"] = field(default_factory=dict)
     output_specs: dict[str, "IOSpec"] = field(default_factory=dict)
     cache_spec: "CacheSpec | None" = None
+    units_mode: str | None = None
+    units_exact: bool | None = None
 
 
 class Config:
@@ -288,6 +298,26 @@ class Config:
             return None
         return CacheSpec.from_config(entry)
 
+    def _parse_units(self, data: dict) -> tuple[str | None, bool | None]:
+        """Handle the [units] section.
+
+        Returns ``(mode, exact)``: the validation mode string (or ``None``) and
+        the exact-unit-match flag for the build-time check (or ``None`` when not
+        given). Both are ``None`` if there is no [units] section.
+        """
+        entry = data.pop("units", None)
+        if entry is None:
+            return None, None
+        mode = entry.get("mode")
+        if mode is not None and mode not in ("strict", "warn", "off"):
+            raise ValueError(
+                f"[units] 'mode' must be one of 'strict', 'warn', 'off', got {mode!r}."
+            )
+        exact = entry.get("exact")
+        if exact is not None and not isinstance(exact, bool):
+            raise ValueError(f"[units] 'exact' must be a boolean, got {exact!r}.")
+        return mode, exact
+
     def _parse_external_modules(self, data: dict, driver_config: dict) -> list[str]:
         """Handle remaining sections as external modules."""
         modules: list[str] = []
@@ -320,6 +350,7 @@ class Config:
         - [[derive]]      — config-driven derived variable nodes
         - [[resample]]    — temporal resampling module
         - [cache]         — Hamilton result caching (path, recompute, disable)
+        - [units]         — unit validation mode ('strict', 'warn', 'off')
 
         All other top-level sections are treated as external modules and must
         include a '_import_path = "pkg.module"' key specifying the importable
@@ -338,6 +369,7 @@ class Config:
         modules += self._parse_derive(data, driver_config)
         modules += self._parse_resample(data, driver_config)
         cache_spec = self._parse_cache(data)
+        units_mode, units_exact = self._parse_units(data)
         modules += self._parse_external_modules(data, driver_config)
         return ParsedConfig(
             modules=modules,
@@ -345,6 +377,8 @@ class Config:
             input_specs=input_specs,
             output_specs=output_specs,
             cache_spec=cache_spec,
+            units_mode=units_mode,
+            units_exact=units_exact,
         )
 
 

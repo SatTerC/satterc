@@ -2,6 +2,13 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Project status
+
+SatTerC is in **alpha** with no users outside the core collaboration. Backwards
+compatibility is *not* a constraint: prefer the cleanest design and make breaking
+changes (config schema, public APIs, behaviour) freely rather than adding
+compatibility shims.
+
 ## Commands
 
 All common tasks are managed via `just` (see `justfile`):

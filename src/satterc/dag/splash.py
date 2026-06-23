@@ -6,6 +6,8 @@ to calculate soil moisture, actual evapotranspiration (AET), and runoff based
 on climate inputs.
 """
 
+from typing import Annotated, TypedDict
+
 import numpy as np
 import pyrealm.core.calendar
 import pyrealm.splash.splash
@@ -14,7 +16,15 @@ from numpy.typing import NDArray
 from pandas import DatetimeIndex
 from xarray import DataArray
 
-from ._utils import xarray_io
+from ._utils import declare_units, xarray_io
+
+
+class SplashOut(TypedDict):
+    """Outputs of the :func:`splash` node, with their declared units."""
+
+    actual_evapotranspiration_daily: Annotated[DataArray, "mm d-1"]
+    soil_moisture_daily: Annotated[DataArray, "mm"]
+    runoff_daily: Annotated[DataArray, "mm d-1"]
 
 
 @xarray_io()
@@ -55,23 +65,20 @@ def _splash(
     )
 
 
-@extract_fields(
-    "actual_evapotranspiration_daily",
-    "soil_moisture_daily",
-    "runoff_daily",
-)
+@extract_fields()
+@declare_units
 def splash(
     dates_daily: DatetimeIndex,
-    sunshine_fraction_daily: DataArray,
-    temperature_celcius_daily: DataArray,
-    precipitation_mm_daily: DataArray,
-    elevation: DataArray,
+    sunshine_fraction_daily: Annotated[DataArray, "1"],
+    temperature_celcius_daily: Annotated[DataArray, "degC"],
+    precipitation_mm_daily: Annotated[DataArray, "mm"],
+    elevation: Annotated[DataArray, "m"],
     latitude: DataArray,
-    max_soil_moisture: DataArray,
+    max_soil_moisture: Annotated[DataArray, "mm"],
     *,
     soil_moisture_init_max_iter: int = 10,
     soil_moisture_init_max_diff: float = 1.0,
-) -> dict[str, DataArray]:
+) -> SplashOut:
     """Run the SPLASH water balance model.
 
     This function is intended to act as a node in a Hamilton DAG.

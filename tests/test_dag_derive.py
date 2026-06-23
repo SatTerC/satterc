@@ -3,17 +3,21 @@
 import sys
 import types
 
+import xarray as xr
+
 from satterc.config import DeriveSpec
 from satterc.dag.derive import _build_fn_code, make_derive_module
+from satterc.units import units_from_signature
 
 
-def _expr_spec(output, inputs, expression):
+def _expr_spec(output, inputs, expression, units=None):
     return DeriveSpec(
         output=output,
         inputs=list(inputs),
         expression=expression,
         import_path=None,
         function=None,
+        units=units,
     )
 
 
@@ -108,3 +112,27 @@ class TestMakeDeriveModule:
         # No function attrs expected
         public_attrs = [a for a in dir(mod) if not a.startswith("_")]
         assert len(public_attrs) == 0
+
+
+class TestDeriveUnits:
+    """A declared `units` makes the derived node a typed, stamped producer."""
+
+    def test_no_units_is_plain_passthrough(self):
+        code = _build_fn_code(_expr_spec("f", ["a"], "a"))
+        assert "-> xr.DataArray" in code
+        assert "@declare_units" not in code
+
+    def test_units_annotate_return_and_decorate(self):
+        code = _build_fn_code(_expr_spec("f", ["a"], "a", units="g m-2 d-1"))
+        assert "@declare_units" in code
+        assert "Annotated[xr.DataArray, 'g m-2 d-1']" in code
+
+    def test_units_stamped_on_output_at_runtime(self):
+        mod = make_derive_module([_expr_spec("scaled", ["a"], "a", units="t ha-1")])
+        out = mod.scaled(xr.DataArray([1.0, 2.0]))
+        assert out.attrs["units"] == "t ha-1"
+
+    def test_declared_units_reachable_for_static_check(self):
+        mod = make_derive_module([_expr_spec("ratio", ["a", "b"], "a / b", units="1")])
+        _, out_units = units_from_signature(mod.ratio)
+        assert out_units == "1"

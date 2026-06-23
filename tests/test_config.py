@@ -354,6 +354,44 @@ class TestDerive:
         assert spec.import_path == "mypackage.met_utils"
         assert spec.function == "mean_growth_temperature"
 
+    def test_derive_units_parsed(self):
+        config = Config(
+            {
+                "derive": [
+                    {
+                        "output": "aridity_index_daily",
+                        "inputs": ["precipitation_mm_daily", "aet_daily"],
+                        "expression": "precipitation_mm_daily / aet_daily",
+                        "units": "1",
+                    }
+                ]
+            }
+        )
+        spec = config.parse().driver_config["derive_specs"][0]
+        assert spec.units == "1"
+
+    def test_derive_units_default_none(self):
+        config = Config(
+            {"derive": [{"output": "f", "inputs": ["a"], "expression": "a"}]}
+        )
+        assert config.parse().driver_config["derive_specs"][0].units is None
+
+    def test_invalid_derive_units_raises(self):
+        config = Config(
+            {
+                "derive": [
+                    {
+                        "output": "f",
+                        "inputs": ["a"],
+                        "expression": "a",
+                        "units": "not_a_unit",
+                    }
+                ]
+            }
+        )
+        with pytest.raises(ValueError, match="not a recognised"):
+            config.parse()
+
     def test_duplicate_derive_output_raises(self):
         config = Config(
             {

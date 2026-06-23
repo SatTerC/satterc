@@ -223,6 +223,20 @@ function = "compute_custom_index"
 The referenced function must accept keyword arguments matching the `inputs` list
 and return an `xarray.DataArray`.
 
+#### Declaring units
+
+A derived variable transforms its inputs, so its output unit cannot be inferred. Add an optional `units` key to make the derived node a typed producer: its output is stamped with that unit at run time, and the build-time unit check can verify any downstream consumer against it (see [Units](#units)).
+
+```toml
+[[derive]]
+output = "aridity_index_daily"
+inputs = ["precipitation_mm_daily", "actual_evapotranspiration_daily"]
+expression = "precipitation_mm_daily / actual_evapotranspiration_daily"
+units = "1"   # dimensionless ratio
+```
+
+`units` is optional: omit it and the derived node is a unit-unknown pass-through (no static unit coverage). When present it must be a valid UDUNITS/pint unit string, validated when the config is parsed.
+
 /// admonition | Naming and ordering
     type: note
 
@@ -279,6 +293,36 @@ The `satterc run` command also exposes `--cache/--no-cache` and `--cache-dir` to
 SatTerC registers a content-based fingerprint for `xarray.DataArray` that hashes both the array's values *and* its metadata (`name`, dimensions, coordinates). 
 A change to either the values or the metadata produces a different fingerprint and so misses the cache. 
 In practice you are unlikely to alter metadata without also changing values.
+///
+
+---
+
+### Units
+
+Each model node declares the physical units of its inputs and outputs in its signature. The optional `[units]` section controls how those declarations are validated.
+
+```toml
+[units]
+mode = "strict"   # "strict" | "warn" | "off"  (default: "warn")
+exact = false     # require identical unit strings on each edge (default: false)
+```
+
+| Key | Description |
+|-----|-------------|
+| `mode` | Validation strictness. `strict` raises on a unit problem, `warn` emits a warning and continues, `off` disables unit checking. Defaults to `warn`. |
+| `exact` | When `true`, a *dimensionally compatible but value-changing* unit (e.g. `hPa` where `Pa` is declared) is rejected rather than silently converted — both at build time (mismatched edges flagged) and at run time (such an input raises). When `false`, compatible units are auto-converted. Equivalent spellings (`pascal` for `Pa`, `dimensionless` for `1`) are always accepted. Defaults to `false`. |
+
+Validation happens at two points:
+
+- **Build time** — when the driver is built, every internal edge where both ends declare a unit is checked for consistency (subject to `mode` and `exact`), so a mismatch is caught before the pipeline runs. Units are propagated through resampling (which preserves units) so resampled edges are covered; a derived variable is covered when its `[[derive]]` entry declares `units` (see below). Edges fed by input files are checked at run time instead.
+- **Run time** — as each node executes, every `DataArray` input is validated against its declared unit. With `exact = false` a compatible input is converted to the declared unit; with `exact = true` it must already be that unit. Dimensionally incompatible inputs always raise. A missing `units` attribute on an input follows `mode` (raise / warn / ignore).
+
+Both settings can also be overridden per-process via the `SATTERC_UNITS_MODE` and `SATTERC_UNITS_EXACT` environment variables. Omit `[units]` to keep the defaults (`warn`, no exact match).
+
+/// admonition | Affine units (temperature)
+    type: warning
+
+Conversions between offset units such as `degC` and `K` apply the offset (`degC → K` adds 273.15), which is correct for an *absolute* temperature but wrong for a temperature *difference* or anomaly. Declare such quantities in the unit they are stored in (no conversion), or set `exact = true` to forbid implicit temperature conversions.
 ///
 
 ---

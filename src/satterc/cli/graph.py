@@ -11,6 +11,7 @@ from hamilton import graph_types
 
 from ..config import load_config
 from ..dag.driver import build_driver
+from ..units import unwrap_annotated
 
 app = typer.Typer(help="Visualise a pipeline defined in a configuration file.")
 
@@ -19,16 +20,19 @@ def custom_style(
     *, node: graph_types.HamiltonNode, node_class: str
 ) -> tuple[dict, str | None, str | None]:
     """Apply custom styling to Hamilton DAG nodes based on type and name."""
+    # Signature-native unit declarations make some node types
+    # ``Annotated[DataArray, "<unit>"]``; unwrap before comparing.
+    node_type = unwrap_annotated(node.type)
     if node.tags.get("module") == "satterc.inputs.static":
         style = ({"fillcolor": "aquamarine"}, node_class, "static inputs")
 
-    elif node.type is xr.DataArray and "_daily" in node.name:
+    elif node_type is xr.DataArray and "_daily" in node.name:
         style = ({"fillcolor": "orange"}, node_class, "Daily")
 
-    elif node.type is xr.DataArray and "_weekly" in node.name:
+    elif node_type is xr.DataArray and "_weekly" in node.name:
         style = ({"fillcolor": "yellow"}, node_class, "Weekly")
 
-    elif node.type is xr.DataArray and "_monthly" in node.name:
+    elif node_type is xr.DataArray and "_monthly" in node.name:
         style = ({"fillcolor": "brown"}, node_class, "Monthly")
 
     else:

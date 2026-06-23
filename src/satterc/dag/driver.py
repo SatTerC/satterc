@@ -75,4 +75,12 @@ def build_driver(
 
         dr = apply_cache(dr, cache)
 
-    return dr.build()
+    built = dr.build()
+
+    # Build-time unit-consistency check; a no-op in "off" mode (the conftest
+    # default), so this does not affect builds that opt out of unit handling.
+    from satterc.dag.unit_check import check_dag_units
+
+    check_dag_units(built)
+
+    return built
