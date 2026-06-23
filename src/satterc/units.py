@@ -244,13 +244,24 @@ def _is_dataarray_type(tp: Any) -> bool:
 def _annotated_unit(hint: Any) -> str | None:
     """Return the declared unit carried by an ``Annotated`` type hint, or ``None``.
 
-    A unit is the first ``str`` in the ``Annotated`` metadata, e.g.
-    ``Annotated[DataArray, "degC"]`` → ``"degC"``. The metadata is only
-    interpreted as a unit when the annotated base type is a ``DataArray`` (the
-    only type that carries units); a descriptive string on a non-``DataArray``
-    parameter (e.g. ``Annotated[bool, "toggles X"]``) is *not* a unit and yields
-    ``None``. Non-``Annotated`` hints, or ``Annotated`` hints whose metadata
-    holds no string, also return ``None``.
+    The unit is the **first ``str``** in the ``Annotated`` metadata, e.g.
+    ``Annotated[DataArray, "degC"]`` → ``"degC"``. This makes the metadata
+    extensible: a unit may be followed by free-form annotations (a description,
+    typed markers, …) that are ignored here, so
+
+        ``Annotated[DataArray, "m s-1", "z component of velocity"]`` → ``"m s-1"``
+
+    The convention is therefore *unit first*: the unit must precede any
+    descriptive string. A description placed before the unit would be mis-read as
+    the unit — but :func:`assert_valid_unit` rejects it at decoration time unless
+    the description itself parses as a valid unit, so the failure is loud.
+    Non-string metadata (ints, markers) is skipped regardless of position.
+
+    The metadata is only interpreted as a unit when the annotated base type is a
+    ``DataArray`` (the only type that carries units); a descriptive string on a
+    non-``DataArray`` parameter (e.g. ``Annotated[bool, "toggles X"]``) is *not* a
+    unit and yields ``None``. Non-``Annotated`` hints, or ``Annotated`` hints
+    whose metadata holds no string, also return ``None``.
     """
     if get_origin(hint) is not Annotated:
         return None

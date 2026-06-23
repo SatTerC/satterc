@@ -289,6 +289,39 @@ class TestUnitsFromSignature:
         assert inputs == {}
         declare_units(node)  # no raise: the metadata is never parsed as a unit
 
+    def test_unit_then_description_takes_unit_first(self):
+        # Extra metadata after the unit (e.g. a human-readable description) is
+        # ignored: the unit is the first string. This is the supported way to
+        # attach both a unit and a description to a node parameter.
+        def node(
+            v: Annotated[xr.DataArray, "m s-1", "z component of velocity"],
+        ) -> xr.DataArray: ...
+
+        inputs, _ = units.units_from_signature(node)
+        assert inputs == {"v": "m s-1"}
+        declare_units(node)  # no raise: 'm s-1' validates, description ignored
+
+    def test_non_string_metadata_before_unit_is_skipped(self):
+        # Only strings are considered; a non-string marker before the unit string
+        # does not shadow it.
+        def node(v: Annotated[xr.DataArray, 42, "m s-1"]) -> xr.DataArray: ...
+
+        inputs, _ = units.units_from_signature(node)
+        assert inputs == {"v": "m s-1"}
+
+    def test_description_before_unit_is_misread_and_fails_fast(self):
+        # The convention is unit-first. A description placed *before* the unit is
+        # mis-read as the unit -- but it fails loudly at decoration time rather
+        # than passing silently (unless the description itself parses as a unit).
+        def node(
+            v: Annotated[xr.DataArray, "z component of velocity", "m s-1"],
+        ) -> xr.DataArray: ...
+
+        inputs, _ = units.units_from_signature(node)
+        assert inputs == {"v": "z component of velocity"}
+        with pytest.raises(ValueError, match="not a recognised"):
+            declare_units(node)
+
     def test_unit_on_optional_dataarray_param_is_read(self):
         # An optional DataArray (DataArray | None) still carries its declared unit.
         def node(
