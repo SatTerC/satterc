@@ -25,7 +25,7 @@ dependencies = [
     "pyrealm>=2.0.0",
     "rioxarray>=0.22.0",
     "rothc-py",
-    "sf-hamilton[visualization]>=1.89.0",
+    "sf-hamilton[visualization]>=1.90.0",
     "sgam",
     "tomli-w>=1.2.0",
     "typer>=0.24.1",

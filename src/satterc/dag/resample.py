@@ -1,12 +1,12 @@
 """Temporal resampling module for the Hamilton DAG."""
 
 import xarray as xr
-from hamilton.function_modifiers import ResolveAt, parameterize, source, value
+from hamilton.function_modifiers import ResolveAt, parameterize, resolve, source, value
 
-from ._hamilton_fixes import FixedResolve, NoOpDecorator
+from ._hamilton_fixes import NoOpDecorator
 
 
-@FixedResolve(
+@resolve(
     when=ResolveAt.CONFIG_AVAILABLE,
     decorate_with=lambda resample_specs=None: (
         parameterize(

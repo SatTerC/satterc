@@ -1997,7 +1997,7 @@ requires-dist = [
     { name = "pyrealm", specifier = ">=2.0.0" },
     { name = "rioxarray", specifier = ">=0.22.0" },
     { name = "rothc-py", git = "https://github.com/SatTerC/rothc_py.git" },
-    { name = "sf-hamilton", extras = ["visualization"], specifier = ">=1.89.0" },
+    { name = "sf-hamilton", extras = ["visualization"], specifier = ">=1.90.0" },
     { name = "sgam", git = "https://github.com/SatTerC/sgam.git" },
     { name = "tomli-w", specifier = ">=1.2.0" },
     { name = "typer", specifier = ">=0.24.1" },
