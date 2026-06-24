@@ -157,6 +157,50 @@ class TestZarrSubset:
         assert dest.exists()
         assert not (tmp_path / "weekly_gridded.zarr").exists()
 
+    def test_multi_frequency_and_static_outputs(
+        self, pipeline_config, pipeline_driver, tmp_path
+    ):
+        """create-store + region writes cover several frequencies, incl. static."""
+        specs = {
+            "daily": IOSpec(
+                path=str(tmp_path / "daily.zarr"), vars=["temperature_celcius"]
+            ),
+            "static": IOSpec(path=str(tmp_path / "static.zarr"), vars=["clay_content"]),
+        }
+
+        created = create_output_store(pipeline_config.input_specs, specs, pixel_chunk=2)
+        assert len(created) == 2
+
+        for spec in (SubsetSpec(0, 2), SubsetSpec(2, 4)):
+            save_outputs(
+                _execute(pipeline_driver, pipeline_config, spec, specs),
+                specs,
+                subset_spec=spec,
+            )
+
+        ref = _full_stacked(pipeline_driver, pipeline_config, specs)
+
+        # Daily output carries a time axis.
+        daily = xr.open_zarr(tmp_path / "daily.zarr", consolidated=False).compute()
+        assert set(daily["temperature_celcius"].dims) == {"time", "pixel"}
+        np.testing.assert_allclose(
+            daily["temperature_celcius"].transpose("time", "pixel").values,
+            ref["daily"]["temperature_celcius"]
+            .transpose("time", "pixel")
+            .compute()
+            .values,
+            equal_nan=True,
+        )
+
+        # Static output is pixel-only (no time dimension).
+        static = xr.open_zarr(tmp_path / "static.zarr", consolidated=False).compute()
+        assert set(static["clay_content"].dims) == {"pixel"}
+        np.testing.assert_allclose(
+            static["clay_content"].values,
+            ref["static"]["clay_content"].compute().values,
+            equal_nan=True,
+        )
+
     def test_merge_out_rejected_for_multiple_outputs(self):
         specs = {
             "daily": IOSpec(path="a.zarr", vars=[VAR]),
