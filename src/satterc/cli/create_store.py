@@ -24,6 +24,14 @@ def create_store(
             "this value. Defaults to [blocking].block_size, or the full grid.",
         ),
     ] = None,
+    overwrite: Annotated[
+        bool,
+        typer.Option(
+            "--overwrite",
+            help="Recreate stores that already exist. This erases any data already "
+            "written into them by subset runs.",
+        ),
+    ] = False,
 ) -> None:
     """Create empty Zarr stores so subset runs can region-write concurrently.
 
@@ -38,7 +46,7 @@ def create_store(
         chunk = parsed.blocking_spec.block_size
 
     created = create_output_store(
-        parsed.input_specs, parsed.output_specs, pixel_chunk=chunk
+        parsed.input_specs, parsed.output_specs, pixel_chunk=chunk, overwrite=overwrite
     )
 
     if not created:

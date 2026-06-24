@@ -201,6 +201,30 @@ class TestZarrSubset:
             equal_nan=True,
         )
 
+    def test_create_store_refuses_to_clobber(
+        self, pipeline_config, pipeline_driver, tmp_path
+    ):
+        """Re-creating an existing store needs --overwrite, to protect written data."""
+        store = tmp_path / "weekly.zarr"
+        specs = _output_specs(store)
+        create_output_store(pipeline_config.input_specs, specs, pixel_chunk=2)
+
+        # Write something, then prove a second create-store won't silently wipe it.
+        save_outputs(
+            _execute(pipeline_driver, pipeline_config, SubsetSpec(0, 2), specs),
+            specs,
+            subset_spec=SubsetSpec(0, 2),
+        )
+        with pytest.raises(FileExistsError, match="overwrite"):
+            create_output_store(pipeline_config.input_specs, specs, pixel_chunk=2)
+
+        # overwrite=True recreates it as an empty (all-NaN) store.
+        create_output_store(
+            pipeline_config.input_specs, specs, pixel_chunk=2, overwrite=True
+        )
+        recreated = xr.open_zarr(store, consolidated=False).compute()
+        assert bool(np.isnan(recreated[VAR].values).all())
+
     def test_merge_out_rejected_for_multiple_outputs(self):
         specs = {
             "daily": IOSpec(path="a.zarr", vars=[VAR]),

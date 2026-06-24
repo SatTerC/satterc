@@ -513,6 +513,7 @@ def create_output_store(
     input_specs: dict[str, IOSpec],
     output_specs: dict[str, IOSpec],
     pixel_chunk: int | None = None,
+    overwrite: bool = False,
 ) -> list[str]:
     """Pre-create empty stacked Zarr stores for parallel subset runs.
 
@@ -521,8 +522,27 @@ def create_output_store(
     metadata and coordinates (data arrays are dask-backed and deferred, so the
     full grid is never materialised).  NetCDF/CSV/Parquet outputs are skipped —
     they don't need a shared store.  Returns the list of store paths created.
+
+    Refuses to clobber an existing store unless ``overwrite`` is set: re-running
+    this after subset processes have populated a store would erase their data.
     """
     import dask.array as da
+
+    zarr_specs = {
+        freq: spec
+        for freq, spec in output_specs.items()
+        if Path(spec.path).suffix.lower() == ".zarr"
+    }
+    if not overwrite:
+        existing = [
+            spec.path for spec in zarr_specs.values() if Path(spec.path).exists()
+        ]
+        if existing:
+            raise FileExistsError(
+                f"Zarr store(s) already exist: {existing}. Re-creating them would "
+                f"erase data already written by subset processes. Pass overwrite=True "
+                f"(CLI: --overwrite) to recreate them from scratch."
+            )
 
     inputs = load_inputs(input_specs)
     skeleton = _pixel_template(inputs)
@@ -530,10 +550,7 @@ def create_output_store(
     chunk = pixel_chunk or n_pixel
 
     created: list[str] = []
-    for freq, spec in output_specs.items():
-        if Path(spec.path).suffix.lower() != ".zarr":
-            continue
-
+    for freq, spec in zarr_specs.items():
         coords = {name: skeleton.coords[name] for name in skeleton.coords}
         if freq == "static":
             shape, dims, chunks = (n_pixel,), ("pixel",), (chunk,)
