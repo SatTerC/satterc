@@ -137,22 +137,15 @@ class CacheSpec:
         )
 
 
-_VALID_EXECUTORS: frozenset[str] = frozenset(
-    {"synchronous", "threading", "multiprocessing"}
-)
-
-
 @dataclass
 class BlockingSpec:
     """Specification for the [blocking] section.
 
-    Controls how the stacked ``pixel`` dimension is partitioned into blocks
-    and how those blocks are executed (sequentially or in parallel).
+    Controls how the stacked ``pixel`` dimension is partitioned into
+    fixed-size sequential blocks to bound peak memory usage.
     """
 
     block_size: int
-    executor: str = "synchronous"
-    max_workers: int | None = None
 
     @classmethod
     def from_config(cls, entry: dict) -> "BlockingSpec":
@@ -163,30 +156,43 @@ class BlockingSpec:
                 "[blocking] 'block_size' must be a positive integer, "
                 f"got {block_size!r}."
             )
-        executor = entry.get("executor", "synchronous")
-        if executor not in _VALID_EXECUTORS:
+        return cls(block_size=block_size)
+
+
+@dataclass
+class SubsetSpec:
+    """Specification for the [subset] section.
+
+    Selects a contiguous slice of the stacked ``pixel`` dimension so that
+    independent ``satterc run`` processes can each handle a different spatial
+    chunk of the same input files.  ``pixel_end`` is exclusive (Python slice
+    convention).
+    """
+
+    pixel_start: int
+    pixel_end: int
+
+    @classmethod
+    def from_config(cls, entry: dict) -> "SubsetSpec":
+        """Construct and validate from a raw [subset] TOML entry."""
+        pixel_start = entry.get("pixel_start")
+        pixel_end = entry.get("pixel_end")
+        if not isinstance(pixel_start, int) or pixel_start < 0:
             raise ValueError(
-                f"[blocking] 'executor' must be one of "
-                f"{sorted(_VALID_EXECUTORS)}, got {executor!r}."
+                "[subset] 'pixel_start' must be a non-negative integer, "
+                f"got {pixel_start!r}."
             )
-        max_workers = entry.get("max_workers")
-        if max_workers is not None and (
-            not isinstance(max_workers, int) or max_workers < 1
-        ):
+        if not isinstance(pixel_end, int) or pixel_end < 0:
             raise ValueError(
-                "[blocking] 'max_workers' must be a positive integer, "
-                f"got {max_workers!r}."
+                "[subset] 'pixel_end' must be a non-negative integer, "
+                f"got {pixel_end!r}."
             )
-        if max_workers is not None and executor == "synchronous":
+        if pixel_end <= pixel_start:
             raise ValueError(
-                "[blocking] 'max_workers' has no effect when executor='synchronous'. "
-                "Remove it or set executor='threading'/'multiprocessing'."
+                f"[subset] 'pixel_end' ({pixel_end}) must be greater than "
+                f"'pixel_start' ({pixel_start})."
             )
-        return cls(
-            block_size=block_size,
-            executor=executor,
-            max_workers=max_workers,
-        )
+        return cls(pixel_start=pixel_start, pixel_end=pixel_end)
 
 
 @dataclass
@@ -207,6 +213,7 @@ class ParsedConfig:
     output_specs: dict[str, "IOSpec"] = field(default_factory=dict)
     cache_spec: "CacheSpec | None" = None
     blocking_spec: "BlockingSpec | None" = None
+    subset_spec: "SubsetSpec | None" = None
     units_mode: str | None = None
     units_exact: bool | None = None
 
@@ -361,6 +368,16 @@ class Config:
             return None
         return BlockingSpec.from_config(entry)
 
+    def _parse_subset(self, data: dict) -> "SubsetSpec | None":
+        """Handle the [subset] section.
+
+        Returns None if there is no [subset] section.
+        """
+        entry = data.pop("subset", None)
+        if entry is None:
+            return None
+        return SubsetSpec.from_config(entry)
+
     def _parse_units(self, data: dict) -> tuple[str | None, bool | None]:
         """Handle the [units] section.
 
@@ -413,7 +430,8 @@ class Config:
         - [[derive]]      — config-driven derived variable nodes
         - [[resample]]    — temporal resampling module
         - [cache]         — Hamilton result caching (path, recompute, disable)
-        - [blocking]      — pixel-blocked execution (block_size, executor, max_workers)
+        - [blocking]      — pixel-blocked execution (block_size)
+        - [subset]        — spatial pixel slice (pixel_start, pixel_end)
         - [units]         — unit validation mode ('strict', 'warn', 'off')
 
         All other top-level sections are treated as external modules and must
@@ -434,6 +452,7 @@ class Config:
         modules += self._parse_resample(data, driver_config)
         cache_spec = self._parse_cache(data)
         blocking_spec = self._parse_blocking(data)
+        subset_spec = self._parse_subset(data)
         units_mode, units_exact = self._parse_units(data)
         modules += self._parse_external_modules(data, driver_config)
         return ParsedConfig(
@@ -443,6 +462,7 @@ class Config:
             output_specs=output_specs,
             cache_spec=cache_spec,
             blocking_spec=blocking_spec,
+            subset_spec=subset_spec,
             units_mode=units_mode,
             units_exact=units_exact,
         )

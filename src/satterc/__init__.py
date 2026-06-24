@@ -9,6 +9,7 @@ from .config import (
     IOSpec,
     ParsedConfig,
     ResampleSpec,
+    SubsetSpec,
     load_config,
 )
 from .dag.driver import build_driver
@@ -20,6 +21,7 @@ __all__ = [
     "IOSpec",
     "ParsedConfig",
     "ResampleSpec",
+    "SubsetSpec",
     "__version__",
     "build_driver",
     "get_final_vars",

@@ -1,7 +1,7 @@
 """Tests for Mechanism B: pixel-blocked driver execution.
 
 Verifies that execute_blocked() produces results identical to an unblocked
-dr.execute() call, regardless of block size or executor.
+dr.execute() call, regardless of block size.
 """
 
 import numpy as np
@@ -32,8 +32,8 @@ def _run_unblocked(pipeline_config, pipeline_inputs):
     return dr.execute(_FINAL_VARS, inputs=pipeline_inputs)  # type: ignore[reportArgumentType]
 
 
-def _run_blocked(pipeline_config, pipeline_inputs, block_size, executor="synchronous"):
-    spec = BlockingSpec(block_size=block_size, executor=executor)
+def _run_blocked(pipeline_config, pipeline_inputs, block_size):
+    spec = BlockingSpec(block_size=block_size)
     dr = build_driver(pipeline_config.modules, pipeline_config.driver_config)
     return execute_blocked(dr, pipeline_inputs, _FINAL_VARS, spec)
 
@@ -142,24 +142,9 @@ class TestConcatResults:
 
 
 class TestBlockingSpecValidation:
-    def test_valid_minimal(self):
+    def test_valid(self):
         spec = BlockingSpec.from_config({"block_size": 4})
         assert spec.block_size == 4
-        assert spec.executor == "synchronous"
-        assert spec.max_workers is None
-
-    def test_valid_threading_with_workers(self):
-        spec = BlockingSpec.from_config(
-            {"block_size": 2, "executor": "threading", "max_workers": 4}
-        )
-        assert spec.executor == "threading"
-        assert spec.max_workers == 4
-
-    def test_valid_multiprocessing(self):
-        spec = BlockingSpec.from_config(
-            {"block_size": 2, "executor": "multiprocessing", "max_workers": 2}
-        )
-        assert spec.executor == "multiprocessing"
 
     def test_missing_block_size_raises(self):
         with pytest.raises(ValueError, match="block_size"):
@@ -177,27 +162,9 @@ class TestBlockingSpecValidation:
         with pytest.raises(ValueError, match="block_size"):
             BlockingSpec.from_config({"block_size": "4"})
 
-    def test_invalid_executor_raises(self):
-        with pytest.raises(ValueError, match="executor"):
-            BlockingSpec.from_config({"block_size": 4, "executor": "ray"})
-
-    def test_max_workers_on_synchronous_raises(self):
-        with pytest.raises(ValueError, match="max_workers"):
-            BlockingSpec.from_config({"block_size": 4, "max_workers": 2})
-
-    def test_zero_max_workers_raises(self):
-        with pytest.raises(ValueError, match="max_workers"):
-            BlockingSpec.from_config(
-                {"block_size": 4, "executor": "threading", "max_workers": 0}
-            )
-
     def test_parsed_from_toml(self):
-        parsed = Config.loads(
-            "[blocking]\nblock_size = 8\nexecutor = 'threading'\nmax_workers = 4\n"
-        ).parse()
-        assert parsed.blocking_spec == BlockingSpec(
-            block_size=8, executor="threading", max_workers=4
-        )
+        parsed = Config.loads("[blocking]\nblock_size = 8\n").parse()
+        assert parsed.blocking_spec == BlockingSpec(block_size=8)
 
     def test_absent_section_gives_none(self):
         parsed = Config.loads("[models.pmodel]\n").parse()
@@ -217,52 +184,12 @@ class TestPartitionInvariance:
         return _run_unblocked(pipeline_config, pipeline_inputs)
 
     @pytest.mark.parametrize("block_size", [1, 2, 3, 100])
-    def test_synchronous(self, pipeline_config, pipeline_inputs, reference, block_size):
+    def test_blocked_matches_unblocked(
+        self, pipeline_config, pipeline_inputs, reference, block_size
+    ):
         result = _run_blocked(pipeline_config, pipeline_inputs, block_size)
         for var in _FINAL_VARS:
             xr.testing.assert_identical(result[var], reference[var])
-
-    @pytest.mark.parametrize("block_size", [1, 2])
-    def test_threading(self, pipeline_config, pipeline_inputs, reference, block_size):
-        result = _run_blocked(
-            pipeline_config, pipeline_inputs, block_size, executor="threading"
-        )
-        for var in _FINAL_VARS:
-            xr.testing.assert_identical(result[var], reference[var])
-
-
-# ---------------------------------------------------------------------------
-# Multiprocessing
-# ---------------------------------------------------------------------------
-
-
-class TestMultiprocessing:
-    """Multiprocessing executor produces the same results as synchronous."""
-
-    def test_matches_synchronous(self, pipeline_config, pipeline_inputs):
-        reference = _run_unblocked(pipeline_config, pipeline_inputs)
-        spec = BlockingSpec(block_size=2, executor="multiprocessing", max_workers=2)
-        dr = build_driver(pipeline_config.modules, pipeline_config.driver_config)
-        result = execute_blocked(
-            dr,
-            pipeline_inputs,
-            _FINAL_VARS,
-            spec,
-            build_params=(
-                pipeline_config.modules,
-                pipeline_config.driver_config,
-                None,
-                False,
-            ),
-        )
-        for var in _FINAL_VARS:
-            xr.testing.assert_identical(result[var], reference[var])
-
-    def test_missing_build_params_raises(self, pipeline_config, pipeline_inputs):
-        spec = BlockingSpec(block_size=2, executor="multiprocessing")
-        dr = build_driver(pipeline_config.modules, pipeline_config.driver_config)
-        with pytest.raises(ValueError, match="build_params"):
-            execute_blocked(dr, pipeline_inputs, _FINAL_VARS, spec)
 
 
 # ---------------------------------------------------------------------------
@@ -282,7 +209,7 @@ class TestCachingWithBlocking:
     ):
         from satterc import CacheSpec
 
-        spec = BlockingSpec(block_size=2, executor="synchronous")
+        spec = BlockingSpec(block_size=2)
         cache = CacheSpec(path=str(tmp_path / "cache"))
 
         def _run_blocked_cached():

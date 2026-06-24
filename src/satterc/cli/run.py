@@ -57,7 +57,7 @@ def run(
 
     cache_spec = _resolve_cache(parsed.cache_spec, cache, cache_dir)
 
-    inputs = load_inputs(parsed.input_specs)
+    inputs = load_inputs(parsed.input_specs, subset_spec=parsed.subset_spec)
 
     dr = build_driver(
         modules=parsed.modules,
@@ -69,18 +69,7 @@ def run(
     if parsed.output_specs:
         target_vars = get_final_vars(parsed.output_specs)
         if parsed.blocking_spec is not None:
-            results = execute_blocked(
-                dr,
-                inputs,
-                target_vars,
-                parsed.blocking_spec,
-                build_params=(
-                    parsed.modules,
-                    parsed.driver_config,
-                    cache_spec,
-                    allow_overrides,
-                ),
-            )
+            results = execute_blocked(dr, inputs, target_vars, parsed.blocking_spec)
         else:
             results = dr.execute(target_vars, inputs=inputs)  # type: ignore[reportArgumentType]
         output_datasets = get_outputs(results, parsed.output_specs)
