@@ -1934,6 +1934,7 @@ name = "satterc"
 version = "0.4.1"
 source = { editable = "." }
 dependencies = [
+    { name = "apache-hamilton" },
     { name = "cf-xarray" },
     { name = "dask" },
     { name = "netcdf4" },
@@ -1942,15 +1943,27 @@ dependencies = [
     { name = "pint-xarray" },
     { name = "pyarrow" },
     { name = "pyproj" },
-    { name = "pyrealm" },
     { name = "rioxarray" },
-    { name = "rothc-py" },
-    { name = "sf-hamilton", extra = ["visualization"] },
-    { name = "sgam" },
     { name = "tomli-w" },
     { name = "typer" },
     { name = "xarray" },
     { name = "zarr" },
+]
+
+[package.optional-dependencies]
+all = [
+    { name = "apache-hamilton", extra = ["visualization"] },
+    { name = "pyrealm" },
+    { name = "rothc-py" },
+    { name = "sgam" },
+]
+models = [
+    { name = "pyrealm" },
+    { name = "rothc-py" },
+    { name = "sgam" },
+]
+viz = [
+    { name = "apache-hamilton", extra = ["visualization"] },
 ]
 
 [package.dev-dependencies]
@@ -1966,6 +1979,7 @@ dev = [
     { name = "pytest-cov" },
     { name = "ruff" },
     { name = "rust-just" },
+    { name = "satterc", extra = ["all", "models"] },
     { name = "zensical" },
 ]
 docs = [
@@ -1973,6 +1987,7 @@ docs = [
     { name = "marimo-md-export" },
     { name = "matplotlib" },
     { name = "mkdocstrings-python" },
+    { name = "satterc", extra = ["all"] },
     { name = "zensical" },
 ]
 examples = [
@@ -1982,10 +1997,13 @@ test = [
     { name = "coverage" },
     { name = "pytest" },
     { name = "pytest-cov" },
+    { name = "satterc", extra = ["models"] },
 ]
 
 [package.metadata]
 requires-dist = [
+    { name = "apache-hamilton", specifier = ">=1.90.0" },
+    { name = "apache-hamilton", extras = ["visualization"], marker = "extra == 'viz'", specifier = ">=1.90.0" },
     { name = "cf-xarray", specifier = ">=0.11.3" },
     { name = "dask", specifier = ">=2025.1.0" },
     { name = "netcdf4", specifier = ">=1.7.4" },
@@ -1994,16 +2012,17 @@ requires-dist = [
     { name = "pint-xarray", specifier = ">=0.6.1" },
     { name = "pyarrow", specifier = ">=10.0" },
     { name = "pyproj", specifier = ">=3.7.2" },
-    { name = "pyrealm", specifier = ">=2.0.0" },
+    { name = "pyrealm", marker = "extra == 'models'", specifier = ">=2.0.0" },
     { name = "rioxarray", specifier = ">=0.22.0" },
-    { name = "rothc-py", git = "https://github.com/SatTerC/rothc_py.git" },
-    { name = "sf-hamilton", extras = ["visualization"], specifier = ">=1.90.0" },
-    { name = "sgam", git = "https://github.com/SatTerC/sgam.git" },
+    { name = "rothc-py", marker = "extra == 'models'", git = "https://github.com/SatTerC/rothc_py.git" },
+    { name = "satterc", extras = ["viz", "models"], marker = "extra == 'all'" },
+    { name = "sgam", marker = "extra == 'models'", git = "https://github.com/SatTerC/sgam.git" },
     { name = "tomli-w", specifier = ">=1.2.0" },
     { name = "typer", specifier = ">=0.24.1" },
     { name = "xarray", specifier = ">=2026.2.0" },
     { name = "zarr", specifier = ">=3.2.1" },
 ]
+provides-extras = ["viz", "models", "all"]
 
 [package.metadata.requires-dev]
 dev = [
@@ -2018,6 +2037,8 @@ dev = [
     { name = "pytest-cov", specifier = ">=7.1.0" },
     { name = "ruff", specifier = ">=0.15.4" },
     { name = "rust-just", specifier = ">=1.46.0" },
+    { name = "satterc", extras = ["all"] },
+    { name = "satterc", extras = ["models"] },
     { name = "zensical", specifier = ">=0.0.24" },
 ]
 docs = [
@@ -2025,6 +2046,7 @@ docs = [
     { name = "marimo-md-export", specifier = ">=0.5.2" },
     { name = "matplotlib", specifier = ">=3.10.8" },
     { name = "mkdocstrings-python", specifier = ">=2.0.3" },
+    { name = "satterc", extras = ["all"] },
     { name = "zensical", specifier = ">=0.0.24" },
 ]
 examples = [{ name = "matplotlib", specifier = ">=3.10.8" }]
@@ -2032,6 +2054,7 @@ test = [
     { name = "coverage", specifier = ">=7.13.5" },
     { name = "pytest", specifier = ">=9.0.2" },
     { name = "pytest-cov", specifier = ">=7.1.0" },
+    { name = "satterc", extras = ["models"] },
 ]
 
 [[package]]
@@ -2083,23 +2106,6 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/52/52/e57eceff0e342a1f50e274264ed47497b59e6a4e3118808ee58ddda7b74a/scipy-1.17.1-cp314-cp314t-musllinux_1_2_x86_64.whl", hash = "sha256:a77cbd07b940d326d39a1d1b37817e2ee4d79cb30e7338f3d0cddffae70fcaa2", size = 37682317, upload-time = "2026-02-23T00:22:18.513Z" },
     { url = "https://files.pythonhosted.org/packages/11/2f/b29eafe4a3fbc3d6de9662b36e028d5f039e72d345e05c250e121a230dd4/scipy-1.17.1-cp314-cp314t-win_amd64.whl", hash = "sha256:eb092099205ef62cd1782b006658db09e2fed75bffcae7cc0d44052d8aa0f484", size = 37345327, upload-time = "2026-02-23T00:22:24.442Z" },
     { url = "https://files.pythonhosted.org/packages/07/39/338d9219c4e87f3e708f18857ecd24d22a0c3094752393319553096b98af/scipy-1.17.1-cp314-cp314t-win_arm64.whl", hash = "sha256:200e1050faffacc162be6a486a984a0497866ec54149a01270adc8a59b7c7d21", size = 25489165, upload-time = "2026-02-23T00:22:29.563Z" },
-]
-
-[[package]]
-name = "sf-hamilton"
-version = "1.90.0"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "apache-hamilton" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/05/86/ceff43cd102bb9da608c54bea2eeb36724c1d30ff6f7587c307f11876e32/sf_hamilton-1.90.0.tar.gz", hash = "sha256:d9015cd818a74a6c624e868903b69761bc0b01c44230932bf0a0ed8ff7aa952e", size = 2615, upload-time = "2026-04-25T19:44:31.314Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/72/a0/03432cbe549a850d10682e65c7c1ade516b20ae2d434c659046213c5d373/sf_hamilton-1.90.0-py3-none-any.whl", hash = "sha256:09b75e2c8b857bde57e097f3a0f6e4759ee7574876df77c62840051fb2c4bce9", size = 2134, upload-time = "2026-04-25T19:44:29.688Z" },
-]
-
-[package.optional-dependencies]
-visualization = [
-    { name = "apache-hamilton", extra = ["visualization"] },
 ]
 
 [[package]]
