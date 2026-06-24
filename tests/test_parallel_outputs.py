@@ -171,7 +171,7 @@ class TestZarrSubset:
 # ---------------------------------------------------------------------------
 
 
-def _config_text(synthetic_data_dir, out_path, subset=None):
+def _config_text(synthetic_data_dir, out_path, subset=None, block_size=2):
     blocks = f"""\
 [models.pmodel]
 method_kphio = "sandoval"
@@ -207,7 +207,7 @@ path = "{out_path}"
 vars = ["{VAR}"]
 
 [blocking]
-block_size = 2
+block_size = {block_size}
 """
     if subset is not None:
         blocks += f"\n[subset]\npixel_start = {subset[0]}\npixel_end = {subset[1]}\n"
@@ -262,6 +262,86 @@ class TestCLIParallelWorkflow:
         r = runner.invoke(app, ["merge", str(base)])
         assert r.exit_code == 0, r.output
         assert (tmp_path / "weekly_gridded.zarr").exists()
+
+
+# ---------------------------------------------------------------------------
+# True concurrency: independent processes region-writing simultaneously
+# ---------------------------------------------------------------------------
+
+
+class TestConcurrentZarrWrites:
+    """Mirror the real deployment: N OS processes writing disjoint regions at once.
+
+    The sequential tests validate correctness but not concurrency safety. Here we
+    launch genuinely independent ``satterc run`` processes (as ``parallel satterc
+    run`` would) against one shared store and assert no writes are lost.
+    """
+
+    def test_independent_processes_no_lost_writes(
+        self, tmp_path, synthetic_data_dir, pipeline_config, pipeline_driver
+    ):
+        import subprocess
+        import sys
+
+        from typer.testing import CliRunner
+
+        from satterc.cli import app
+
+        store = tmp_path / "weekly.zarr"
+
+        # One shard per pixel (chunk size 1) => 4 processes each writing a distinct,
+        # chunk-disjoint region of the 2x2 grid simultaneously.
+        shards = [(i, i + 1) for i in range(4)]
+
+        base = tmp_path / "base.toml"
+        base.write_text(_config_text(synthetic_data_dir, store, block_size=1))
+        shard_cfgs = []
+        for start, end in shards:
+            cfg = tmp_path / f"shard_{start}.toml"
+            cfg.write_text(
+                _config_text(
+                    synthetic_data_dir, store, subset=(start, end), block_size=1
+                )
+            )
+            shard_cfgs.append(cfg)
+
+        # Create the shared store once (pixel chunk = 1) before the parallel writes.
+        r = CliRunner().invoke(app, ["create-store", str(base), "--pixel-chunk", "1"])
+        assert r.exit_code == 0, r.output
+
+        # Launch all shards at once; collect output after they are all running.
+        procs = [
+            subprocess.Popen(
+                [
+                    sys.executable,
+                    "-c",
+                    "from satterc.cli import app; app()",
+                    "run",
+                    str(cfg),
+                ],
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                text=True,
+            )
+            for cfg in shard_cfgs
+        ]
+        outputs = [p.communicate()[0] for p in procs]
+        for cfg, proc, out in zip(shard_cfgs, procs, outputs, strict=True):
+            assert proc.returncode == 0, f"{cfg.name} failed:\n{out}"
+
+        filled = xr.open_zarr(store, consolidated=False).compute()
+        ref = (
+            _full_stacked(pipeline_driver, pipeline_config, _output_specs(store))[
+                "weekly"
+            ]
+            .transpose("time", "pixel")
+            .compute()
+        )
+        got = filled[VAR].transpose("time", "pixel").values
+        # No lost writes: every pixel the reference has data for is present.
+        gaps = np.isnan(got) & ~np.isnan(ref[VAR].values)
+        assert gaps.sum() == 0
+        np.testing.assert_allclose(got, ref[VAR].values, equal_nan=True)
 
 
 # ---------------------------------------------------------------------------
