@@ -7,6 +7,7 @@ from typing import Annotated
 import typer
 
 from ..config import CacheSpec, load_config
+from ..dag.blocking import execute_blocked
 from ..dag.driver import build_driver
 from ..io import get_final_vars, get_outputs, load_inputs, save_outputs
 
@@ -67,7 +68,16 @@ def run(
 
     if parsed.output_specs:
         target_vars = get_final_vars(parsed.output_specs)
-        results = dr.execute(target_vars, inputs=inputs)  # type: ignore[reportArgumentType]
+        if parsed.blocking_spec is not None:
+            results = execute_blocked(
+                dr,
+                inputs,
+                target_vars,
+                parsed.blocking_spec,
+                build_params=(parsed.modules, parsed.driver_config, cache_spec),
+            )
+        else:
+            results = dr.execute(target_vars, inputs=inputs)  # type: ignore[reportArgumentType]
         output_datasets = get_outputs(results, parsed.output_specs)
         save_outputs(output_datasets, parsed.output_specs)
 
