@@ -1,4 +1,4 @@
-"""Build-time (static) unit-consistency check for the Hamilton DAG.
+r"""Build-time (static) unit-consistency check for the Hamilton DAG.
 
 The runtime check (``declare_units`` → ``check_units``) only fires when a node
 executes. :func:`check_dag_units` adds the complementary guarantee at *build*
@@ -18,15 +18,27 @@ files, have no statically declared producer unit (resample preserves the source
 ``units`` attribute at runtime; derive modules are generated; file inputs are
 validated against the file's own ``units``). Those edges are not checked here and
 fall back to the runtime check.
+
+The complementary :func:`check_input_units` performs the *runtime* leg of that
+fallback for **external file inputs**: it validates the ``units`` attribute of the
+actually-loaded input ``DataArray``\\ s against the units declared by the nodes that
+consume them. This is the only data-dependent part of unit validation (every
+internal edge's unit is fixed by declarations/stamping), so it can run without
+executing any node — the basis of ``satterc run --dry-run``. Inputs routed through
+a unit-preserving ``resample`` node before reaching a declaring consumer are covered
+via backward propagation; inputs routed through a ``[[derive]]`` node are *not*,
+since derive can transform units arbitrarily and would have to actually run.
 """
 
 import warnings
 from typing import TYPE_CHECKING
 
+import xarray as xr
 from hamilton import graph_types
 
 from ..units import (
     Mode,
+    check_units,
     get_exact_match,
     get_mode,
     units_compatible,
@@ -35,7 +47,60 @@ from ..units import (
 )
 
 if TYPE_CHECKING:
+    from typing import Any
+
     from hamilton import driver
+
+
+def _collect_unit_maps(
+    dr: "driver.Driver",
+) -> tuple[
+    dict[str, tuple[str, str]], dict[str, list[tuple[str, str]]], dict[str, str]
+]:
+    """Read declared units off the built DAG's node signatures.
+
+    Returns three maps, the shared source for both the build-time
+    (:func:`check_dag_units`) and runtime (:func:`check_input_units`) checks:
+
+    - ``produced``: node name -> ``(declared_unit, producer_label)``;
+    - ``consumed``: node name -> ``[(declared_unit, consumer_label), ...]``;
+    - ``resample_edges``: resample target name -> its single source name (resampling
+      is unit-preserving, so target and source share a unit).
+    """
+    hg = graph_types.HamiltonGraph.from_graph(dr.graph)
+
+    # Distinct public node functions present in this pipeline (dedup by identity).
+    seen: set[int] = set()
+    funcs = []
+    for node in hg.nodes:
+        for fn in node.originating_functions or ():
+            if id(fn) not in seen:
+                seen.add(id(fn))
+                funcs.append(fn)
+
+    produced: dict[str, tuple[str, str]] = {}
+    consumed: dict[str, list[tuple[str, str]]] = {}
+
+    for fn in funcs:
+        fn_name = getattr(fn, "__name__", repr(fn))
+        in_units, out_units = units_from_signature(fn)
+        if isinstance(out_units, dict):
+            for name, unit in out_units.items():
+                produced[name] = (unit, fn_name)
+        elif isinstance(out_units, str):
+            # Single-output node: the node name equals the function name.
+            produced[fn_name] = (out_units, fn_name)
+        for name, unit in in_units.items():
+            consumed.setdefault(name, []).append((unit, fn_name))
+
+    resample_edges = {
+        node.name: next(iter(node.required_dependencies))
+        for node in hg.nodes
+        if node.tags.get("module") == "satterc.dag.resample"
+        and len(node.required_dependencies) == 1
+    }
+
+    return produced, consumed, resample_edges
 
 
 def check_dag_units(
@@ -66,43 +131,11 @@ def check_dag_units(
         return
     exact = get_exact_match() if exact is None else exact
 
-    hg = graph_types.HamiltonGraph.from_graph(dr.graph)
-
-    # Distinct public node functions present in this pipeline (dedup by identity).
-    seen: set[int] = set()
-    funcs = []
-    for node in hg.nodes:
-        for fn in node.originating_functions or ():
-            if id(fn) not in seen:
-                seen.add(id(fn))
-                funcs.append(fn)
-
-    # name -> (declared_unit, producer_label)
-    produced: dict[str, tuple[str, str]] = {}
-    # name -> [(declared_unit, consumer_label), ...]
-    consumed: dict[str, list[tuple[str, str]]] = {}
-
-    for fn in funcs:
-        fn_name = getattr(fn, "__name__", repr(fn))
-        in_units, out_units = units_from_signature(fn)
-        if isinstance(out_units, dict):
-            for name, unit in out_units.items():
-                produced[name] = (unit, fn_name)
-        elif isinstance(out_units, str):
-            # Single-output node: the node name equals the function name.
-            produced[fn_name] = (out_units, fn_name)
-        for name, unit in in_units.items():
-            consumed.setdefault(name, []).append((unit, fn_name))
+    produced, consumed, resample_edges = _collect_unit_maps(dr)
 
     # Resampling is unit-preserving (the node copies the source's `units` attr),
     # so a resample target's unit equals its source's. Propagate to a fixpoint so
     # resampled edges become checkable; chained resamples resolve over iterations.
-    resample_edges = {
-        node.name: next(iter(node.required_dependencies))
-        for node in hg.nodes
-        if node.tags.get("module") == "satterc.dag.resample"
-        and len(node.required_dependencies) == 1
-    }
     changed = True
     while changed:
         changed = False
@@ -140,3 +173,60 @@ def check_dag_units(
     if mode == "strict":
         raise ValueError(message)
     warnings.warn(message, stacklevel=2)
+
+
+def check_input_units(
+    dr: "driver.Driver",
+    inputs: "dict[str, Any]",
+    *,
+    mode: Mode | None = None,
+    exact: bool | None = None,
+) -> None:
+    """Validate loaded input data's ``units`` against the units declared for them.
+
+    This is the *runtime* leg of unit validation that cannot be done statically: it
+    reads the ``units`` attribute of each actually-loaded input ``DataArray`` and
+    checks it against the unit declared by the node(s) that consume it, via the same
+    :func:`satterc.units.check_units` the executing DAG uses — so it raises/warns
+    identically (``strict`` raises, ``warn`` warns, ``off`` is skipped; dimensional
+    incompatibility always raises; ``exact`` forbids value-changing conversions). No
+    node is executed, which makes this suitable as a ``run --dry-run`` pre-flight.
+
+    An input that feeds a unit-preserving ``resample`` node before reaching a
+    declaring consumer is validated against that consumer's unit (the declared unit
+    is propagated *backward* through resample edges to a fixpoint). An input routed
+    through a ``[[derive]]`` node first is *not* validated here — derive can transform
+    units arbitrarily, so its consumer's declared unit says nothing about the raw
+    input and only a real run could check it.
+    """
+    mode = mode or get_mode()
+    if mode == "off":
+        return
+    exact = get_exact_match() if exact is None else exact
+
+    _, consumed, resample_edges = _collect_unit_maps(dr)
+
+    # Units a name is expected to carry, gathered from its declaring consumers.
+    expected: dict[str, set[str]] = {}
+    for name, consumers in consumed.items():
+        expected.setdefault(name, set()).update(unit for unit, _ in consumers)
+
+    # Resampling preserves units, so a resample target's expectation also applies to
+    # its source input. Propagate backward (target -> source) to a fixpoint so that a
+    # raw input feeding a model only via resample is still validated.
+    changed = True
+    while changed:
+        changed = False
+        for target, source in resample_edges.items():
+            if target in expected:
+                before = len(expected.get(source, set()))
+                expected.setdefault(source, set()).update(expected[target])
+                if len(expected[source]) != before:
+                    changed = True
+
+    for name, value in inputs.items():
+        declared_units = expected.get(name)
+        if not declared_units or not isinstance(value, xr.DataArray):
+            continue
+        for declared in sorted(declared_units):
+            check_units(value, declared, name, mode, exact)

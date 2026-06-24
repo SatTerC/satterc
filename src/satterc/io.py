@@ -1,5 +1,6 @@
 """I/O functions for loading inputs and saving outputs outside the Hamilton DAG."""
 
+import os
 from os import PathLike
 from pathlib import Path
 from typing import Any, cast
@@ -629,6 +630,66 @@ def merge_subset_outputs(
             )
 
     return written
+
+
+#: Output file extensions :func:`save_outputs` knows how to write.
+_SUPPORTED_OUTPUT_SUFFIXES: frozenset[str] = frozenset(
+    {".nc", ".netcdf", ".zarr", ".csv", ".parquet", ".pq"}
+)
+
+
+def assert_output_paths_writable(
+    output_specs: dict[str, IOSpec],
+    subset_spec: SubsetSpec | None = None,
+) -> None:
+    """Check every configured output destination would accept a write.
+
+    Raises (before any computation) if a destination would fail at save time: an
+    unsupported file extension, a missing or unwritable parent directory, a subset
+    run targeting a Zarr store that has not been pre-created, or a subset run
+    targeting an unsupported (CSV/Parquet) output. This mirrors the dispatch and
+    guards in :func:`save_outputs`, :func:`_save` and :func:`_save_zarr_region`, so a
+    clean pass here means ``save_outputs`` will not reject the path. Used by
+    ``satterc run --dry-run``.
+    """
+    for freq, spec in output_specs.items():
+        path = Path(spec.path)
+        suffix = path.suffix.lower()
+        if suffix not in _SUPPORTED_OUTPUT_SUFFIXES:
+            raise ValueError(
+                f"output {freq!r} has unsupported file extension "
+                f"{suffix or '(none)'!r} (path {spec.path!r}). Use one of "
+                f"{sorted(_SUPPORTED_OUTPUT_SUFFIXES)}."
+            )
+
+        if subset_spec is not None:
+            if suffix in (".nc", ".netcdf"):
+                path = _subset_path(spec.path, subset_spec)
+            elif suffix == ".zarr":
+                if not Path(spec.path).exists():
+                    raise FileNotFoundError(
+                        f"Zarr store {spec.path!r} for output {freq!r} does not exist. "
+                        f"Create it once before subset runs with "
+                        f"`satterc create-store <config>`."
+                    )
+                continue  # store exists; the region write targets it directly
+            else:
+                raise ValueError(
+                    f"[subset] is only supported for NetCDF (.nc) and Zarr (.zarr) "
+                    f"outputs, but output {freq!r} has path {spec.path!r}."
+                )
+
+        parent = path.parent
+        if not parent.is_dir():
+            raise FileNotFoundError(
+                f"output {freq!r} parent directory {str(parent)!r} does not exist "
+                f"(path {spec.path!r})."
+            )
+        if not os.access(parent, os.W_OK):
+            raise PermissionError(
+                f"output {freq!r} parent directory {str(parent)!r} is not writable "
+                f"(path {spec.path!r})."
+            )
 
 
 def get_final_vars(output_specs: dict[str, IOSpec]) -> list[str]:

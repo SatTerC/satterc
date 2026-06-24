@@ -111,6 +111,30 @@ class TestCheckUnits:
         assert "units" not in out.attrs
         np.testing.assert_array_equal(out.values, da.values)
 
+    def test_unparseable_units_strict_raises(self):
+        # A present-but-unparseable units string (a non-CF/UDUNITS spelling) cannot
+        # be validated; strict mode reports it clearly rather than letting an opaque
+        # pint parse error escape.
+        da = _da([[1.0, 2.0]], unit="fraction")
+        with pytest.raises(ValueError, match="unparseable 'units' attribute"):
+            units.check_units(da, "1", "clay", "strict")
+
+    def test_unparseable_units_warn_warns_and_passes_through(self):
+        da = _da([[1.0, 2.0]], unit="fraction")
+        with pytest.warns(UserWarning, match="unparseable"):
+            out = units.check_units(da, "1", "clay", "warn")
+        # Left untouched (its original, un-validatable unit is preserved).
+        assert out.attrs["units"] == "fraction"
+        np.testing.assert_array_equal(out.values, da.values)
+
+    def test_unparseable_units_off_passes_through_silently(self):
+        da = _da([[1.0, 2.0]], unit="fraction")
+        with warnings.catch_warnings():
+            warnings.simplefilter("error")
+            out = units.check_units(da, "1", "clay", "off")
+        assert out.attrs["units"] == "fraction"
+        np.testing.assert_array_equal(out.values, da.values)
+
     def test_exact_forbids_converting_input(self):
         # hPa where Pa is declared: would scale values, so exact mode must raise.
         da = _da([[10.0, 20.0]], unit="hPa")

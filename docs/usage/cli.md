@@ -117,6 +117,38 @@ satterc run config.toml
 
 This reads the config, builds the DAG, executes all required nodes in dependency order, and writes output files as specified in the `[outputs.*]` sections.
 
+### Validating without running (`--dry-run`)
+
+Before committing to a long run, you can pre-flight a config with `--dry-run`:
+
+```sh
+satterc run config.toml --dry-run
+```
+
+This performs every check a real run depends on, but executes no model and writes no output. It validates, in order:
+
+1. **Config** — the TOML parses into a valid pipeline.
+2. **Inputs** — every input file exists and opens, and its time axis has the expected frequency. (Files are opened lazily, so this reads metadata only, not the full arrays.)
+3. **DAG** — the driver builds, and the build-time unit check passes.
+4. **Execution plan** — every variable in your `[outputs.*]` sections is reachable from the given inputs.
+5. **Input units** — the `units` attribute of each loaded input is checked against the unit its consuming node declares. This is the part that needs the real data, and the only unit check a normal run defers to run time — so a dry run surfaces a file delivered in the wrong units (or missing a `units` attribute) without running the pipeline. See [Units](config.md#units).
+6. **Output paths** — every output destination would accept a write (supported extension, writable parent directory, and — for subset runs — a pre-created Zarr store).
+
+A clean pre-flight prints a per-stage summary and exits `0`:
+
+```
+Dry run for config.toml
+  ✓ config parsed
+  ✓ inputs loaded: 25 variable(s) from 4 source(s)
+  ✓ DAG built (static unit check passed)
+  ✓ execution plan valid: 3 output node(s) reachable
+  ✓ input units validated (mode=warn)
+  ✓ output paths writable: 3 destination(s)
+Dry run passed.
+```
+
+The unit-checking stage honours the active `mode`: in `warn` mode a unit problem is reported as a warning and the dry run still passes, while in `strict` mode it fails with a non-zero exit. A genuine problem with the config, inputs, DAG plan, or output paths always fails the dry run regardless of `mode`.
+
 ### Caching
 
 To reuse unchanged intermediate results between runs, enable caching — either via a

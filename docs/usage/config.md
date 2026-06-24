@@ -404,7 +404,9 @@ exact = false     # require identical unit strings on each edge (default: false)
 Validation happens at two points:
 
 - **Build time** — when the driver is built, every internal edge where both ends declare a unit is checked for consistency (subject to `mode` and `exact`), so a mismatch is caught before the pipeline runs. Units are propagated through resampling (which preserves units) so resampled edges are covered; a derived variable is covered when its `[[derive]]` entry declares `units` (see below). Edges fed by input files are checked at run time instead.
-- **Run time** — as each node executes, every `DataArray` input is validated against its declared unit. With `exact = false` a compatible input is converted to the declared unit; with `exact = true` it must already be that unit. Dimensionally incompatible inputs always raise. A missing `units` attribute on an input follows `mode` (raise / warn / ignore).
+- **Run time** — as each node executes, every `DataArray` input is validated against its declared unit. With `exact = false` a compatible input is converted to the declared unit; with `exact = true` it must already be that unit. Dimensionally incompatible inputs always raise. A `units` attribute that is missing — or present but unparseable (e.g. a non-CF string like `"fraction"`) — cannot be validated, so it follows `mode` (raise / warn / ignore).
+
+You can run these run-time input checks against your real data *without* executing the pipeline using [`satterc run --dry-run`](cli.md#validating-without-running-dry-run) — a fast pre-flight that catches a misconfigured input before a long run.
 
 Both settings can also be overridden per-process via the `SATTERC_UNITS_MODE` and `SATTERC_UNITS_EXACT` environment variables. Omit `[units]` to keep the defaults (`warn`, no exact match).
 
