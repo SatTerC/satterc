@@ -69,8 +69,8 @@ SPLASH requires the following daily `DataArray` inputs:
 | Variable | Units | Description |
 |----------|-------|-------------|
 | `sunshine_fraction_daily` | dimensionless (0–1) | Fraction of daylight hours that are sunny |
-| `temperature_celcius_daily` | °C | Air temperature |
-| `precipitation_mm_daily` | mm | Precipitation |
+| `temperature_daily` | °C | Air temperature |
+| `precipitation_daily` | mm | Precipitation |
 
 And the following static `DataArray` inputs:
 

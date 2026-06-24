@@ -162,9 +162,7 @@ class TestZarrSubset:
     ):
         """create-store + region writes cover several frequencies, incl. static."""
         specs = {
-            "daily": IOSpec(
-                path=str(tmp_path / "daily.zarr"), vars=["temperature_celcius"]
-            ),
+            "daily": IOSpec(path=str(tmp_path / "daily.zarr"), vars=["temperature"]),
             "static": IOSpec(path=str(tmp_path / "static.zarr"), vars=["clay_content"]),
         }
 
@@ -182,13 +180,10 @@ class TestZarrSubset:
 
         # Daily output carries a time axis.
         daily = xr.open_zarr(tmp_path / "daily.zarr", consolidated=False).compute()
-        assert set(daily["temperature_celcius"].dims) == {"time", "pixel"}
+        assert set(daily["temperature"].dims) == {"time", "pixel"}
         np.testing.assert_allclose(
-            daily["temperature_celcius"].transpose("time", "pixel").values,
-            ref["daily"]["temperature_celcius"]
-            .transpose("time", "pixel")
-            .compute()
-            .values,
+            daily["temperature"].transpose("time", "pixel").values,
+            ref["daily"]["temperature"].transpose("time", "pixel").compute().values,
             equal_nan=True,
         )
 
@@ -252,11 +247,11 @@ n_years_spinup = 1
 
 [inputs.daily]
 path = "{synthetic_data_dir / "daily.nc"}"
-vars = ["precipitation_mm", "sunshine_fraction", "temperature_celcius", "lai", "gpp"]
+vars = ["precipitation", "sunshine_fraction", "temperature", "lai", "gpp"]
 
 [inputs.weekly]
 path = "{synthetic_data_dir / "weekly.nc"}"
-vars = ["co2_ppm", "fapar", "ppfd_umol_m2_s1", "pressure_pa", "vpd_pa"]
+vars = ["co2", "fapar", "ppfd", "pressure", "vpd"]
 
 [inputs.monthly]
 path = "{synthetic_data_dir / "monthly.nc"}"

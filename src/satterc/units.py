@@ -175,7 +175,7 @@ def assert_valid_unit(unit: str, context: str) -> None:
     string (a typo such as ``"degrees_C"``, or ``"not_a_unit"``) is rejected as
     soon as a node is defined, rather than only when that node runs in
     ``strict``/``warn`` mode — and never in ``off`` mode. ``context`` names the
-    offending site (e.g. ``"pmodel input 'vpd_pa_weekly'"``) for the message.
+    offending site (e.g. ``"pmodel input 'vpd_weekly'"``) for the message.
 
     The registry raises a variety of exception types for bad input
     (``pint.UndefinedUnitError``, ``AssertionError``, …); all are caught and

@@ -116,8 +116,8 @@ def _rothc_1px(
 
 
 def _rothc(
-    temperature_celcius_monthly: DataArray,
-    precipitation_mm_monthly: DataArray,
+    temperature_monthly: DataArray,
+    precipitation_monthly: DataArray,
     evaporation_monthly: DataArray,
     plant_cover_monthly: DataArray,
     dpm_rpm_ratio_monthly: DataArray,
@@ -148,7 +148,7 @@ def _rothc(
     inputs but keeps the node compatible with a future dask-backed (chunked-``pixel``)
     execution strategy.
     """
-    n_months = temperature_celcius_monthly.sizes["time"]
+    n_months = temperature_monthly.sizes["time"]
 
     # NOTE: need to pass a datetime.datetime object (not a numpy.datetime64)
     # DatetimeIndex.to_pydatetime() exists at runtime but is missing from
@@ -160,8 +160,8 @@ def _rothc(
 
     outputs = xr.apply_ufunc(
         _rothc_1px,
-        temperature_celcius_monthly,
-        precipitation_mm_monthly,
+        temperature_monthly,
+        precipitation_monthly,
         evaporation_monthly,
         plant_cover_monthly,
         dpm_rpm_ratio_monthly,
@@ -190,7 +190,7 @@ def _rothc(
 
     # apply_ufunc drops the `time` coordinate (a core dim) and orders outputs as
     # (pixel, time); reattach the coordinate and restore the canonical (time, pixel).
-    time_coord = temperature_celcius_monthly.coords["time"]
+    time_coord = temperature_monthly.coords["time"]
     return cast(
         RothCOut,
         {
@@ -203,8 +203,8 @@ def _rothc(
 @extract_fields()
 @declare_units
 def rothc(
-    temperature_celcius_monthly: Annotated[DataArray, "degC"],
-    precipitation_mm_monthly: Annotated[DataArray, "mm"],
+    temperature_monthly: Annotated[DataArray, "degC"],
+    precipitation_monthly: Annotated[DataArray, "mm"],
     evaporation_monthly: Annotated[DataArray, "mm"],
     plant_cover_monthly: DataArray,
     dpm_rpm_ratio_monthly: DataArray,
@@ -231,9 +231,9 @@ def rothc(
 
     Parameters
     ----------
-    temperature_celcius_monthly
+    temperature_monthly
         Monthly mean temperature in degrees Celsius.
-    precipitation_mm_monthly
+    precipitation_monthly
         Monthly precipitation in mm.
     evaporation_monthly
         Monthly evaporation in mm.
@@ -285,8 +285,8 @@ def rothc(
     All outputs are at monthly resolution.
     """
     return _rothc(
-        temperature_celcius_monthly=temperature_celcius_monthly,
-        precipitation_mm_monthly=precipitation_mm_monthly,
+        temperature_monthly=temperature_monthly,
+        precipitation_monthly=precipitation_monthly,
         evaporation_monthly=evaporation_monthly,
         plant_cover_monthly=plant_cover_monthly,
         dpm_rpm_ratio_monthly=dpm_rpm_ratio_monthly,

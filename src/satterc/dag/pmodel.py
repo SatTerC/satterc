@@ -27,12 +27,12 @@ class PModelOut(TypedDict):
 
 
 def _pmodel_block(
-    temperature_celcius_weekly: NDArray,
-    vpd_pa_weekly: NDArray,
-    co2_ppm_weekly: NDArray,
-    pressure_pa_weekly: NDArray,
+    temperature_weekly: NDArray,
+    vpd_weekly: NDArray,
+    co2_weekly: NDArray,
+    pressure_weekly: NDArray,
     fapar_weekly: NDArray,
-    ppfd_umol_m2_s1_weekly: NDArray,
+    ppfd_weekly: NDArray,
     mean_growth_temperature_weekly: NDArray,
     aridity_index_weekly: NDArray,
     soil_moisture_weekly: NDArray,
@@ -52,12 +52,12 @@ def _pmodel_block(
     """
     # Environmental drivers computed upon instantiation of PModelEnvironment
     env = pyrealm.pmodel.PModelEnvironment(
-        tc=temperature_celcius_weekly,
-        vpd=vpd_pa_weekly,
-        co2=co2_ppm_weekly,
-        patm=pressure_pa_weekly,
+        tc=temperature_weekly,
+        vpd=vpd_weekly,
+        co2=co2_weekly,
+        patm=pressure_weekly,
         fapar=fapar_weekly,
-        ppfd=ppfd_umol_m2_s1_weekly,
+        ppfd=ppfd_weekly,
         theta=soil_moisture_weekly / 300,  # TODO: figure out how to remove this factor!
         mean_growth_temperature=mean_growth_temperature_weekly,
         aridity_index=aridity_index_weekly,
@@ -80,12 +80,12 @@ def _pmodel_block(
 
 
 def _pmodel(
-    temperature_celcius_weekly: DataArray,
-    vpd_pa_weekly: DataArray,
-    co2_ppm_weekly: DataArray,
-    pressure_pa_weekly: DataArray,
+    temperature_weekly: DataArray,
+    vpd_weekly: DataArray,
+    co2_weekly: DataArray,
+    pressure_weekly: DataArray,
     fapar_weekly: DataArray,
-    ppfd_umol_m2_s1_weekly: DataArray,
+    ppfd_weekly: DataArray,
     mean_growth_temperature_weekly: DataArray,
     aridity_index_weekly: DataArray,
     soil_moisture_weekly: DataArray,
@@ -104,12 +104,12 @@ def _pmodel(
     """
     gpp, lue, iwue = xr.apply_ufunc(
         _pmodel_block,
-        temperature_celcius_weekly,
-        vpd_pa_weekly,
-        co2_ppm_weekly,
-        pressure_pa_weekly,
+        temperature_weekly,
+        vpd_weekly,
+        co2_weekly,
+        pressure_weekly,
         fapar_weekly,
-        ppfd_umol_m2_s1_weekly,
+        ppfd_weekly,
         mean_growth_temperature_weekly,
         aridity_index_weekly,
         soil_moisture_weekly,
@@ -132,12 +132,12 @@ def _pmodel(
 @extract_fields()
 @declare_units
 def pmodel(
-    temperature_celcius_weekly: Annotated[DataArray, "degC"],
-    vpd_pa_weekly: Annotated[DataArray, "Pa"],
-    co2_ppm_weekly: Annotated[DataArray, "ppm"],
-    pressure_pa_weekly: Annotated[DataArray, "Pa"],
+    temperature_weekly: Annotated[DataArray, "degC"],
+    vpd_weekly: Annotated[DataArray, "Pa"],
+    co2_weekly: Annotated[DataArray, "ppm"],
+    pressure_weekly: Annotated[DataArray, "Pa"],
     fapar_weekly: Annotated[DataArray, "1"],
-    ppfd_umol_m2_s1_weekly: Annotated[DataArray, "umol m-2 s-1"],
+    ppfd_weekly: Annotated[DataArray, "umol m-2 s-1"],
     mean_growth_temperature_weekly: Annotated[DataArray, "degC"],
     aridity_index_weekly: Annotated[DataArray, "1"],
     soil_moisture_weekly: Annotated[DataArray, "mm"],
@@ -151,17 +151,17 @@ def pmodel(
 
     Parameters
     ----------
-    temperature_celcius_weekly
+    temperature_weekly
         Air temperature (degrees Celsius).
-    vpd_pa_weekly
+    vpd_weekly
         Vapor pressure deficit (Pascals).
-    co2_ppm_weekly
+    co2_weekly
         Atmospheric CO2 concentration (parts per million).
-    pressure_pa_weekly
+    pressure_weekly
         Atmospheric pressure (Pascals).
     fapar_weekly
         Fraction of absorbed photosynthetically active radiation (dimensionless, 0-1).
-    ppfd_umol_m2_s1_weekly
+    ppfd_weekly
         Photosynthetic photon flux density (micromoles per square meter per second).
     soil_moisture_weekly
         Soil moisture content (mm).
@@ -187,12 +187,12 @@ def pmodel(
         - iwue_weekly: Intrinsic water use efficiency (Pa)
     """
     return _pmodel(
-        temperature_celcius_weekly=temperature_celcius_weekly,
-        vpd_pa_weekly=vpd_pa_weekly,
-        co2_ppm_weekly=co2_ppm_weekly,
-        pressure_pa_weekly=pressure_pa_weekly,
+        temperature_weekly=temperature_weekly,
+        vpd_weekly=vpd_weekly,
+        co2_weekly=co2_weekly,
+        pressure_weekly=pressure_weekly,
         fapar_weekly=fapar_weekly,
-        ppfd_umol_m2_s1_weekly=ppfd_umol_m2_s1_weekly,
+        ppfd_weekly=ppfd_weekly,
         mean_growth_temperature_weekly=mean_growth_temperature_weekly,
         aridity_index_weekly=aridity_index_weekly,
         soil_moisture_weekly=soil_moisture_weekly,
@@ -204,16 +204,16 @@ def pmodel(
 
 
 def mean_growth_temperature_weekly(
-    temperature_celcius_daily: xr.DataArray,
+    temperature_daily: xr.DataArray,
 ) -> xr.DataArray:
     """Calculate the mean temperature on growing degree days where temp > 0°C."""
     # NOTE: this may well be incorrect!! - see https://en.wikipedia.org/wiki/Growing_degree-day
     # Perhaps this depends on growing_season_limit?
 
     # True on growing degree days (temp > 0.)
-    gdd_mask = temperature_celcius_daily > 0.0
+    gdd_mask = temperature_daily > 0.0
 
     # Compute weekly mean, masking non-growing degree days
     # TODO: if the whole week is < 0, this will include NaN.
     # Need to check pmodel can deal with this!
-    return temperature_celcius_daily.where(gdd_mask).resample(time="7D").mean()
+    return temperature_daily.where(gdd_mask).resample(time="7D").mean()

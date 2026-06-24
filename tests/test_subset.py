@@ -150,11 +150,11 @@ n_years_spinup = 1
 
 [inputs.daily]
 path = "{synthetic_data_dir / "daily.nc"}"
-vars = ["precipitation_mm", "sunshine_fraction", "temperature_celcius", "lai", "gpp"]
+vars = ["precipitation", "sunshine_fraction", "temperature", "lai", "gpp"]
 
 [inputs.weekly]
 path = "{synthetic_data_dir / "weekly.nc"}"
-vars = ["co2_ppm", "fapar", "ppfd_umol_m2_s1", "pressure_pa", "vpd_pa"]
+vars = ["co2", "fapar", "ppfd", "pressure", "vpd"]
 
 [inputs.monthly]
 path = "{synthetic_data_dir / "monthly.nc"}"

@@ -68,8 +68,8 @@ RothC requires the following monthly `DataArray` inputs:
 
 | Variable | Units | Description |
 |----------|-------|-------------|
-| `temperature_celcius_monthly` | °C | Monthly mean air temperature |
-| `precipitation_mm_monthly` | mm | Monthly precipitation |
+| `temperature_monthly` | °C | Monthly mean air temperature |
+| `precipitation_monthly` | mm | Monthly precipitation |
 | `evaporation_monthly` | mm | Monthly open pan evaporation |
 | `plant_cover_monthly` | dimensionless (0–1) | Monthly plant cover (boolean: covered or bare) |
 | `dpm_rpm_ratio_monthly` | dimensionless | Ratio of decomposable to resistant plant material |

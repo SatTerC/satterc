@@ -86,9 +86,9 @@ def _(Config, tomllib):
     [inputs.daily]
     path = "daily.csv"
     vars = [
-      "precipitation_mm",
+      "precipitation",
       "sunshine_fraction",
-      "temperature_celcius",
+      "temperature",
     ]
 
     [inputs.static]

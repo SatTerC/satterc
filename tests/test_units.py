@@ -394,10 +394,10 @@ class TestDeclareUnits:
             gpp_weekly: Annotated[xr.DataArray, "g m-2 d-1"]
 
         @declare_units
-        def f(temperature_celcius_weekly: Annotated[xr.DataArray, "degC"]) -> Out:
-            return {"gpp_weekly": temperature_celcius_weekly * 2}
+        def f(temperature_weekly: Annotated[xr.DataArray, "degC"]) -> Out:
+            return {"gpp_weekly": temperature_weekly * 2}
 
-        out = f(temperature_celcius_weekly=_da([[1.0, 2.0]], unit="degC"))
+        out = f(temperature_weekly=_da([[1.0, 2.0]], unit="degC"))
         assert out["gpp_weekly"].attrs["units"] == "g m-2 d-1"
 
     def test_edge_propagation_two_node_chain(self):
@@ -411,18 +411,16 @@ class TestDeclareUnits:
 
         @declare_units
         def producer(
-            temperature_celcius_weekly: Annotated[xr.DataArray, "degC"],
+            temperature_weekly: Annotated[xr.DataArray, "degC"],
         ) -> ProducerOut:
-            return {"gpp_weekly": temperature_celcius_weekly}
+            return {"gpp_weekly": temperature_weekly}
 
         @declare_units
         def consumer(gpp_weekly: Annotated[xr.DataArray, "g m-2 d-1"]) -> ConsumerOut:
             return {"npp": gpp_weekly}
 
         with units.mode("strict"):
-            produced = producer(
-                temperature_celcius_weekly=_da([[1.0, 2.0]], unit="degC")
-            )
+            produced = producer(temperature_weekly=_da([[1.0, 2.0]], unit="degC"))
             # No exception: the stamped 'g m-2 d-1' output validates as consumer input.
             consumed = consumer(gpp_weekly=produced["gpp_weekly"])
         np.testing.assert_allclose(consumed["npp"].values, [[1.0, 2.0]])
@@ -447,11 +445,11 @@ class TestDeclareUnits:
             gpp_weekly: Annotated[xr.DataArray, "g m-2 d-1"]
 
         @declare_units
-        def f(temperature_celcius_weekly: Annotated[xr.DataArray, "degC"]) -> Out:
-            return {"gpp_weekly": temperature_celcius_weekly}
+        def f(temperature_weekly: Annotated[xr.DataArray, "degC"]) -> Out:
+            return {"gpp_weekly": temperature_weekly}
 
         with units.mode("off"):
-            out = f(temperature_celcius_weekly=_da([[1.0, 2.0]], unit="degC"))
+            out = f(temperature_weekly=_da([[1.0, 2.0]], unit="degC"))
         # Stamping applies regardless of mode (it is labelling, not validation):
         # the inherited 'degC' must not leak onto the output.
         assert out["gpp_weekly"].attrs["units"] == "g m-2 d-1"
@@ -530,12 +528,12 @@ class TestModelNodeEndToEnd:
     def _pmodel_inputs(**overrides):
         # (value, unit) per declared input; overrides replace specific entries.
         spec = {
-            "temperature_celcius_weekly": (15.0, "degC"),
-            "vpd_pa_weekly": (1000.0, "Pa"),
-            "co2_ppm_weekly": (400.0, "ppm"),
-            "pressure_pa_weekly": (101325.0, "Pa"),
+            "temperature_weekly": (15.0, "degC"),
+            "vpd_weekly": (1000.0, "Pa"),
+            "co2_weekly": (400.0, "ppm"),
+            "pressure_weekly": (101325.0, "Pa"),
             "fapar_weekly": (0.5, "1"),
-            "ppfd_umol_m2_s1_weekly": (500.0, "umol m-2 s-1"),
+            "ppfd_weekly": (500.0, "umol m-2 s-1"),
             "mean_growth_temperature_weekly": (15.0, "degC"),
             "aridity_index_weekly": (0.5, "1"),
             "soil_moisture_weekly": (100.0, "mm"),
@@ -549,7 +547,7 @@ class TestModelNodeEndToEnd:
         from satterc.dag.pmodel import pmodel
 
         # Pressure supplied in hPa where Pa is declared: must convert, not fail.
-        inputs = self._pmodel_inputs(pressure_pa_weekly=(1013.25, "hPa"))
+        inputs = self._pmodel_inputs(pressure_weekly=(1013.25, "hPa"))
         with units.mode("strict"):
             out = pmodel(**inputs)
         assert out["gpp_weekly"].attrs["units"] == "g m-2 d-1"
@@ -560,7 +558,7 @@ class TestModelNodeEndToEnd:
         from satterc.dag.pmodel import pmodel
 
         # VPD supplied in kg where Pa is declared: dimensionally incompatible.
-        inputs = self._pmodel_inputs(vpd_pa_weekly=(1000.0, "kg"))
+        inputs = self._pmodel_inputs(vpd_weekly=(1000.0, "kg"))
         with units.mode("strict"), pytest.raises(pint.DimensionalityError):
             pmodel(**inputs)
 
@@ -568,6 +566,6 @@ class TestModelNodeEndToEnd:
         from satterc.dag.pmodel import pmodel
 
         inputs = self._pmodel_inputs()
-        inputs["co2_ppm_weekly"].attrs.pop("units")
+        inputs["co2_weekly"].attrs.pop("units")
         with units.mode("strict"), pytest.raises(ValueError, match="no 'units'"):
             pmodel(**inputs)

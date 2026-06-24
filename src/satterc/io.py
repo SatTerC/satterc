@@ -369,7 +369,7 @@ def load_inputs(
     """Load all configured inputs and return them as a flat dict of named DataArrays.
 
     Keys follow Hamilton naming conventions:
-    - Temporal variables: ``{var}_{freq}`` (e.g. ``temperature_celcius_daily``)
+    - Temporal variables: ``{var}_{freq}`` (e.g. ``temperature_daily``)
     - Static variables: ``{var}`` (no suffix)
     - Time indices: ``dates_{freq}``
     - Grid: ``latitude``, ``longitude`` (only when CRS-bearing inputs are present)

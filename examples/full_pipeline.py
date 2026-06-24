@@ -89,9 +89,9 @@ def _(Config, tomllib):
     [inputs.daily]
     path = "daily.nc"
     vars = [
-      "precipitation_mm",
+      "precipitation",
       "sunshine_fraction",
-      "temperature_celcius",
+      "temperature",
       "lai",
       "gpp",
     ]
@@ -99,11 +99,11 @@ def _(Config, tomllib):
     [inputs.weekly]
     path = "weekly.nc"
     vars = [
-      "co2_ppm",
+      "co2",
       "fapar",
-      "ppfd_umol_m2_s1",
-      "pressure_pa",
-      "vpd_pa",
+      "ppfd",
+      "pressure",
+      "vpd",
     ]
 
     [inputs.monthly]
@@ -128,8 +128,8 @@ def _(Config, tomllib):
 
     [[derive]]
     output = "aridity_index_daily"
-    inputs = ["precipitation_mm_daily", "actual_evapotranspiration_daily"]
-    expression = "precipitation_mm_daily / actual_evapotranspiration_daily"
+    inputs = ["precipitation_daily", "actual_evapotranspiration_daily"]
+    expression = "precipitation_daily / actual_evapotranspiration_daily"
 
     [[derive]]
     output = "leaf_area_index_weekly"
@@ -153,8 +153,8 @@ def _(Config, tomllib):
 
     [[resample]]
     vars = [
-      "temperature_celcius",
-      "precipitation_mm",
+      "temperature",
+      "precipitation",
       "soil_moisture",
       "aridity_index",
     ]
@@ -163,8 +163,8 @@ def _(Config, tomllib):
 
     [[resample]]
     vars = [
-      "temperature_celcius",
-      "precipitation_mm",
+      "temperature",
+      "precipitation",
       "actual_evapotranspiration",
     ]
     from_freq = "daily"

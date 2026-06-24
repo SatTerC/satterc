@@ -177,7 +177,7 @@ def _disturbances_block(
 
 
 def _disturbances_daily(
-    temperature_celcius_daily: xr.DataArray,
+    temperature_daily: xr.DataArray,
     gpp_daily: xr.DataArray,
     lai_daily: xr.DataArray,
 ) -> xr.DataArray:
@@ -191,7 +191,7 @@ def _disturbances_daily(
     """
     out = xr.apply_ufunc(
         _disturbances_block,
-        temperature_celcius_daily,
+        temperature_daily,
         gpp_daily,
         lai_daily,
         input_core_dims=[["time"]] * 3,
@@ -202,13 +202,13 @@ def _disturbances_daily(
 
     # apply_ufunc drops the `time` coord (a core dim) and orders the output as
     # (pixel, time); reattach the coord and restore the canonical (time, pixel).
-    time_coord = temperature_celcius_daily.coords["time"]
+    time_coord = temperature_daily.coords["time"]
     return out.assign_coords(time=time_coord).transpose("time", "pixel")
 
 
 @declare_units
 def disturbances_daily(
-    temperature_celcius_daily: Annotated[xr.DataArray, "degC"],
+    temperature_daily: Annotated[xr.DataArray, "degC"],
     gpp_daily: Annotated[xr.DataArray, "g m-2 d-1"],
     lai_daily: Annotated[xr.DataArray, "1"],
     plant_type: xr.DataArray,
@@ -218,7 +218,7 @@ def disturbances_daily(
 
     Parameters
     ----------
-    temperature_celcius_daily : xr.DataArray
+    temperature_daily : xr.DataArray
         Daily air temperature (degrees Celsius).
     gpp_daily : xr.DataArray
         Daily gross primary productivity (gC/m²).
@@ -236,7 +236,7 @@ def disturbances_daily(
     """
     # plant_type/latitude are declared dependencies for forthcoming pft-/hemisphere-
     # aware thresholds (see the TODOs in _disturbances_block) but are not used yet.
-    return _disturbances_daily(temperature_celcius_daily, gpp_daily, lai_daily)
+    return _disturbances_daily(temperature_daily, gpp_daily, lai_daily)
 
 
 def _sgam_1px(
@@ -326,10 +326,10 @@ def _sgam_1px(
 def _sgam(
     plant_type: xr.DataArray,
     pft_params: xr.Dataset,
-    temperature_celcius_weekly: xr.DataArray,
+    temperature_weekly: xr.DataArray,
     gpp_weekly: xr.DataArray,
     soil_moisture_weekly: xr.DataArray,
-    vpd_pa_weekly: xr.DataArray,
+    vpd_weekly: xr.DataArray,
     lue_weekly: xr.DataArray,
     iwue_weekly: xr.DataArray,
     dates_weekly: pd.Index,
@@ -375,10 +375,8 @@ def _sgam(
     # the byte size of object dtype, so an unchunked object array triggers an
     # auto-rechunk error inside apply_ufunc. Mirror the pixel chunks of the
     # (dask-backed) reference input; stay eager numpy otherwise (a no-op when eager).
-    if temperature_celcius_weekly.chunks is not None:
-        pft_objs = pft_objs.chunk(
-            {"pixel": temperature_celcius_weekly.chunksizes["pixel"]}
-        )
+    if temperature_weekly.chunks is not None:
+        pft_objs = pft_objs.chunk({"pixel": temperature_weekly.chunksizes["pixel"]})
 
     # apply_ufunc inputs must be real DataArrays; substitute zeros for omitted pools.
     if litter_pool_init is None:
@@ -388,10 +386,10 @@ def _sgam(
 
     outputs = xr.apply_ufunc(
         _sgam_1px,
-        temperature_celcius_weekly,
+        temperature_weekly,
         gpp_weekly,
         soil_moisture_weekly,
-        vpd_pa_weekly,
+        vpd_weekly,
         lue_weekly,
         iwue_weekly,
         disturbances_weekly,
@@ -417,7 +415,7 @@ def _sgam(
 
     # apply_ufunc drops the `time` coordinate (a core dim) and orders outputs as
     # (pixel, time); reattach the coordinate and restore the canonical (time, pixel).
-    time_coord = temperature_celcius_weekly.coords["time"]
+    time_coord = temperature_weekly.coords["time"]
     return cast(
         SgamOut,
         {
@@ -432,10 +430,10 @@ def _sgam(
 def sgam(
     plant_type: xr.DataArray,
     pft_params: xr.Dataset,
-    temperature_celcius_weekly: Annotated[xr.DataArray, "degC"],
+    temperature_weekly: Annotated[xr.DataArray, "degC"],
     gpp_weekly: Annotated[xr.DataArray, "g m-2 d-1"],
     soil_moisture_weekly: Annotated[xr.DataArray, "mm"],
-    vpd_pa_weekly: Annotated[xr.DataArray, "Pa"],
+    vpd_weekly: Annotated[xr.DataArray, "Pa"],
     lue_weekly: Annotated[xr.DataArray, "g MJ-1"],
     iwue_weekly: Annotated[xr.DataArray, "Pa"],
     disturbances_weekly: xr.DataArray,
@@ -457,13 +455,13 @@ def sgam(
         Plant functional type as integer (0=tree, 1=grass, 2=shrub, 3=crop).
     pft_params : xr.Dataset
         PFT parameters for each pixel. Output of pft_params node.
-    temperature_celcius_weekly : xr.DataArray
+    temperature_weekly : xr.DataArray
         Weekly air temperature (degrees Celsius).
     gpp_weekly : xr.DataArray
         Weekly gross primary productivity (gC/m²).
     soil_moisture_weekly : xr.DataArray
         Weekly soil moisture (mm).
-    vpd_pa_weekly : xr.DataArray
+    vpd_weekly : xr.DataArray
         Weekly vapor pressure deficit (Pa).
     lue_weekly : xr.DataArray
         Weekly light use efficiency (gC/MJ).
@@ -500,10 +498,10 @@ def sgam(
     return _sgam(
         plant_type=plant_type,
         pft_params=pft_params,
-        temperature_celcius_weekly=temperature_celcius_weekly,
+        temperature_weekly=temperature_weekly,
         gpp_weekly=gpp_weekly,
         soil_moisture_weekly=soil_moisture_weekly,
-        vpd_pa_weekly=vpd_pa_weekly,
+        vpd_weekly=vpd_weekly,
         lue_weekly=lue_weekly,
         iwue_weekly=iwue_weekly,
         dates_weekly=dates_weekly,

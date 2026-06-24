@@ -67,7 +67,7 @@ def _static(values: np.ndarray) -> xr.DataArray:
 def disturbance_inputs() -> dict:
     climate = _build_climate()
     return dict(
-        temperature_celcius_daily=_temporal(climate["temperature"]),
+        temperature_daily=_temporal(climate["temperature"]),
         gpp_daily=_temporal(climate["gpp"]),
         lai_daily=_temporal(climate["lai"]),
     )
@@ -80,7 +80,7 @@ def _reference_block(inputs: dict) -> np.ndarray:
         disturbance_threshold=DISTURBANCE_THRESHOLD,
     )
     return detector.forward(
-        inputs["temperature_celcius_daily"].values,
+        inputs["temperature_daily"].values,
         inputs["gpp_daily"].values,
         inputs["lai_daily"].values,
         aggregate=False,

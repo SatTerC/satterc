@@ -30,8 +30,8 @@ class SplashOut(TypedDict):
 
 def _splash_block(
     sunshine_fraction: NDArray[np.float64],
-    temperature_celcius: NDArray[np.float64],
-    precipitation_mm: NDArray[np.float64],
+    temperature: NDArray[np.float64],
+    precipitation: NDArray[np.float64],
     elevation: NDArray[np.float64],
     latitude: NDArray[np.float64],
     max_soil_moisture: NDArray[np.float64],
@@ -54,8 +54,8 @@ def _splash_block(
     bug, where every pixel silently received pixel 0's latitude/elevation/capacity.
     """
     sf = np.moveaxis(np.asarray(sunshine_fraction, dtype=float), -1, 0)
-    tc = np.moveaxis(np.asarray(temperature_celcius, dtype=float), -1, 0)
-    pn = np.moveaxis(np.asarray(precipitation_mm, dtype=float), -1, 0)
+    tc = np.moveaxis(np.asarray(temperature, dtype=float), -1, 0)
+    pn = np.moveaxis(np.asarray(precipitation, dtype=float), -1, 0)
 
     model = pyrealm.splash.splash.SplashModel(
         lat=np.atleast_2d(np.asarray(latitude, dtype=float)),
@@ -83,8 +83,8 @@ def _splash_block(
 
 def _splash(
     sunshine_fraction_daily: DataArray,
-    temperature_celcius_daily: DataArray,
-    precipitation_mm_daily: DataArray,
+    temperature_daily: DataArray,
+    precipitation_daily: DataArray,
     elevation: DataArray,
     latitude: DataArray,
     max_soil_moisture: DataArray,
@@ -106,8 +106,8 @@ def _splash(
     aet, moisture, runoff = xr.apply_ufunc(
         _splash_block,
         sunshine_fraction_daily,
-        temperature_celcius_daily,
-        precipitation_mm_daily,
+        temperature_daily,
+        precipitation_daily,
         elevation,
         latitude,
         max_soil_moisture,
@@ -146,8 +146,8 @@ def _splash(
 def splash(
     dates_daily: DatetimeIndex,
     sunshine_fraction_daily: Annotated[DataArray, "1"],
-    temperature_celcius_daily: Annotated[DataArray, "degC"],
-    precipitation_mm_daily: Annotated[DataArray, "mm"],
+    temperature_daily: Annotated[DataArray, "degC"],
+    precipitation_daily: Annotated[DataArray, "mm"],
     elevation: Annotated[DataArray, "m"],
     latitude: DataArray,
     max_soil_moisture: Annotated[DataArray, "mm"],
@@ -163,9 +163,9 @@ def splash(
     ----------
     sunshine_fraction_daily
         Fraction of daylight hours that are sunny (dimensionless, 0-1).
-    temperature_celcius_daily
+    temperature_daily
         Air temperature (degrees Celsius).
-    precipitation_mm_daily
+    precipitation_daily
         Precipitation (mm).
     latitude
         Latitude of the site (degrees).
@@ -186,8 +186,8 @@ def splash(
     """
     return _splash(
         sunshine_fraction_daily=sunshine_fraction_daily,
-        temperature_celcius_daily=temperature_celcius_daily,
-        precipitation_mm_daily=precipitation_mm_daily,
+        temperature_daily=temperature_daily,
+        precipitation_daily=precipitation_daily,
         elevation=elevation,
         latitude=latitude,
         max_soil_moisture=max_soil_moisture,

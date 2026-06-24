@@ -57,12 +57,12 @@ def pmodel_inputs() -> dict:
         )
 
     return dict(
-        temperature_celcius_weekly=_temporal(_vary(15.0, 5.0)),
-        vpd_pa_weekly=_temporal(np.abs(_vary(1000.0, 300.0))),
-        co2_ppm_weekly=_temporal(np.full((N_WEEKS, N_PIXELS), 400.0)),
-        pressure_pa_weekly=_temporal(np.full((N_WEEKS, N_PIXELS), 101325.0)),
+        temperature_weekly=_temporal(_vary(15.0, 5.0)),
+        vpd_weekly=_temporal(np.abs(_vary(1000.0, 300.0))),
+        co2_weekly=_temporal(np.full((N_WEEKS, N_PIXELS), 400.0)),
+        pressure_weekly=_temporal(np.full((N_WEEKS, N_PIXELS), 101325.0)),
         fapar_weekly=_temporal(np.clip(_vary(0.5, 0.2), 0, 1)),
-        ppfd_umol_m2_s1_weekly=_temporal(np.abs(_vary(500.0, 150.0))),
+        ppfd_weekly=_temporal(np.abs(_vary(500.0, 150.0))),
         mean_growth_temperature_weekly=_temporal(_vary(15.0, 5.0)),
         aridity_index_weekly=_temporal(np.clip(_vary(0.5, 0.2), 0, 2)),
         soil_moisture_weekly=_temporal(np.abs(_vary(100.0, 30.0))),
@@ -83,12 +83,12 @@ def _reference_loop(inputs: dict) -> dict[str, np.ndarray]:
     per_pixel: dict[str, list] = {"gpp_weekly": [], "lue_weekly": [], "iwue_weekly": []}
     for i in range(N_PIXELS):
         env = pyrealm.pmodel.PModelEnvironment(
-            tc=col("temperature_celcius_weekly", i),
-            vpd=col("vpd_pa_weekly", i),
-            co2=col("co2_ppm_weekly", i),
-            patm=col("pressure_pa_weekly", i),
+            tc=col("temperature_weekly", i),
+            vpd=col("vpd_weekly", i),
+            co2=col("co2_weekly", i),
+            patm=col("pressure_weekly", i),
             fapar=col("fapar_weekly", i),
-            ppfd=col("ppfd_umol_m2_s1_weekly", i),
+            ppfd=col("ppfd_weekly", i),
             theta=col("soil_moisture_weekly", i) / 300,
             mean_growth_temperature=col("mean_growth_temperature_weekly", i),
             aridity_index=col("aridity_index_weekly", i),
@@ -175,12 +175,12 @@ class TestCachingIntact:
             )
 
         inputs = {
-            "temperature_celcius_weekly": _mda(15.0),
-            "vpd_pa_weekly": _mda(1000.0),
-            "co2_ppm_weekly": _mda(400.0),
-            "pressure_pa_weekly": _mda(101325.0),
+            "temperature_weekly": _mda(15.0),
+            "vpd_weekly": _mda(1000.0),
+            "co2_weekly": _mda(400.0),
+            "pressure_weekly": _mda(101325.0),
             "fapar_weekly": _mda(0.5),
-            "ppfd_umol_m2_s1_weekly": _mda(500.0),
+            "ppfd_weekly": _mda(500.0),
             "aridity_index_weekly": _mda(0.5),
             "soil_moisture_weekly": _mda(100.0),
         }

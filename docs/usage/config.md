@@ -24,19 +24,19 @@ Include one section per temporal frequency for which you have data.
 [inputs.daily]
 path = "data/daily.nc"
 vars = [
-  "temperature_celcius",
-  "precipitation_mm",
+  "temperature",
+  "precipitation",
   "sunshine_fraction",
 ]
 
 [inputs.weekly]
 path = "data/weekly.nc"
 vars = [
-  "co2_ppm",
+  "co2",
   "fapar",
-  "ppfd_umol_m2_s1",
-  "pressure_pa",
-  "vpd_pa",
+  "ppfd",
+  "pressure",
+  "vpd",
 ]
 
 [inputs.monthly]
@@ -120,13 +120,13 @@ Each entry specifies a direction, a list of variables, and an optional aggregati
 [[resample]]
 from_freq = "daily"
 to_freq = "weekly"
-vars = ["temperature_celcius", "precipitation_mm"]
+vars = ["temperature", "precipitation"]
 aggfunc = "mean"  # default; can also be "sum"
 
 [[resample]]
 from_freq = "daily"
 to_freq = "monthly"
-vars = ["precipitation_mm"]
+vars = ["precipitation"]
 aggfunc = "sum"
 ```
 
@@ -182,8 +182,8 @@ automatically available in the expression namespace.
 ```toml
 [[derive]]
 output = "aridity_index_daily"
-inputs = ["precipitation_mm_daily", "actual_evapotranspiration_daily"]
-expression = "precipitation_mm_daily / actual_evapotranspiration_daily"
+inputs = ["precipitation_daily", "actual_evapotranspiration_daily"]
+expression = "precipitation_daily / actual_evapotranspiration_daily"
 
 [[derive]]
 output = "inert_organic_matter"
@@ -230,8 +230,8 @@ A derived variable transforms its inputs, so its output unit cannot be inferred.
 ```toml
 [[derive]]
 output = "aridity_index_daily"
-inputs = ["precipitation_mm_daily", "actual_evapotranspiration_daily"]
-expression = "precipitation_mm_daily / actual_evapotranspiration_daily"
+inputs = ["precipitation_daily", "actual_evapotranspiration_daily"]
+expression = "precipitation_daily / actual_evapotranspiration_daily"
 units = "1"   # dimensionless ratio
 ```
 

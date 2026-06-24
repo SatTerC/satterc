@@ -188,7 +188,7 @@ class TestPipelineWithCache:
         self, pipeline_config, pipeline_inputs, tmp_path
     ):
         # A genuinely computed node that is satisfiable from synthetic inputs
-        # (resamples temperature_celcius_daily).
+        # (resamples temperature_daily).
         final_vars = get_final_vars(
             {"weekly": IOSpec(path="", vars=["mean_growth_temperature"])}
         )
