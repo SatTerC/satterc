@@ -73,7 +73,7 @@ def _concat_results(
 
 
 def _mp_worker(
-    args: tuple[list[str], dict[str, Any], Any, dict[str, Any], list[str]],
+    args: tuple[list[str], dict[str, Any], Any, bool, dict[str, Any], list[str]],
 ) -> dict[str, Any]:
     """Per-process worker: rebuilds the driver and executes one block.
 
@@ -81,8 +81,10 @@ def _mp_worker(
     """
     from satterc.dag.driver import build_driver
 
-    modules, config, cache_spec, block_inputs, final_vars = args
-    dr = build_driver(modules, config, cache=cache_spec)
+    modules, config, cache_spec, allow_module_overrides, block_inputs, final_vars = args
+    dr = build_driver(
+        modules, config, allow_module_overrides=allow_module_overrides, cache=cache_spec
+    )
     return dr.execute(final_vars, inputs=block_inputs)  # type: ignore[reportArgumentType]
 
 
@@ -92,7 +94,8 @@ def execute_blocked(
     final_vars: list[str],
     spec: BlockingSpec,
     *,
-    build_params: tuple[list[str], dict[str, Any], CacheSpec | None] | None = None,
+    build_params: tuple[list[str], dict[str, Any], CacheSpec | None, bool]
+    | None = None,
 ) -> dict[str, Any]:
     """Execute the driver in pixel blocks and concatenate results.
 
@@ -136,9 +139,16 @@ def execute_blocked(
                 "execute_blocked requires 'build_params' "
                 "when executor='multiprocessing'."
             )
-        modules, config, cache_spec = build_params
+        modules, config, cache_spec, allow_module_overrides = build_params
         mp_args = [
-            (modules, config, cache_spec, block_inputs, final_vars)
+            (
+                modules,
+                config,
+                cache_spec,
+                allow_module_overrides,
+                block_inputs,
+                final_vars,
+            )
             for block_inputs in blocks
         ]
         ctx = multiprocessing.get_context("spawn")

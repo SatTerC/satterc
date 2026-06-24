@@ -252,6 +252,7 @@ class TestMultiprocessing:
                 pipeline_config.modules,
                 pipeline_config.driver_config,
                 None,
+                False,
             ),
         )
         for var in _FINAL_VARS:

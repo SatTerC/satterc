@@ -74,7 +74,12 @@ def run(
                 inputs,
                 target_vars,
                 parsed.blocking_spec,
-                build_params=(parsed.modules, parsed.driver_config, cache_spec),
+                build_params=(
+                    parsed.modules,
+                    parsed.driver_config,
+                    cache_spec,
+                    allow_overrides,
+                ),
             )
         else:
             results = dr.execute(target_vars, inputs=inputs)  # type: ignore[reportArgumentType]
