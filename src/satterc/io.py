@@ -10,7 +10,7 @@ import rioxarray as rioxarray
 import xarray as xr
 from pyproj import Transformer
 
-from .config import IOSpec
+from .config import IOSpec, SubsetSpec
 from .spatial import stack_spatial_dims
 
 
@@ -275,7 +275,10 @@ def _save(ds: xr.Dataset, path: str) -> None:
 # ---------------------------------------------------------------------------
 
 
-def load_inputs(input_specs: dict[str, IOSpec]) -> dict[str, Any]:
+def load_inputs(
+    input_specs: dict[str, IOSpec],
+    subset_spec: SubsetSpec | None = None,
+) -> dict[str, Any]:
     """Load all configured inputs and return them as a flat dict of named DataArrays.
 
     Keys follow Hamilton naming conventions:
@@ -289,6 +292,10 @@ def load_inputs(input_specs: dict[str, IOSpec]) -> dict[str, Any]:
     input_specs:
         Mapping from frequency string to ``IOSpec`` (path, vars, format).
         Typically ``parsed_config.input_specs``.
+    subset_spec:
+        If provided, slice all pixel-bearing inputs to the specified pixel
+        range after loading.  The pixel ordering follows the row-major
+        stacking of the spatial grid.  Typically ``parsed_config.subset_spec``.
     """
     inputs: dict[str, Any] = {}
     raw_datasets: dict[str, xr.Dataset] = {}
@@ -311,6 +318,15 @@ def load_inputs(input_specs: dict[str, IOSpec]) -> dict[str, Any]:
         lat, lon = _compute_lat_lon(spatial)
         inputs["latitude"] = lat
         inputs["longitude"] = lon
+
+    if subset_spec is not None:
+        sl = slice(subset_spec.pixel_start, subset_spec.pixel_end)
+        inputs = {
+            name: val.isel(pixel=sl)
+            if isinstance(val, xr.DataArray) and "pixel" in val.dims
+            else val
+            for name, val in inputs.items()
+        }
 
     return inputs
 

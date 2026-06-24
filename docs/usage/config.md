@@ -297,45 +297,73 @@ In practice you are unlikely to alter metadata without also changing values.
 
 ---
 
-### Parallelisation
+### Memory-bounded execution
 
-Add a `[blocking]` section to partition the stacked `pixel` dimension into fixed-size blocks and execute them sequentially or in parallel.
+Add a `[blocking]` section to process the stacked `pixel` dimension in fixed-size sequential chunks.
+Each block's inputs are sliced from the full-grid arrays, executed through the DAG, and the results concatenated along `pixel`.
+Peak memory is bounded to a small multiple of one block's footprint regardless of total grid size.
 
 ```toml
 [blocking]
-block_size = 500   # number of pixels per block
+block_size = 500   # number of pixels processed at a time
 ```
-
-Each block's inputs are sliced from the full-grid arrays, executed independently through the DAG, and the results concatenated along `pixel`. Peak memory is bounded to a small multiple of one block's footprint regardless of total grid size.
-
-#### Options
 
 | Key | Description |
 |-----|-------------|
 | `block_size` | Number of pixels per block. Required. Smaller values reduce peak memory; the last block may be smaller if `n_pixels` is not divisible. |
-| `executor` | How blocks are dispatched: `"synchronous"` (default, sequential loop), `"threading"` (shared driver, suits I/O-bound pipelines), or `"multiprocessing"` (separate process per block, suits CPU-bound pipelines). |
-| `max_workers` | Maximum concurrent workers for `"threading"` or `"multiprocessing"`. Not valid with `"synchronous"`. Defaults to the executor's own default (typically the number of CPUs). |
 
-```toml
-# Threading — blocks run concurrently, driver shared across threads
-[blocking]
-block_size = 500
-executor = "threading"
-max_workers = 4
-
-# Multiprocessing — each worker spawns its own process and rebuilds the driver
-[blocking]
-block_size = 500
-executor = "multiprocessing"
-max_workers = 4
-```
-
-`executor = "multiprocessing"` uses the `spawn` start method (safe when threads are already running) and rebuilds the driver inside each worker process, so the driver startup cost is paid once per block.
+For parallelism across pixels, see `[subset]` below — run independent `satterc` processes each covering a different spatial range, and merge the outputs afterwards.
 
 /// admonition | Outputs must vary over pixels
     type: warning
 
 `[blocking]` concatenates results along the `pixel` dimension. If any variable in `[outputs]` has no `pixel` dimension — for example, a spatial aggregate like a grid-mean — it cannot be recombined and SatTerC will raise a `ValueError`. Remove pixel-aggregated variables from `[outputs]` when using `[blocking]`, or omit `[blocking]` to request them.
+///
+
+---
+
+### Spatial subsetting
+
+Add a `[subset]` section to restrict the pipeline to a contiguous slice of the stacked `pixel` dimension.
+`load_inputs` reads only that slice from the source file (lazy NetCDF/Zarr I/O means data outside the range is never loaded).
+
+```toml
+[subset]
+pixel_start = 0    # inclusive
+pixel_end   = 500  # exclusive (Python slice convention)
+```
+
+| Key | Description |
+|-----|-------------|
+| `pixel_start` | First pixel index to include (inclusive, zero-based). Required. |
+| `pixel_end` | One past the last pixel index (exclusive). Required. Must be greater than `pixel_start`. |
+
+The pixel ordering follows the row-major stacking of the spatial grid (x varies fastest).
+
+#### HPC pattern: parallel shards
+
+Run N independent `satterc run` processes, each with a different `[subset]`, writing to N separate output files.
+Merge the shards afterwards:
+
+```python
+import xarray as xr
+ds = xr.open_mfdataset(["shard_0.nc", "shard_1.nc", ...], combine="by_coords")
+```
+
+With GNU parallel on a single machine:
+
+```bash
+parallel satterc run config_{}.toml ::: 0 1 2 3
+```
+
+With a SLURM array job, vary `pixel_start`/`pixel_end` via environment variables or per-task config files.
+
+/// admonition | Zarr region writes (future)
+    type: note
+
+`[subset]` stores `pixel_start` and `pixel_end` in the parsed config.
+A future enhancement will use these to write each shard directly into its region of a shared Zarr store
+(`ds.to_zarr(store, region={"pixel": slice(start, end)})`), eliminating the merge step for Zarr outputs.
 ///
 
 ---

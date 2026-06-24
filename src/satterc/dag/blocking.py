@@ -1,15 +1,13 @@
-"""Blocked driver execution for pixel-dimension parallelism (Mechanism B).
+"""Blocked driver execution for pixel-dimension memory management (Mechanism B).
 
 Partitions the stacked ``pixel`` dimension into fixed-size blocks and calls
-``dr.execute`` per block, then concatenates results along ``pixel``.  Peak
-memory is bounded to a small multiple of one block's footprint.
+``dr.execute`` per block sequentially, then concatenates results along ``pixel``.
+Peak memory is bounded to a small multiple of one block's footprint.
 """
 
 from __future__ import annotations
 
-import multiprocessing
 from collections.abc import Generator
-from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
 from typing import TYPE_CHECKING, Any
 
 import xarray as xr
@@ -17,7 +15,7 @@ import xarray as xr
 if TYPE_CHECKING:
     from hamilton import driver
 
-    from satterc.config import BlockingSpec, CacheSpec
+    from satterc.config import BlockingSpec
 
 
 def _pixel_input_names(inputs: dict[str, Any]) -> list[str]:
@@ -72,87 +70,28 @@ def _concat_results(
     return out
 
 
-def _mp_worker(
-    args: tuple[list[str], dict[str, Any], Any, bool, dict[str, Any], list[str]],
-) -> dict[str, Any]:
-    """Per-process worker: rebuilds the driver and executes one block.
-
-    Must be top-level (not a closure) to be picklable across processes.
-    """
-    from satterc.dag.driver import build_driver
-
-    modules, config, cache_spec, allow_module_overrides, block_inputs, final_vars = args
-    dr = build_driver(
-        modules, config, allow_module_overrides=allow_module_overrides, cache=cache_spec
-    )
-    return dr.execute(final_vars, inputs=block_inputs)  # type: ignore[reportArgumentType]
-
-
 def execute_blocked(
     dr: driver.Driver,
     inputs: dict[str, Any],
     final_vars: list[str],
     spec: BlockingSpec,
-    *,
-    build_params: tuple[list[str], dict[str, Any], CacheSpec | None, bool]
-    | None = None,
 ) -> dict[str, Any]:
     """Execute the driver in pixel blocks and concatenate results.
 
     Parameters
     ----------
     dr
-        A built Hamilton driver.  Shared directly for ``synchronous``/
-        ``threading``; the ``build_params`` tuple is used to rebuild one
-        driver per worker for ``multiprocessing``.
+        A built Hamilton driver.
     inputs
         Full-grid input dict as returned by ``load_inputs``.
     final_vars
         Node names to compute, as returned by ``get_final_vars``.
     spec
-        Blocking configuration (``block_size``, ``executor``, ``max_workers``).
-    build_params
-        Required when ``spec.executor == "multiprocessing"``.  A
-        ``(modules, config, cache_spec)`` tuple forwarded to ``build_driver``
-        inside each worker process.
+        Blocking configuration (``block_size``).
     """
     pixel_names = _pixel_input_names(inputs)
     blocks = list(_make_blocks(inputs, pixel_names, spec.block_size))
-
-    if spec.executor == "synchronous":
-        results = [
-            dr.execute(final_vars, inputs=block_inputs)  # type: ignore[reportArgumentType]
-            for block_inputs in blocks
-        ]
-
-    elif spec.executor == "threading":
-
-        def _run(block_inputs: dict[str, Any]) -> dict[str, Any]:
-            return dr.execute(final_vars, inputs=block_inputs)  # type: ignore[reportArgumentType]
-
-        with ThreadPoolExecutor(max_workers=spec.max_workers) as pool:
-            results = list(pool.map(_run, blocks))
-
-    else:  # multiprocessing
-        if build_params is None:
-            raise ValueError(
-                "execute_blocked requires 'build_params' "
-                "when executor='multiprocessing'."
-            )
-        modules, config, cache_spec, allow_module_overrides = build_params
-        mp_args = [
-            (
-                modules,
-                config,
-                cache_spec,
-                allow_module_overrides,
-                block_inputs,
-                final_vars,
-            )
-            for block_inputs in blocks
-        ]
-        ctx = multiprocessing.get_context("spawn")
-        with ProcessPoolExecutor(max_workers=spec.max_workers, mp_context=ctx) as pool:
-            results = list(pool.map(_mp_worker, mp_args))
-
-    return _concat_results(results, final_vars)
+    return _concat_results(
+        [dr.execute(final_vars, inputs=bi) for bi in blocks],  # type: ignore[reportArgumentType]
+        final_vars,
+    )
