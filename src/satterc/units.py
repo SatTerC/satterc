@@ -359,11 +359,12 @@ def check_units(
                 f"input {name!r} has unparseable 'units' attribute {have!r} "
                 f"(declared {declared!r}): {type(exc).__name__}: {exc}"
             ) from exc
-        warnings.warn(
-            f"input {name!r} unvalidated: unparseable 'units' attribute {have!r} "
-            f"(declared {declared!r})",
-            stacklevel=2,
-        )
+        if mode == "warn":
+            warnings.warn(
+                f"input {name!r} unvalidated: unparseable 'units' attribute {have!r} "
+                f"(declared {declared!r})",
+                stacklevel=2,
+            )
         return da
     if exact and units_compatible(have, declared) and not units_equal(have, declared):
         raise ValueError(
