@@ -125,6 +125,16 @@ class TestConcatResults:
         assert result["x"].sizes["pixel"] == 4
         np.testing.assert_array_equal(result["x"].values, [1.0, 2.0, 3.0, 4.0])
 
+    def test_raises_on_no_pixel_dim(self):
+        blocks = [{"x": xr.DataArray([1.0, 2.0], dims=["time"])}] * 2
+        with pytest.raises(ValueError, match="pixel"):
+            _concat_results(blocks, ["x"])
+
+    def test_raises_on_scalar(self):
+        blocks = [{"x": xr.DataArray(1.0)}] * 2
+        with pytest.raises(ValueError, match="pixel"):
+            _concat_results(blocks, ["x"])
+
 
 # ---------------------------------------------------------------------------
 # BlockingSpec config parsing

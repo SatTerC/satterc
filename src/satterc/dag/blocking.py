@@ -57,10 +57,19 @@ def _concat_results(
     final_vars: list[str],
 ) -> dict[str, Any]:
     """Concatenate per-block results along the ``pixel`` dimension."""
-    return {
-        var: xr.concat([r[var] for r in block_results], dim="pixel")
-        for var in final_vars
-    }
+    out: dict[str, Any] = {}
+    for var in final_vars:
+        first = block_results[0][var]
+        if not (isinstance(first, xr.DataArray) and "pixel" in first.dims):
+            raise ValueError(
+                f"Blocking cannot recombine '{var}' "
+                f"(dims: {getattr(first, 'dims', '(scalar)')}) — it has no "
+                f"'pixel' dimension. Remove it from [outputs] when using "
+                f"[blocking], or disable [blocking] to request "
+                f"pixel-aggregated outputs."
+            )
+        out[var] = xr.concat([r[var] for r in block_results], dim="pixel")
+    return out
 
 
 def _mp_worker(
