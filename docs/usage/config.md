@@ -297,6 +297,49 @@ In practice you are unlikely to alter metadata without also changing values.
 
 ---
 
+### Parallelisation
+
+Add a `[blocking]` section to partition the stacked `pixel` dimension into fixed-size blocks and execute them sequentially or in parallel.
+
+```toml
+[blocking]
+block_size = 500   # number of pixels per block
+```
+
+Each block's inputs are sliced from the full-grid arrays, executed independently through the DAG, and the results concatenated along `pixel`. Peak memory is bounded to a small multiple of one block's footprint regardless of total grid size.
+
+#### Options
+
+| Key | Description |
+|-----|-------------|
+| `block_size` | Number of pixels per block. Required. Smaller values reduce peak memory; the last block may be smaller if `n_pixels` is not divisible. |
+| `executor` | How blocks are dispatched: `"synchronous"` (default, sequential loop), `"threading"` (shared driver, suits I/O-bound pipelines), or `"multiprocessing"` (separate process per block, suits CPU-bound pipelines). |
+| `max_workers` | Maximum concurrent workers for `"threading"` or `"multiprocessing"`. Not valid with `"synchronous"`. Defaults to the executor's own default (typically the number of CPUs). |
+
+```toml
+# Threading — blocks run concurrently, driver shared across threads
+[blocking]
+block_size = 500
+executor = "threading"
+max_workers = 4
+
+# Multiprocessing — each worker spawns its own process and rebuilds the driver
+[blocking]
+block_size = 500
+executor = "multiprocessing"
+max_workers = 4
+```
+
+`executor = "multiprocessing"` uses the `spawn` start method (safe when threads are already running) and rebuilds the driver inside each worker process, so the driver startup cost is paid once per block.
+
+/// admonition | Outputs must vary over pixels
+    type: warning
+
+`[blocking]` concatenates results along the `pixel` dimension. If any variable in `[outputs]` has no `pixel` dimension — for example, a spatial aggregate like a grid-mean — it cannot be recombined and SatTerC will raise a `ValueError`. Remove pixel-aggregated variables from `[outputs]` when using `[blocking]`, or omit `[blocking]` to request them.
+///
+
+---
+
 ### Units
 
 Each model node declares the physical units of its inputs and outputs in its signature. The optional `[units]` section controls how those declarations are validated.
