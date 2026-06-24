@@ -323,9 +323,11 @@ def check_units(
 
     Returns a ``DataArray`` whose data is expressed in ``declared`` and whose
     ``units`` attribute equals ``declared``. If the input carries no ``units``
-    attribute, behaviour follows ``mode`` (``strict`` raises, ``warn`` warns and
-    returns the array unchanged, ``off`` returns unchanged). A dimensional
-    incompatibility raises ``pint.DimensionalityError`` regardless of mode.
+    attribute, or one the registry cannot parse (e.g. a non-CF string like
+    ``"fraction"``), it cannot be validated and behaviour follows ``mode``
+    (``strict`` raises, ``warn`` warns and returns the array unchanged, ``off``
+    returns unchanged). A dimensional incompatibility between two *parseable* units
+    raises ``pint.DimensionalityError`` regardless of mode.
 
     When ``exact`` is ``True``, an input whose unit is dimensionally compatible
     with ``declared`` but is *not the same unit* (i.e. conversion would change the
@@ -345,6 +347,23 @@ def check_units(
                 f"(declared {declared!r})",
                 stacklevel=2,
             )
+        return da
+    try:
+        _UREG.Unit(have)
+    except Exception as exc:
+        # A units attribute that exists but the registry cannot parse can no more be
+        # validated than a missing one; route it through the same mode policy rather
+        # than letting an opaque parse error escape (and break a ``warn`` run).
+        if mode == "strict":
+            raise ValueError(
+                f"input {name!r} has unparseable 'units' attribute {have!r} "
+                f"(declared {declared!r}): {type(exc).__name__}: {exc}"
+            ) from exc
+        warnings.warn(
+            f"input {name!r} unvalidated: unparseable 'units' attribute {have!r} "
+            f"(declared {declared!r})",
+            stacklevel=2,
+        )
         return da
     if exact and units_compatible(have, declared) and not units_equal(have, declared):
         raise ValueError(
