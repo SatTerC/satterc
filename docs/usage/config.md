@@ -342,28 +342,46 @@ The pixel ordering follows the row-major stacking of the spatial grid (x varies 
 
 #### HPC pattern: parallel shards
 
-Run N independent `satterc run` processes, each with a different `[subset]`, writing to N separate output files.
-Merge the shards afterwards:
+Run N independent `satterc run` processes, each with a different `[subset]`. Because the
+processes share one config (and therefore one output `path`), SatTerC writes their outputs
+in a **stacked `pixel` layout** so they don't collide, then a `merge` step reassembles the
+grid. How that works depends on the output format:
 
-```python
-import xarray as xr
-ds = xr.open_mfdataset(["shard_0.nc", "shard_1.nc", ...], combine="by_coords")
-```
+- **NetCDF** — each process writes a uniquely-named file with its pixel range appended,
+  e.g. `weekly.nc` → `weekly_p0-500.nc`. No setup is needed beforehand.
+- **Zarr** — all processes write into their region of a single, shared store. The store
+  must be created **once** up front so each process only fills its own slice.
 
-With GNU parallel on a single machine:
+For the Zarr workflow, create the store before launching the shards:
 
 ```bash
-parallel satterc run config_{}.toml ::: 0 1 2 3
+satterc create-store config.toml          # build the empty shared store(s)
+parallel satterc run config_{}.toml ::: 0 1 2 3   # each shard region-writes its pixels
+satterc merge config.toml                  # unstack into a gridded *_gridded.zarr
 ```
 
-With a SLURM array job, vary `pixel_start`/`pixel_end` via environment variables or per-task config files.
+The NetCDF workflow skips `create-store`:
 
-/// admonition | Zarr region writes (future)
+```bash
+parallel satterc run config_{}.toml ::: 0 1 2 3   # writes weekly_p<start>-<end>.nc
+satterc merge config.toml                  # concatenates parts into weekly.nc, gridded
+```
+
+`merge` writes NetCDF results to the config's declared path and Zarr results to a sibling
+`*_gridded.zarr` store by default. Pass `--out <path>` (valid only when the config has a
+single output section) to choose an explicit destination.
+
+With a SLURM array job, vary `pixel_start`/`pixel_end` via environment variables or
+per-task config files.
+
+/// admonition | Chunk alignment for Zarr
     type: note
 
-`[subset]` stores `pixel_start` and `pixel_end` in the parsed config.
-A future enhancement will use these to write each shard directly into its region of a shared Zarr store
-(`ds.to_zarr(store, region={"pixel": slice(start, end)})`), eliminating the merge step for Zarr outputs.
+Concurrent Zarr region writes are only safe when each subset's boundaries fall on the
+store's pixel-chunk boundaries (so no two processes touch the same chunk). `create-store`
+sets the pixel chunk from `--pixel-chunk` (defaulting to `[blocking].block_size`); a `run`
+whose `[subset]` is misaligned to that chunk raises a `ValueError`. Keep your subset ranges
+as multiples of the chunk size.
 ///
 
 ---

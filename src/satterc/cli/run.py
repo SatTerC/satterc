@@ -72,8 +72,11 @@ def run(
             results = execute_blocked(dr, inputs, target_vars, parsed.blocking_spec)
         else:
             results = dr.execute(target_vars, inputs=inputs)  # type: ignore[reportArgumentType]
-        output_datasets = get_outputs(results, parsed.output_specs)
-        save_outputs(output_datasets, parsed.output_specs)
+        stacked = parsed.subset_spec is not None
+        output_datasets = get_outputs(results, parsed.output_specs, stacked=stacked)
+        save_outputs(
+            output_datasets, parsed.output_specs, subset_spec=parsed.subset_spec
+        )
 
 
 def _resolve_cache(

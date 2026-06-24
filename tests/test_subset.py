@@ -180,6 +180,15 @@ pixel_end = 2
         p.write_text(content)
         return p, out_path
 
+    def _subset_path(self, out_path):
+        """The auto-suffixed NetCDF path a [subset] run writes to."""
+        from satterc.io import subset_suffix
+
+        spec = SubsetSpec(0, 2)
+        return out_path.with_name(
+            f"{out_path.stem}{subset_suffix(spec)}{out_path.suffix}"
+        )
+
     def test_exits_zero(self, subset_config_toml):
         from typer.testing import CliRunner
 
@@ -189,16 +198,19 @@ pixel_end = 2
         result = CliRunner().invoke(app, ["run", str(config_path)])
         assert result.exit_code == 0, result.output
 
-    def test_output_has_subset_pixels(self, subset_config_toml):
+    def test_output_is_stacked_subset(self, subset_config_toml):
+        """A subset run writes a uniquely-suffixed, stacked (pixel) file."""
         from typer.testing import CliRunner
 
         from satterc.cli import app
 
         config_path, out_path = subset_config_toml
         CliRunner().invoke(app, ["run", str(config_path)])
-        ds = xr.open_dataset(out_path)
-        n_pixels = int(np.prod([ds.sizes[d] for d in ds.dims if d != "time"]))
-        assert n_pixels == 2
+
+        # The un-suffixed path is never written; the suffixed one holds 2 pixels.
+        assert not out_path.exists()
+        ds = xr.open_dataset(self._subset_path(out_path))
+        assert ds.sizes["pixel"] == 2
 
     def test_output_values_match_full_run(self, subset_config_toml):
         from typer.testing import CliRunner
@@ -209,7 +221,7 @@ pixel_end = 2
 
         config_path, out_path = subset_config_toml
         CliRunner().invoke(app, ["run", str(config_path)])
-        subset_ds = xr.open_dataset(out_path)
+        subset_ds = xr.open_dataset(self._subset_path(out_path))
 
         parsed = load_config(config_path)
         parsed.subset_spec = None
@@ -217,12 +229,11 @@ pixel_end = 2
         full_inputs = load_inputs(parsed.input_specs)
         final_vars: list[Any] = get_final_vars(parsed.output_specs)
         full_results = dr.execute(final_vars, inputs=full_inputs)  # type: ignore[reportArgumentType]
-        ref_datasets = get_outputs(full_results, parsed.output_specs)
-        ref_ds = ref_datasets["weekly"]
+        ref_ds = get_outputs(full_results, parsed.output_specs, stacked=True)["weekly"]
 
         for var in subset_ds.data_vars:
-            # Select the matching spatial coordinates from the reference.
-            sel_kwargs: dict[str, Any] = {
-                str(d): subset_ds[var][d] for d in subset_ds[var].dims if d != "time"
-            }
-            xr.testing.assert_allclose(subset_ds[var], ref_ds[var].sel(**sel_kwargs))
+            np.testing.assert_allclose(
+                subset_ds[var].transpose("time", "pixel").values,
+                ref_ds[var].transpose("time", "pixel").isel(pixel=slice(0, 2)).values,
+                equal_nan=True,
+            )
