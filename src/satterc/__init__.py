@@ -13,7 +13,14 @@ from .config import (
     load_config,
 )
 from .dag.driver import build_driver
-from .io import get_final_vars, get_outputs, load_inputs, save_outputs
+from .io import (
+    create_output_store,
+    get_final_vars,
+    get_outputs,
+    load_inputs,
+    merge_subset_outputs,
+    save_outputs,
+)
 
 __all__ = [
     "BlockingSpec",
@@ -24,10 +31,12 @@ __all__ = [
     "SubsetSpec",
     "__version__",
     "build_driver",
+    "create_output_store",
     "get_final_vars",
     "get_outputs",
     "load_config",
     "load_inputs",
+    "merge_subset_outputs",
     "save_outputs",
 ]
 

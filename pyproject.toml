@@ -15,6 +15,7 @@ license-files = ["LICENSE"]
 requires-python = ">=3.13"
 dependencies = [
     "cf-xarray>=0.11.3",
+    "dask>=2025.1.0",
     "netcdf4>=1.7.4",
     "numpy>=2.4.2",
     "pint>=0.25.3",
