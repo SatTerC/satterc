@@ -14,7 +14,9 @@ from satterc.cli import app
 from satterc.cli.data_gen import _parse_duration, _validate_output_paths
 from satterc.cli.graph import (
     _import_style_function,
+    cluster_nodes_by_frequency,
     color_edges_by_frequency,
+    infer_frequencies,
     make_style_function,
     relabel_with_units,
 )
@@ -255,6 +257,67 @@ class TestGraphPostProcessing:
         # edges from unknown-frequency sources are untouched
         assert "color=" not in digraph.body[1]
 
+    def test_infer_frequencies_by_neighbour_consensus(self):
+        # sgam: weekly in, weekly out -> weekly; its input table follows it.
+        digraph = SimpleNamespace(
+            body=[
+                "\ttemperature_weekly -> sgam\n",
+                "\tsgam -> gpp_weekly\n",
+                "\t_sgam_inputs -> sgam\n",
+            ]
+        )
+        freq = infer_frequencies(
+            digraph,  # type: ignore[arg-type]
+            {"temperature_weekly": "weekly", "gpp_weekly": "weekly"},
+        )
+        assert freq["sgam"] == "weekly"
+        assert freq["_sgam_inputs"] == "weekly"
+
+    def test_infer_frequencies_conflict_stays_unresolved(self):
+        # a node bridging daily and monthly has no consensus -> not assigned.
+        digraph = SimpleNamespace(
+            body=[
+                "\ttemperature_daily -> bridge\n",
+                "\tbridge -> soc_monthly\n",
+            ]
+        )
+        freq = infer_frequencies(
+            digraph,  # type: ignore[arg-type]
+            {"temperature_daily": "daily", "soc_monthly": "monthly"},
+        )
+        assert "bridge" not in freq
+
+    def test_cluster_groups_nodes_by_frequency(self):
+        digraph = SimpleNamespace(
+            body=[
+                "\tgpp_weekly [label=<<b>gpp_weekly</b>>]\n",
+                "\ttemperature_daily [label=<<b>temperature_daily</b>>]\n",
+                "\tplant_type [label=<<b>plant_type</b>>]\n",  # ungrouped
+                "\t_gpp_weekly_inputs [label=<<table></table>>]\n",  # joins weekly
+                "\ttemperature_daily -> gpp_weekly\n",
+                "\t_gpp_weekly_inputs -> gpp_weekly\n",
+            ]
+        )
+        cluster_nodes_by_frequency(
+            digraph,  # type: ignore[arg-type]
+            {"gpp_weekly": "weekly", "temperature_daily": "daily"},
+            DEFAULT_PALETTE,
+        )
+        source = "".join(digraph.body)
+        assert "subgraph cluster_weekly {" in source
+        assert "subgraph cluster_daily {" in source
+        # monthly has no members, so no empty cluster is emitted
+        assert "cluster_monthly" not in source
+        # the input table joins the cluster of the node it feeds
+        weekly = source.split("cluster_weekly {", 1)[1].split("}", 1)[0]
+        assert "_gpp_weekly_inputs" in weekly
+        assert "gpp_weekly [label" in weekly
+        # ungrouped nodes stay outside any cluster
+        plant_idx = source.index("plant_type [label")
+        assert plant_idx > source.index("}")  # after the last cluster brace
+        # every node is declared before any edge (clustering pitfall guard)
+        assert source.index("gpp_weekly [label") < source.index(" -> ")
+
 
 class TestGraphvizSpec:
     def test_none_returns_defaults(self):
@@ -262,6 +325,13 @@ class TestGraphvizSpec:
         assert spec.palette == DEFAULT_PALETTE
         assert spec.style_function is None
         assert spec.show_legend is True
+        assert spec.cluster_by_frequency is True
+
+    def test_cluster_by_frequency_can_be_disabled(self, tmp_path):
+        f = tmp_path / "style.toml"
+        f.write_text("cluster_by_frequency = false\n")
+        spec = load_graphviz_spec(f)
+        assert spec.cluster_by_frequency is False
 
     def test_partial_palette_is_deep_merged(self, tmp_path):
         f = tmp_path / "style.toml"

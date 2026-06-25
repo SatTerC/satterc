@@ -9,6 +9,7 @@ Recognised top-level keys in a ``--style`` file::
 
     style_function = "my_pkg.styling:my_style"   # import path "module:function"
     show_legend = true
+    cluster_by_frequency = true                  # box nodes by daily/weekly/monthly
 
     [palette]                                    # override any category colour
     daily = "#ff7f00"
@@ -41,7 +42,13 @@ DEFAULT_PALETTE: dict[str, str] = {
 # Top-level keys accepted in a ``--style`` TOML file.
 _GRAPHVIZ_ATTR_KEYS = ("graph_attr", "node_attr", "edge_attr")
 _KNOWN_KEYS = frozenset(
-    {"palette", "style_function", "show_legend", *_GRAPHVIZ_ATTR_KEYS}
+    {
+        "palette",
+        "style_function",
+        "show_legend",
+        "cluster_by_frequency",
+        *_GRAPHVIZ_ATTR_KEYS,
+    }
 )
 
 
@@ -58,6 +65,9 @@ class GraphvizSpec:
         ``custom_style_function``.  When set, it replaces the built-in default.
     show_legend
         Whether to draw the legend.
+    cluster_by_frequency
+        Whether to box nodes into ``daily``/``weekly``/``monthly`` subgraph
+        clusters (in addition to colouring them).
     graphviz_kwargs
         Kwargs forwarded to ``Driver.display_all_functions`` (``graph_attr``,
         ``node_attr``, ``edge_attr`` nested dicts).
@@ -66,6 +76,7 @@ class GraphvizSpec:
     palette: dict[str, str] = field(default_factory=lambda: dict(DEFAULT_PALETTE))
     style_function: str | None = None
     show_legend: bool = True
+    cluster_by_frequency: bool = True
     graphviz_kwargs: dict[str, Any] = field(default_factory=dict)
 
 
@@ -98,5 +109,6 @@ def load_graphviz_spec(path: Path | None) -> GraphvizSpec:
         palette=palette,
         style_function=data.get("style_function"),
         show_legend=data.get("show_legend", True),
+        cluster_by_frequency=data.get("cluster_by_frequency", True),
         graphviz_kwargs=graphviz_kwargs,
     )

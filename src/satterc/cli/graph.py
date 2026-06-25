@@ -178,6 +178,137 @@ def color_edges_by_frequency(
             digraph.body[i] = line.rstrip("\n") + f' [color="{color}"]\n'
 
 
+def _edges(digraph: "graphviz.Digraph") -> list[tuple[str, str]]:
+    """Return ``(source, target)`` id pairs for every edge in the digraph body."""
+    pairs: list[tuple[str, str]] = []
+    for line in digraph.body:
+        if " -> " not in line:
+            continue
+        src, _, dst = line.strip().partition(" -> ")
+        src = src.strip().strip('"')
+        dst = dst.split(None, 1)[0].strip().strip('"')
+        pairs.append((src, dst))
+    return pairs
+
+
+def infer_frequencies(
+    digraph: "graphviz.Digraph", freq_map: dict[str, str]
+) -> dict[str, str]:
+    """Extend ``freq_map`` to unsuffixed nodes by neighbour consensus.
+
+    Only ``DataArray`` nodes carry a ``_daily``/``_weekly``/``_monthly`` suffix,
+    so the model-bundle nodes (``splash``, ``pmodel``, ``sgam``, ``rothc``),
+    suffix-less derive outputs and the input tables start out without a
+    frequency — yet they sit *between* same-frequency nodes and, left ungrouped,
+    would straddle the cluster boundaries and break the left-to-right flow.
+
+    Here a node inherits a frequency when *every* one of its already-resolved
+    neighbours (predecessors and successors) agrees on a single one, iterated to
+    a fixpoint.  A node bridging two frequencies has conflicting neighbours and
+    stays unresolved, so a frequency never spreads across a genuine boundary.
+    The returned map is a superset of ``freq_map`` (the input is not mutated).
+    """
+    preds: dict[str, set[str]] = {}
+    succs: dict[str, set[str]] = {}
+    for src, dst in _edges(digraph):
+        succs.setdefault(src, set()).add(dst)
+        preds.setdefault(dst, set()).add(src)
+
+    freq = dict(freq_map)
+    changed = True
+    while changed:
+        changed = False
+        for node in set(preds) | set(succs):
+            if node in freq:
+                continue
+            neighbours = preds.get(node, set()) | succs.get(node, set())
+            resolved = {freq[m] for m in neighbours if m in freq}
+            if len(resolved) == 1:
+                freq[node] = next(iter(resolved))
+                changed = True
+    return freq
+
+
+def cluster_nodes_by_frequency(
+    digraph: "graphviz.Digraph", freq_map: dict[str, str], palette: dict[str, str]
+) -> None:
+    """Box nodes into ``daily``/``weekly``/``monthly`` subgraph clusters in-place.
+
+    Graphviz draws a labelled, coloured boundary around each ``subgraph
+    cluster_*`` and tries to lay its members out together, giving the frequency
+    bands a clear spatial grouping on top of the existing colour coding.  Nodes
+    whose frequency is unknown (config params, static inputs) are left
+    ungrouped; pass a ``freq_map`` widened by :func:`infer_frequencies` so the
+    model-bundle nodes that sit between same-frequency nodes are enclosed too.
+    Input tables (``_<fn>_inputs``) join the cluster of the node they feed.
+
+    The rebuilt body lists every node definition (clustered or not) *before* any
+    edge, so an edge never implicitly creates one of its endpoints at the top
+    level before the cluster claims it — the usual Graphviz clustering pitfall.
+    """
+    legend: list[str] = []
+    rest: list[str] = []
+    in_legend = False
+    for line in digraph.body:
+        if "subgraph cluster__legend" in line:
+            in_legend = True
+        if in_legend:
+            legend.append(line)
+            if line.strip() == "}":
+                in_legend = False
+            continue
+        rest.append(line)
+
+    node_defs: dict[str, str] = {}
+    edges: list[str] = []
+    other: list[str] = []
+    for line in rest:
+        if " -> " in line:
+            edges.append(line)
+        elif "[label=" in line:
+            node_id = line.split("[label=", 1)[0].strip().strip('"')
+            node_defs[node_id] = line
+        else:
+            other.append(line)
+
+    # Map each input table to the node it feeds so it can share its cluster.
+    input_target: dict[str, str] = {}
+    for line in edges:
+        src, _, dst = line.strip().partition(" -> ")
+        src = src.strip().strip('"')
+        dst = dst.split(None, 1)[0].strip().strip('"')
+        if src.startswith("_") and src.endswith("_inputs"):
+            input_target[src] = dst
+
+    groups: dict[str, list[str]] = {freq: [] for freq in _FREQUENCIES}
+    ungrouped: list[str] = []
+    for node_id, line in node_defs.items():
+        freq = freq_map.get(node_id)
+        if freq is None and node_id in input_target:
+            freq = freq_map.get(input_target[node_id])
+        if freq in groups:
+            groups[freq].append(line)
+        else:
+            ungrouped.append(line)
+
+    new_body: list[str] = list(other)
+    for freq in _FREQUENCIES:
+        lines = groups[freq]
+        if not lines:
+            continue
+        new_body.append(f"\tsubgraph cluster_{freq} {{\n")
+        new_body.append(
+            f"\t\tgraph [label={freq} labeljust=l style=dashed "
+            f'color="{palette[freq]}" fontname=Helvetica penwidth=2]\n'
+        )
+        new_body.extend(lines)
+        new_body.append("\t}\n")
+    new_body.extend(ungrouped)
+    new_body.extend(edges)
+    new_body.extend(legend)
+    digraph.body[:] = new_body
+
+
 @app.command()
 def graph(
     config_file: Annotated[
@@ -246,8 +377,11 @@ def graph(
         )
 
     unit_map, freq_map = _node_maps(dr)
+    freq_map = infer_frequencies(digraph, freq_map)
     relabel_with_units(digraph, unit_map)
     color_edges_by_frequency(digraph, freq_map, spec.palette)
+    if spec.cluster_by_frequency:
+        cluster_nodes_by_frequency(digraph, freq_map, spec.palette)
 
     output_path = Path(output).with_suffix(".dot")
     output_path.write_text(digraph.source)

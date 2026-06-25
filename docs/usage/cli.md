@@ -89,8 +89,9 @@ satterc graph config.toml --pdf
 This produces `pipeline.pdf` showing all nodes and their dependencies. Each node
 displays its declared **unit** (read from the `Annotated[DataArray, "<unit>"]`
 type) in place of the generic `DataArray` type, the requested output nodes are
-highlighted with a coloured border, and edges are coloured by temporal
-frequency. Nodes are filled by category:
+highlighted with a coloured border, edges are coloured by temporal frequency,
+and nodes are grouped into dashed `daily`/`weekly`/`monthly` clusters. Nodes are
+filled by category:
 
 | Colour | Category |
 |--------|----------|
@@ -118,7 +119,7 @@ satterc graph config.toml --style graphviz.toml --pdf
 
 See the commented [`graphviz.toml`](https://github.com/SatTerC/satterc/blob/main/graphviz.toml)
 template for the full set of keys (`palette`, `graph_attr`/`node_attr`/`edge_attr`,
-`show_legend`, and `style_function`).
+`show_legend`, `cluster_by_frequency`, and `style_function`).
 
 /// admonition | Note
     type: note
