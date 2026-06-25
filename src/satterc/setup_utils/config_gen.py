@@ -233,8 +233,7 @@ def generate_config(
     config_data["models"] = {}
     for model in builtin_models:
         params = get_model_params(model)
-        if params:
-            config_data["models"][model] = params
+        config_data["models"][model] = params
 
     freq_keys = ("daily", "weekly", "monthly", "static")
     config_data["inputs"] = {
