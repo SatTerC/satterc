@@ -167,11 +167,11 @@ to produce no output at that frequency.
 
 ---
 
-### Derived Variables
+### Custom Nodes
 
-Use `[[derive]]` (an [array of tables](https://toml.io/en/v1.0.0#array-of-tables))
+Use `[[node]]` (an [array of tables](https://toml.io/en/v1.0.0#array-of-tables))
 to create new computed variables from existing DAG nodes using inline Python
-expressions or external functions. Each entry defines a single derived variable.
+expressions or external functions. Each entry defines a single custom node.
 
 #### Inline expressions
 
@@ -180,19 +180,19 @@ the listed `inputs` available as local variables. The `xr` (xarray) module is
 automatically available in the expression namespace.
 
 ```toml
-[[derive]]
-output = "aridity_index_daily"
+[[node]]
+name = "aridity_index_daily"
 inputs = ["precipitation_daily", "actual_evapotranspiration_daily"]
 expression = "precipitation_daily / actual_evapotranspiration_daily"
 
-[[derive]]
-output = "inert_organic_matter"
+[[node]]
+name = "inert_organic_matter"
 inputs = ["organic_carbon_stocks"]
 expression = "0.049 * organic_carbon_stocks**1.139"
 ```
 
 Input variable names must include their frequency suffix (e.g. `_daily`, `_weekly`,
-`_monthly`) as they appear in the DAG. The `output` name is the node name that
+`_monthly`) as they appear in the DAG. The `name` is the node name that
 downstream models and outputs will reference.
 
 #### Accessing dict-like parameters
@@ -201,8 +201,8 @@ Some DAG nodes (e.g. `pft_params`) return dictionaries. You can index into them
 within the expression:
 
 ```toml
-[[derive]]
-output = "leaf_area_index_weekly"
+[[node]]
+name = "leaf_area_index_weekly"
 inputs = ["leaf_pool_weekly", "pft_params"]
 expression = 'leaf_pool_weekly / pft_params["leaf_carbon_area"]'
 ```
@@ -213,8 +213,8 @@ For more complex logic, you can delegate to a function in an importable module
 by specifying `_import_path` and `function` instead of `expression`:
 
 ```toml
-[[derive]]
-output = "custom_index_daily"
+[[node]]
+name = "custom_index_daily"
 inputs = ["temperature_daily", "precipitation_daily"]
 _import_path = "mypackage.indices"
 function = "compute_custom_index"
@@ -225,30 +225,30 @@ and return an `xarray.DataArray`.
 
 #### Declaring units
 
-A derived variable transforms its inputs, so its output unit cannot be inferred. Add an optional `units` key to make the derived node a typed producer: its output is stamped with that unit at run time, and the build-time unit check can verify any downstream consumer against it (see [Units](#units)).
+A custom node transforms its inputs, so its output unit cannot be inferred. Add an optional `units` key to make the node a typed producer: its output is stamped with that unit at run time, and the build-time unit check can verify any downstream consumer against it (see [Units](#units)).
 
 ```toml
-[[derive]]
-output = "aridity_index_daily"
+[[node]]
+name = "aridity_index_daily"
 inputs = ["precipitation_daily", "actual_evapotranspiration_daily"]
 expression = "precipitation_daily / actual_evapotranspiration_daily"
 units = "1"   # dimensionless ratio
 ```
 
-`units` is optional: omit it and the derived node is a unit-unknown pass-through (no static unit coverage). When present it must be a valid UDUNITS/pint unit string, validated when the config is parsed.
+`units` is optional: omit it and the node is a unit-unknown pass-through (no static unit coverage). When present it must be a valid UDUNITS/pint unit string, validated when the config is parsed.
 
 /// admonition | Naming and ordering
     type: note
 
-Each `[[derive]]` entry produces a DAG node named after its `output` field.
-Derived variables can be used as inputs to models, to other derived variables,
+Each `[[node]]` entry produces a DAG node named after its `name` field.
+Custom nodes can be used as inputs to models, to other nodes,
 or in output sections — as long as the DAG remains acyclic.
 
-If multiple derive entries depend on each other, they are executed in the
+If multiple node entries depend on each other, they are executed in the
 order they appear in the config file.
 ///
 
-Omit `[[derive]]` entirely if no derived variables are needed.
+Omit `[[node]]` entirely if no custom nodes are needed.
 
 ---
 
@@ -403,7 +403,7 @@ exact = false     # require identical unit strings on each edge (default: false)
 
 Validation happens at two points:
 
-- **Build time** — when the driver is built, every internal edge where both ends declare a unit is checked for consistency (subject to `mode` and `exact`), so a mismatch is caught before the pipeline runs. Units are propagated through resampling (which preserves units) so resampled edges are covered; a derived variable is covered when its `[[derive]]` entry declares `units` (see below). Edges fed by input files are checked at run time instead.
+- **Build time** — when the driver is built, every internal edge where both ends declare a unit is checked for consistency (subject to `mode` and `exact`), so a mismatch is caught before the pipeline runs. Units are propagated through resampling (which preserves units) so resampled edges are covered; a node is covered when its `[[node]]` entry declares `units` (see below). Edges fed by input files are checked at run time instead.
 - **Run time** — as each node executes, every `DataArray` input is validated against its declared unit. With `exact = false` a compatible input is converted to the declared unit; with `exact = true` it must already be that unit. Dimensionally incompatible inputs always raise. A `units` attribute that is missing — or present but unparseable (e.g. a non-CF string like `"fraction"`) — cannot be validated, so it follows `mode` (raise / warn / ignore).
 
 You can run these run-time input checks against your real data *without* executing the pipeline using [`satterc run --dry-run`](cli.md#validating-without-running-dry-run) — a fast pre-flight that catches a misconfigured input before a long run.

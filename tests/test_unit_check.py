@@ -12,7 +12,7 @@ from hamilton.function_modifiers import extract_fields
 from hamilton.settings import ENABLE_POWER_USER_MODE
 
 from satterc import units
-from satterc.config import DeriveSpec, ResampleSpec
+from satterc.config import NodeSpec, ResampleSpec
 from satterc.dag._utils import declare_units
 from satterc.dag.driver import build_driver
 from satterc.dag.unit_check import check_dag_units
@@ -27,7 +27,7 @@ def register():
     """Build Hamilton-scannable modules from functions and clean up afterwards.
 
     Hamilton only picks up a module's functions when they live in ``sys.modules``
-    and their ``__module__`` matches the module name (mirrors ``derive.py``).
+    and their ``__module__`` matches the module name (mirrors ``node.py``).
     """
     names: list[str] = []
 
@@ -388,16 +388,16 @@ class TestResamplePropagation:
 
 
 # ---------------------------------------------------------------------------
-# Derive: a declared `units=` makes the node a checkable producer
+# Node: a declared `units=` makes the node a checkable producer
 # ---------------------------------------------------------------------------
 
 
-class TestDerivePropagation:
+class TestNodePropagation:
     def _build(self, register, consumer_unit):
         register("dv_cons", _consumer(consumer_unit, in_name="flux"))
         specs = [
-            DeriveSpec(
-                output="flux",
+            NodeSpec(
+                name="flux",
                 inputs=["a", "b"],
                 expression="a + b",
                 import_path=None,
@@ -405,12 +405,12 @@ class TestDerivePropagation:
                 units="g m-2 d-1",
             )
         ]
-        return build_driver(["derive", "dv_cons"], {"derive_specs": specs})
+        return build_driver(["node", "dv_cons"], {"node_specs": specs})
 
-    def test_incompatible_consumer_of_derived_var_raises(self, register):
+    def test_incompatible_consumer_of_node_var_raises(self, register):
         with units.mode("strict"), pytest.raises(ValueError, match="flux"):
             self._build(register, "kg")
 
-    def test_compatible_consumer_of_derived_var_passes(self, register):
+    def test_compatible_consumer_of_node_var_passes(self, register):
         with units.mode("strict"):
             self._build(register, "g m-2 d-1")

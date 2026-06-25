@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from satterc.config import Config, DeriveSpec, IOSpec, ParsedConfig, load_config
+from satterc.config import Config, IOSpec, NodeSpec, ParsedConfig, load_config
 
 TEST_CONFIG_PATH = Path(__file__).parent / "test_config.toml"
 
@@ -289,15 +289,15 @@ class TestResample:
             config.parse()
 
 
-class TestDerive:
-    """Tests for [[derive]] section parsing."""
+class TestNode:
+    """Tests for [[node]] section parsing."""
 
-    def test_derive_adds_derive_module(self):
+    def test_node_adds_node_module(self):
         config = Config(
             {
-                "derive": [
+                "node": [
                     {
-                        "output": "aridity_index_daily",
+                        "name": "aridity_index_daily",
                         "inputs": ["precipitation_daily", "aet_daily"],
                         "expression": "precipitation_daily / aet_daily",
                     }
@@ -305,19 +305,19 @@ class TestDerive:
             }
         )
         parsed = config.parse()
-        assert "derive" in parsed.modules
+        assert "node" in parsed.modules
 
-    def test_no_derive_omits_derive_module(self):
+    def test_no_node_omits_node_module(self):
         config = Config({"models": {"pmodel": {}}})
         parsed = config.parse()
-        assert "derive" not in parsed.modules
+        assert "node" not in parsed.modules
 
-    def test_derive_specs_in_driver_config(self):
+    def test_node_specs_in_driver_config(self):
         config = Config(
             {
-                "derive": [
+                "node": [
                     {
-                        "output": "aridity_index_daily",
+                        "name": "aridity_index_daily",
                         "inputs": ["precipitation_daily", "aet_daily"],
                         "expression": "precipitation_daily / aet_daily",
                     }
@@ -325,10 +325,10 @@ class TestDerive:
             }
         )
         parsed = config.parse()
-        specs = parsed.driver_config["derive_specs"]
+        specs = parsed.driver_config["node_specs"]
         assert len(specs) == 1
-        assert isinstance(specs[0], DeriveSpec)
-        assert specs[0].output == "aridity_index_daily"
+        assert isinstance(specs[0], NodeSpec)
+        assert specs[0].name == "aridity_index_daily"
         assert specs[0].inputs == ["precipitation_daily", "aet_daily"]
         assert specs[0].expression == "precipitation_daily / aet_daily"
         assert specs[0].import_path is None
@@ -337,9 +337,9 @@ class TestDerive:
     def test_function_reference_spec(self):
         config = Config(
             {
-                "derive": [
+                "node": [
                     {
-                        "output": "mean_growth_temperature_weekly",
+                        "name": "mean_growth_temperature_weekly",
                         "inputs": ["temperature_daily"],
                         "_import_path": "mypackage.met_utils",
                         "function": "mean_growth_temperature",
@@ -348,18 +348,18 @@ class TestDerive:
             }
         )
         parsed = config.parse()
-        spec = parsed.driver_config["derive_specs"][0]
-        assert isinstance(spec, DeriveSpec)
+        spec = parsed.driver_config["node_specs"][0]
+        assert isinstance(spec, NodeSpec)
         assert spec.expression is None
         assert spec.import_path == "mypackage.met_utils"
         assert spec.function == "mean_growth_temperature"
 
-    def test_derive_units_parsed(self):
+    def test_node_units_parsed(self):
         config = Config(
             {
-                "derive": [
+                "node": [
                     {
-                        "output": "aridity_index_daily",
+                        "name": "aridity_index_daily",
                         "inputs": ["precipitation_daily", "aet_daily"],
                         "expression": "precipitation_daily / aet_daily",
                         "units": "1",
@@ -367,21 +367,19 @@ class TestDerive:
                 ]
             }
         )
-        spec = config.parse().driver_config["derive_specs"][0]
+        spec = config.parse().driver_config["node_specs"][0]
         assert spec.units == "1"
 
-    def test_derive_units_default_none(self):
-        config = Config(
-            {"derive": [{"output": "f", "inputs": ["a"], "expression": "a"}]}
-        )
-        assert config.parse().driver_config["derive_specs"][0].units is None
+    def test_node_units_default_none(self):
+        config = Config({"node": [{"name": "f", "inputs": ["a"], "expression": "a"}]})
+        assert config.parse().driver_config["node_specs"][0].units is None
 
-    def test_invalid_derive_units_raises(self):
+    def test_invalid_node_units_raises(self):
         config = Config(
             {
-                "derive": [
+                "node": [
                     {
-                        "output": "f",
+                        "name": "f",
                         "inputs": ["a"],
                         "expression": "a",
                         "units": "not_a_unit",
@@ -392,24 +390,24 @@ class TestDerive:
         with pytest.raises(ValueError, match="not a recognised"):
             config.parse()
 
-    def test_duplicate_derive_output_raises(self):
+    def test_duplicate_node_name_raises(self):
         config = Config(
             {
-                "derive": [
-                    {"output": "foo", "inputs": ["a"], "expression": "a"},
-                    {"output": "foo", "inputs": ["b"], "expression": "b"},
+                "node": [
+                    {"name": "foo", "inputs": ["a"], "expression": "a"},
+                    {"name": "foo", "inputs": ["b"], "expression": "b"},
                 ]
             }
         )
-        with pytest.raises(ValueError, match="Duplicate derive output"):
+        with pytest.raises(ValueError, match="Duplicate node name"):
             config.parse()
 
     def test_both_expression_and_function_raises(self):
         config = Config(
             {
-                "derive": [
+                "node": [
                     {
-                        "output": "foo",
+                        "name": "foo",
                         "inputs": ["a"],
                         "expression": "a",
                         "_import_path": "some.module",
@@ -424,9 +422,9 @@ class TestDerive:
     def test_neither_expression_nor_function_raises(self):
         config = Config(
             {
-                "derive": [
+                "node": [
                     {
-                        "output": "foo",
+                        "name": "foo",
                         "inputs": ["a"],
                     }
                 ]

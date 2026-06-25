@@ -163,14 +163,14 @@ class TestCheckInputUnitsPropagation:
         check_input_units(dr, {"gpp_weekly": _input("g m-2 d-1")}, mode="strict")
 
     def test_derive_routed_input_not_validated(self, register):
-        """Documented limitation: an input feeding a [[derive]] node before a
-        declaring consumer is not validated, since derive can change units."""
-        from satterc.config import DeriveSpec
+        """Documented limitation: an input feeding a [[node]] module before a
+        declaring consumer is not validated, since a node can change units."""
+        from satterc.config import NodeSpec
 
         register("dv_cons", _consumer("g m-2 d-1", in_name="flux"))
         specs = [
-            DeriveSpec(
-                output="flux",
+            NodeSpec(
+                name="flux",
                 inputs=["a", "b"],
                 expression="a + b",
                 import_path=None,
@@ -178,7 +178,7 @@ class TestCheckInputUnitsPropagation:
                 units="g m-2 d-1",
             )
         ]
-        dr = build_driver(["derive", "dv_cons"], {"derive_specs": specs})
+        dr = build_driver(["node", "dv_cons"], {"node_specs": specs})
         # Raw inputs 'a'/'b' carry no derivable expectation -> not checked.
         check_input_units(dr, {"a": _input("kg"), "b": _input("kg")}, mode="strict")
 

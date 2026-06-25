@@ -62,10 +62,10 @@ class ResampleSpec:
 
 
 @dataclass
-class DeriveSpec:
-    """Specification for a single [[derive]] entry."""
+class NodeSpec:
+    """Specification for a single [[node]] entry."""
 
-    output: str
+    name: str
     inputs: list[str]
     expression: str | None
     import_path: str | None
@@ -73,18 +73,18 @@ class DeriveSpec:
     units: str | None = None
 
     @classmethod
-    def from_config(cls, entry: dict) -> "DeriveSpec":
-        """Construct and validate from a raw [[derive]] TOML entry."""
+    def from_config(cls, entry: dict) -> "NodeSpec":
+        """Construct and validate from a raw [[node]] TOML entry."""
         has_expression = "expression" in entry
         has_function = "_import_path" in entry or "function" in entry
         if has_expression and has_function:
             raise ValueError(
-                f"Derive entry for '{entry.get('output')}' must specify either "
+                f"Node entry for '{entry.get('name')}' must specify either "
                 "'expression' or ('_import_path' + 'function'), not both."
             )
         if not has_expression and not has_function:
             raise ValueError(
-                f"Derive entry for '{entry.get('output')}' must specify either "
+                f"Node entry for '{entry.get('name')}' must specify either "
                 "'expression' or ('_import_path' + 'function')."
             )
         units = entry.get("units")
@@ -92,9 +92,9 @@ class DeriveSpec:
             # Fail fast on a malformed/unknown unit, at parse time.
             from .units import assert_valid_unit
 
-            assert_valid_unit(units, f"derive '{entry.get('output')}' units")
+            assert_valid_unit(units, f"node '{entry.get('name')}' units")
         return cls(
-            output=entry["output"],
+            name=entry["name"],
             inputs=entry["inputs"],
             expression=entry.get("expression"),
             import_path=entry.get("_import_path"),
@@ -339,21 +339,19 @@ class Config:
             return ["resample"]
         return []
 
-    def _parse_derive(self, data: dict, driver_config: dict) -> list[str]:
-        """Handle [[derive]] section."""
-        seen_outputs: set[str] = set()
-        specs: list[DeriveSpec] = []
-        for entry in data.pop("derive", []):
-            spec = DeriveSpec.from_config(entry)
-            if spec.output in seen_outputs:
-                raise ValueError(
-                    f"Duplicate derive output '{spec.output}' in [[derive]]"
-                )
-            seen_outputs.add(spec.output)
+    def _parse_node(self, data: dict, driver_config: dict) -> list[str]:
+        """Handle [[node]] section."""
+        seen_names: set[str] = set()
+        specs: list[NodeSpec] = []
+        for entry in data.pop("node", []):
+            spec = NodeSpec.from_config(entry)
+            if spec.name in seen_names:
+                raise ValueError(f"Duplicate node name '{spec.name}' in [[node]]")
+            seen_names.add(spec.name)
             specs.append(spec)
         if specs:
-            driver_config["derive_specs"] = specs
-            return ["derive"]
+            driver_config["node_specs"] = specs
+            return ["node"]
         return []
 
     def _parse_cache(self, data: dict) -> "CacheSpec | None":
@@ -439,7 +437,7 @@ class Config:
         - [grid]          — silently accepted (grid computation is now in load_inputs())
         - [graphviz]      — silently ignored (DAG styling is a `graph --style` file)
         - [models.*]      — built-in model modules
-        - [[derive]]      — config-driven derived variable nodes
+        - [[node]]        — config-driven custom nodes
         - [[resample]]    — temporal resampling module
         - [cache]         — Hamilton result caching (path, recompute, disable)
         - [blocking]      — pixel-blocked execution (block_size)
@@ -461,7 +459,7 @@ class Config:
         self._parse_inputs(data, driver_config, input_specs)
         self._parse_outputs(data, driver_config, output_specs)
         modules += self._parse_models(data, driver_config)
-        modules += self._parse_derive(data, driver_config)
+        modules += self._parse_node(data, driver_config)
         modules += self._parse_resample(data, driver_config)
         cache_spec = self._parse_cache(data)
         blocking_spec = self._parse_blocking(data)

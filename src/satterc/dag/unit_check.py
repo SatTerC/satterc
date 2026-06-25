@@ -13,9 +13,9 @@ check uses. Hamilton unifies nodes by name, so a node name that is both
 return) and *consumed* with a declared unit (an ``Annotated`` parameter) is a
 genuine edge in the built graph; no edge walking is required.
 
-**Limitation.** Edges routed through resample/derive nodes, or fed by external
+**Limitation.** Edges routed through resample/node modules, or fed by external
 files, have no statically declared producer unit (resample preserves the source
-``units`` attribute at runtime; derive modules are generated; file inputs are
+``units`` attribute at runtime; node modules are generated; file inputs are
 validated against the file's own ``units``). Those edges are not checked here and
 fall back to the runtime check.
 
@@ -26,8 +26,8 @@ consume them. This is the only data-dependent part of unit validation (every
 internal edge's unit is fixed by declarations/stamping), so it can run without
 executing any node — the basis of ``satterc run --dry-run``. Inputs routed through
 a unit-preserving ``resample`` node before reaching a declaring consumer are covered
-via backward propagation; inputs routed through a ``[[derive]]`` node are *not*,
-since derive can transform units arbitrarily and would have to actually run.
+via backward propagation; inputs routed through a ``[[node]]`` module are *not*,
+since a node can transform units arbitrarily and would have to actually run.
 """
 
 import warnings
@@ -195,7 +195,7 @@ def check_input_units(
     An input that feeds a unit-preserving ``resample`` node before reaching a
     declaring consumer is validated against that consumer's unit (the declared unit
     is propagated *backward* through resample edges to a fixpoint). An input routed
-    through a ``[[derive]]`` node first is *not* validated here — derive can transform
+    through a ``[[node]]`` module first is *not* validated here — a node can transform
     units arbitrarily, so its consumer's declared unit says nothing about the raw
     input and only a real run could check it.
     """

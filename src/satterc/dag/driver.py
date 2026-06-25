@@ -10,7 +10,7 @@ if TYPE_CHECKING:
     from satterc.config import CacheSpec
 
 MODULES: dict[str, str] = {
-    "derive": "satterc.dag.derive",
+    "node": "satterc.dag.node",
     "resample": "satterc.dag.resample",
     "models.splash": "satterc.dag.splash",
     "models.pmodel": "satterc.dag.pmodel",
@@ -45,12 +45,12 @@ def build_driver(
     """
     config[ENABLE_POWER_USER_MODE] = True
 
-    from satterc.dag.derive import make_derive_module
+    from satterc.dag.node import make_node_module
 
     modules_ = []
     for mod in modules:
-        if mod == "derive":
-            modules_.append(make_derive_module(config.get("derive_specs", [])))
+        if mod == "node":
+            modules_.append(make_node_module(config.get("node_specs", [])))
         elif mod in MODULES:
             modules_.append(import_module(MODULES[mod]))
         else:

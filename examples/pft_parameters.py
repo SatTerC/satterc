@@ -117,8 +117,8 @@ def _(Config, tomllib):
       "root_pool_init",
     ]
 
-    [[derive]]
-    output = "aridity_index_daily"
+    [[node]]
+    name = "aridity_index_daily"
     inputs = ["precipitation_daily", "actual_evapotranspiration_daily"]
     expression = "precipitation_daily / actual_evapotranspiration_daily"
 
