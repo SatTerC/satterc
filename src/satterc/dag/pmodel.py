@@ -19,18 +19,16 @@ from ._utils import declare_units
 
 
 class PModelOut(TypedDict):
-    """Outputs of the :func:`pmodel` node, at weekly resolution.
-
-    gpp_weekly : gross primary productivity, the carbon fixed by photosynthesis,
-        expressed as a rate (grams of carbon per square metre per day).
-    lue_weekly : light use efficiency, carbon fixed per unit absorbed PAR
-        (grams of carbon per megajoule).
-    iwue_weekly : intrinsic water use efficiency (pascals).
-    """
+    """Outputs of the :func:`pmodel` node, at weekly resolution."""
 
     gpp_weekly: Annotated[DataArray, "g m-2 d-1"]
+    """Gross primary productivity: the carbon fixed by photosynthesis, expressed
+    as a rate (grams of carbon per square metre per day)."""
     lue_weekly: Annotated[DataArray, "g MJ-1"]
+    """Light use efficiency: carbon fixed per unit absorbed PAR (grams of carbon
+    per megajoule)."""
     iwue_weekly: Annotated[DataArray, "Pa"]
+    """Intrinsic water use efficiency (pascals)."""
 
 
 def _pmodel_block(

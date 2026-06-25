@@ -50,79 +50,81 @@ class SgamOut(TypedDict):
     timestep. Both pools and fluxes are carbon mass per unit ground area
     (grams of carbon per square metre); the remaining diagnostics are
     dimensionless.
-
-    Pools
-        leaf_pool_weekly : standing leaf carbon pool (grams of carbon per
-            square metre).
-        stem_pool_weekly : standing stem carbon pool (grams of carbon per
-            square metre).
-        root_pool_weekly : standing root carbon pool (grams of carbon per
-            square metre).
-        litter_pool_weekly : litter carbon pool, fed by turnover and (for
-            non-crop disturbance) disturbance losses; accumulate-only, since
-            decomposition is RothC's role (grams of carbon per square metre).
-        removed_pool_weekly : cumulative carbon removed from the system by
-            disturbance/harvest (grams of carbon per square metre).
-
-    Net primary productivity (growth flux allocated to each pool)
-        npp_leaf_weekly, npp_stem_weekly, npp_root_weekly : NPP directed to the
-            leaf/stem/root pool (grams of carbon per square metre per week).
-
-    Turnover (litterfall flux from each pool to the litter pool)
-        turnover_leaf_weekly, turnover_stem_weekly, turnover_root_weekly :
-            litterfall from the leaf/stem/root pool (grams of carbon per square
-            metre per week).
-
-    Autotrophic respiration (flux to the atmosphere)
-        respiration_leaf_weekly, respiration_stem_weekly,
-        respiration_root_weekly : respiration attributed to the leaf/stem/root
-            pool (grams of carbon per square metre per week).
-
-    Disturbance losses (positive loss flux from each pool)
-        disturbance_leaf_weekly, disturbance_stem_weekly,
-        disturbance_root_weekly : carbon lost from the leaf/stem/root pool to
-            disturbance. For non-crop PFTs only the leaf pool is affected (to
-            litter); for crops leaf and stem carbon go to the removed pool and
-            root carbon to litter (grams of carbon per square metre per week).
-
-    Diagnostics (dimensionless)
-        cue_weekly : carbon use efficiency, the fraction of GPP retained as
-            biomass (in [0.2, 0.7]).
-        allocation_leaf_weekly, allocation_stem_weekly, allocation_root_weekly :
-            NPP allocation fractions for leaf/stem/root, each in (0, 1) and
-            summing to 1 at every timestep.
-        drought_modifier_weekly : combined drought stress scalar in [0, 1]
-            (1.0 = no stress, 0.0 = maximum stress).
-        lue_score_weekly : light use efficiency relative to its PFT-specific
-            maximum, clipped to [0, 1].
-        iwue_score_weekly : intrinsic water use efficiency relative to its
-            PFT-specific maximum, clipped to [0, 1].
     """
 
     leaf_pool_weekly: Annotated[xr.DataArray, "g m-2"]
+    """Standing leaf carbon pool (grams of carbon per square metre)."""
     stem_pool_weekly: Annotated[xr.DataArray, "g m-2"]
+    """Standing stem carbon pool (grams of carbon per square metre)."""
     root_pool_weekly: Annotated[xr.DataArray, "g m-2"]
+    """Standing root carbon pool (grams of carbon per square metre)."""
     litter_pool_weekly: Annotated[xr.DataArray, "g m-2"]
+    """Litter carbon pool, fed by turnover and (for non-crop disturbance)
+    disturbance losses; accumulate-only, since decomposition is RothC's role
+    (grams of carbon per square metre)."""
     removed_pool_weekly: Annotated[xr.DataArray, "g m-2"]
+    """Cumulative carbon removed from the system by disturbance/harvest
+    (grams of carbon per square metre)."""
     npp_leaf_weekly: Annotated[xr.DataArray, "g m-2"]
+    """Net primary productivity directed to the leaf pool, as the weekly growth
+    flux (grams of carbon per square metre per week)."""
     npp_stem_weekly: Annotated[xr.DataArray, "g m-2"]
+    """Net primary productivity directed to the stem pool, as the weekly growth
+    flux (grams of carbon per square metre per week)."""
     npp_root_weekly: Annotated[xr.DataArray, "g m-2"]
+    """Net primary productivity directed to the root pool, as the weekly growth
+    flux (grams of carbon per square metre per week)."""
     turnover_leaf_weekly: Annotated[xr.DataArray, "g m-2"]
+    """Leaf litterfall flux to the litter pool (grams of carbon per square metre
+    per week)."""
     turnover_stem_weekly: Annotated[xr.DataArray, "g m-2"]
+    """Stem litterfall flux to the litter pool (grams of carbon per square metre
+    per week)."""
     turnover_root_weekly: Annotated[xr.DataArray, "g m-2"]
+    """Root litterfall flux to the litter pool (grams of carbon per square metre
+    per week)."""
     respiration_leaf_weekly: Annotated[xr.DataArray, "g m-2"]
+    """Autotrophic respiration attributed to the leaf pool (grams of carbon per
+    square metre per week)."""
     respiration_stem_weekly: Annotated[xr.DataArray, "g m-2"]
+    """Autotrophic respiration attributed to the stem pool (grams of carbon per
+    square metre per week)."""
     respiration_root_weekly: Annotated[xr.DataArray, "g m-2"]
+    """Autotrophic respiration attributed to the root pool (grams of carbon per
+    square metre per week)."""
     disturbance_leaf_weekly: Annotated[xr.DataArray, "g m-2"]
+    """Carbon lost from the leaf pool to disturbance, as a positive flux. For
+    non-crop PFTs this transfers to litter; for crops it transfers to the
+    removed pool (grams of carbon per square metre per week)."""
     disturbance_stem_weekly: Annotated[xr.DataArray, "g m-2"]
+    """Carbon lost from the stem pool to disturbance, as a positive flux.
+    Non-zero only for crops, where it transfers to the removed pool (grams of
+    carbon per square metre per week)."""
     disturbance_root_weekly: Annotated[xr.DataArray, "g m-2"]
+    """Carbon lost from the root pool to disturbance, as a positive flux.
+    Non-zero only for crops, where it transfers to litter (grams of carbon per
+    square metre per week)."""
     cue_weekly: Annotated[xr.DataArray, "1"]
+    """Carbon use efficiency: the fraction of GPP retained as biomass, in
+    [0.2, 0.7] (dimensionless)."""
     allocation_leaf_weekly: Annotated[xr.DataArray, "1"]
+    """Fraction of NPP allocated to the leaf pool, in (0, 1). The three
+    allocation fractions sum to 1 at every timestep (dimensionless)."""
     allocation_stem_weekly: Annotated[xr.DataArray, "1"]
+    """Fraction of NPP allocated to the stem pool, in (0, 1). The three
+    allocation fractions sum to 1 at every timestep (dimensionless)."""
     allocation_root_weekly: Annotated[xr.DataArray, "1"]
+    """Fraction of NPP allocated to the root pool, in (0, 1). The three
+    allocation fractions sum to 1 at every timestep (dimensionless)."""
     drought_modifier_weekly: Annotated[xr.DataArray, "1"]
+    """Combined drought stress scalar in [0, 1] (1.0 = no stress, 0.0 = maximum
+    stress) (dimensionless)."""
     lue_score_weekly: Annotated[xr.DataArray, "1"]
+    """Light use efficiency relative to its PFT-specific maximum, clipped to
+    [0, 1] (dimensionless)."""
     iwue_score_weekly: Annotated[xr.DataArray, "1"]
+    """Intrinsic water use efficiency relative to its PFT-specific maximum,
+    clipped to [0, 1] (dimensionless)."""
 
 
 def _pft_int_to_enum(value: int) -> PlantFunctionalType:

@@ -21,19 +21,16 @@ from ._utils import declare_units
 
 
 class SplashOut(TypedDict):
-    """Outputs of the :func:`splash` node, at daily resolution.
-
-    actual_evapotranspiration_daily : actual evapotranspiration, the daily water
-        loss to the atmosphere (millimetres per day).
-    soil_moisture_daily : soil moisture content at the end of the day
-        (millimetres).
-    runoff_daily : runoff, the soil-moisture overflow amount above capacity for
-        the day (millimetres, an amount rather than a rate).
-    """
+    """Outputs of the :func:`splash` node, at daily resolution."""
 
     actual_evapotranspiration_daily: Annotated[DataArray, "mm d-1"]
+    """Actual evapotranspiration: the daily water loss to the atmosphere
+    (millimetres per day)."""
     soil_moisture_daily: Annotated[DataArray, "mm"]
+    """Soil moisture content at the end of the day (millimetres)."""
     runoff_daily: Annotated[DataArray, "mm"]
+    """Runoff: the soil-moisture overflow amount above capacity for the day
+    (millimetres, an amount rather than a rate)."""
 
 
 def _splash_block(

@@ -21,28 +21,22 @@ class RothCOut(TypedDict):
     All quantities are carbon mass per unit ground area (tonnes of carbon per
     hectare): the first four are the active soil-carbon pools, the fifth is their
     total, and the last is the month's respiration flux.
-
-    decomposable_plant_material_monthly : decomposable plant material (DPM)
-        pool (tonnes of carbon per hectare).
-    resistant_plant_material_monthly : resistant plant material (RPM) pool
-        (tonnes of carbon per hectare).
-    microbial_biomass_monthly : microbial biomass (BIO) pool (tonnes of carbon
-        per hectare).
-    humified_organic_matter_monthly : humified organic matter (HUM) pool
-        (tonnes of carbon per hectare).
-    soil_organic_carbon_monthly : total soil organic carbon, the sum of the DPM,
-        RPM, BIO, HUM and inert organic matter pools (tonnes of carbon per
-        hectare).
-    heterotrophic_respiration_monthly : carbon released as CO2 by microbial
-        decomposition during the month (tonnes of carbon per hectare).
     """
 
     decomposable_plant_material_monthly: Annotated[DataArray, "t ha-1"]
+    """Decomposable plant material (DPM) pool (tonnes of carbon per hectare)."""
     resistant_plant_material_monthly: Annotated[DataArray, "t ha-1"]
+    """Resistant plant material (RPM) pool (tonnes of carbon per hectare)."""
     microbial_biomass_monthly: Annotated[DataArray, "t ha-1"]
+    """Microbial biomass (BIO) pool (tonnes of carbon per hectare)."""
     humified_organic_matter_monthly: Annotated[DataArray, "t ha-1"]
+    """Humified organic matter (HUM) pool (tonnes of carbon per hectare)."""
     soil_organic_carbon_monthly: Annotated[DataArray, "t ha-1"]
+    """Total soil organic carbon: the sum of the DPM, RPM, BIO, HUM and inert
+    organic matter pools (tonnes of carbon per hectare)."""
     heterotrophic_respiration_monthly: Annotated[DataArray, "t ha-1"]
+    """Carbon released as CO2 by microbial decomposition during the month
+    (tonnes of carbon per hectare)."""
 
 
 # RothC output keys, in the order they are returned by `_rothc_1px` and mapped
