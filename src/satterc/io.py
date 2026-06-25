@@ -11,7 +11,7 @@ import rioxarray as rioxarray
 import xarray as xr
 from pyproj import Transformer
 
-from .config import IOSpec, SubsetSpec
+from .config import RESAMPLE_FREQ_MAP, IOSpec, SubsetSpec
 from .spatial import stack_spatial_dims
 
 
@@ -195,6 +195,35 @@ def _validate_dates(ds: xr.Dataset, freq: str) -> pd.DatetimeIndex:
         )
 
     return idx
+
+
+# ---------------------------------------------------------------------------
+# Internal helpers: cross-frequency temporal alignment
+# ---------------------------------------------------------------------------
+
+
+def _validate_temporal_alignment(dates: dict[str, pd.DatetimeIndex]) -> None:
+    """Raise ValueError if coarser-frequency dates are not valid resample labels.
+
+    For each (fine, coarse) pair in RESAMPLE_FREQ_MAP where both are present,
+    derives the expected coarse timestamps by resampling the fine index and
+    checks that all actual coarse dates are a subset of those expected timestamps.
+    Pairs where one or both frequencies are absent are silently skipped.
+    """
+    for (fine, coarse), freq in RESAMPLE_FREQ_MAP.items():
+        if fine not in dates or coarse not in dates:
+            continue
+        expected = pd.DatetimeIndex(
+            pd.Series(0, index=dates[fine]).resample(freq).mean().index
+        )
+        misaligned = dates[coarse][~dates[coarse].isin(expected)]
+        if len(misaligned) > 0:
+            raise ValueError(
+                f"Temporal alignment check failed for '{fine}' → '{coarse}': "
+                f"the following '{coarse}' timestamps are not valid '{freq}' "
+                f"resample period labels from the '{fine}' index: "
+                f"{misaligned.tolist()}"
+            )
 
 
 # ---------------------------------------------------------------------------
@@ -399,6 +428,13 @@ def load_inputs(
 
         if freq != "static":
             inputs[f"dates_{freq}"] = _validate_dates(ds_raw, freq)
+
+    dates = {
+        key[len("dates_") :]: val
+        for key, val in inputs.items()
+        if key.startswith("dates_")
+    }
+    _validate_temporal_alignment(dates)
 
     spatial = {f: ds for f, ds in raw_datasets.items() if ds.rio.crs is not None}
     if spatial:

@@ -8,7 +8,7 @@ from typing import Any, Self
 
 import tomli_w
 
-_RESAMPLE_FREQ_MAP: dict[tuple[str, str], str] = {
+RESAMPLE_FREQ_MAP: dict[tuple[str, str], str] = {
     ("daily", "weekly"): "7D",
     ("daily", "monthly"): "1ME",
     ("weekly", "monthly"): "1ME",
@@ -33,7 +33,7 @@ class ResampleSpec:
     @property
     def freq(self) -> str:
         """Return xarray resample frequency string from source/target freq pair."""
-        return _RESAMPLE_FREQ_MAP[(self.source_freq, self.target_freq)]
+        return RESAMPLE_FREQ_MAP[(self.source_freq, self.target_freq)]
 
     @classmethod
     def from_config(cls, entry: dict) -> "ResampleSpec":
@@ -43,10 +43,10 @@ class ResampleSpec:
         aggfunc = entry.get("aggfunc", "mean")
         vars_ = entry["vars"]
 
-        if (source_freq, target_freq) not in _RESAMPLE_FREQ_MAP:
+        if (source_freq, target_freq) not in RESAMPLE_FREQ_MAP:
             raise ValueError(
                 f"Unsupported resample direction '{source_freq}' → '{target_freq}'. "
-                f"Supported: {sorted(_RESAMPLE_FREQ_MAP)}"
+                f"Supported: {sorted(RESAMPLE_FREQ_MAP)}"
             )
         if aggfunc not in _VALID_AGGFUNCS:
             raise ValueError(
