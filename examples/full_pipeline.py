@@ -158,13 +158,16 @@ def _(Config, tomllib):
     expression = "precipitation_daily.resample(time='1ME').sum()"
     units = "mm"
 
-    # Use the monthly litter pool as a (rough) proxy for the carbon entering the
-    # soil. SGAM reports it as a stock in g m-2; RothC wants t ha-1, so convert
-    # explicitly with pint (g m-2 -> t ha-1 is a factor-100 change).
+    # Carbon entering the soil each month = the litter produced that month. SGAM's
+    # litter_pool is an accumulate-only stock (no decomposition; that is RothC's
+    # job), so the monthly litterfall is its *increment*: diff the weekly pool and
+    # sum within each month. Using the increment (rather than summing turnover_*)
+    # also captures litter from disturbance events, which the turnover outputs omit.
+    # SGAM reports g m-2; RothC wants t ha-1, so convert with pint (factor 100).
     [[derive]]
     output = "soil_carbon_input_monthly"
-    inputs = ["litter_pool_monthly"]
-    expression = "litter_pool_monthly.pint.quantify().pint.to('t ha-1').pint.dequantify()"
+    inputs = ["litter_pool_weekly"]
+    expression = "litter_pool_weekly.diff('time').resample(time='1ME').sum().assign_attrs(units='g m-2').pint.quantify().pint.to('t ha-1').pint.dequantify()"
     units = "t ha-1"
 
     [[derive]]
@@ -195,13 +198,6 @@ def _(Config, tomllib):
     from_freq = "daily"
     to_freq = "weekly"
     aggfunc = "max"
-
-    [[resample]]
-    vars = [
-      "litter_pool",
-    ]
-    from_freq = "weekly"
-    to_freq = "monthly"
 
     [outputs.daily]
     path = "results/daily.nc"
