@@ -66,8 +66,8 @@ def splash_inputs() -> dict:
     sf = np.clip(0.5 + 0.05 * _SEASON, 0, 1)
     return dict(
         sunshine_fraction_daily=_temporal(np.tile(sf[:, None], (1, N_PIXELS))),
-        temperature_celcius_daily=_temporal(temp),
-        precipitation_mm_daily=_temporal(np.full((N_DAYS, N_PIXELS), 2.0)),
+        temperature_daily=_temporal(temp),
+        precipitation_daily=_temporal(np.full((N_DAYS, N_PIXELS), 2.0)),
         elevation=_static(ELEVATION),
         latitude=_static(LATITUDE),
         max_soil_moisture=_static(MAX_SM),
@@ -89,8 +89,8 @@ def _reference_block(inputs: dict) -> dict[str, np.ndarray]:
         lat=inputs["latitude"].values[None, :],
         elv=inputs["elevation"].values[None, :],
         sf=inputs["sunshine_fraction_daily"].values,
-        tc=inputs["temperature_celcius_daily"].values,
-        pn=inputs["precipitation_mm_daily"].values,
+        tc=inputs["temperature_daily"].values,
+        pn=inputs["precipitation_daily"].values,
         dates=calendar,
         kWm=inputs["max_soil_moisture"].values,
     )
@@ -163,8 +163,8 @@ class TestPerPixelStaticsThreaded:
 
         result = _splash(
             sunshine_fraction_daily=md(np.tile(col_sf[:, None], (1, n))),
-            temperature_celcius_daily=md(np.tile(col_tc[:, None], (1, n))),
-            precipitation_mm_daily=md(np.full((N_DAYS, n), 2.0)),
+            temperature_daily=md(np.tile(col_tc[:, None], (1, n))),
+            precipitation_daily=md(np.full((N_DAYS, n), 2.0)),
             elevation=sd([100.0, 100.0]),
             latitude=sd([51.5, -51.5]),
             max_soil_moisture=sd([150.0, 150.0]),

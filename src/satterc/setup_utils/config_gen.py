@@ -67,7 +67,7 @@ def _strip_suffix(name: str) -> tuple[str, str | None]:
     Parameters
     ----------
     name : str
-        Variable name (e.g., 'temperature_celcius_daily').
+        Variable name (e.g., 'temperature_daily').
 
     Returns
     -------

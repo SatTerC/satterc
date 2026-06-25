@@ -53,7 +53,7 @@ def register():
         sys.modules.pop(name, None)
 
 
-def _consumer(unit: str, name: str = "consumer", in_name: str = "vpd_pa_weekly"):
+def _consumer(unit: str, name: str = "consumer", in_name: str = "vpd_weekly"):
     """A node consuming ``in_name`` with the given declared input unit."""
     src = (
         "from typing import Annotated, TypedDict\n"
@@ -87,55 +87,55 @@ def _input(units_attr: str | None = None) -> xr.DataArray:
 class TestCheckInputUnitsDirect:
     @pytest.fixture
     def dr(self, register):
-        """Driver with external input ``vpd_pa_weekly`` consumed declaring ``Pa``."""
+        """Driver with external input ``vpd_weekly`` consumed declaring ``Pa``."""
         register("vpd_cons", _consumer("Pa"))
         return build_driver(["vpd_cons"], {})
 
     def test_matching_units_pass(self, dr):
-        check_input_units(dr, {"vpd_pa_weekly": _input("Pa")}, mode="strict")
+        check_input_units(dr, {"vpd_weekly": _input("Pa")}, mode="strict")
 
     def test_compatible_units_convert_without_error(self, dr):
         # hPa <-> Pa is a valid, intentional conversion; must not fail.
-        check_input_units(dr, {"vpd_pa_weekly": _input("hPa")}, mode="strict")
+        check_input_units(dr, {"vpd_weekly": _input("hPa")}, mode="strict")
 
     def test_exact_match_rejects_compatible_but_different(self, dr):
         with pytest.raises(ValueError, match="exact"):
             check_input_units(
-                dr, {"vpd_pa_weekly": _input("hPa")}, mode="strict", exact=True
+                dr, {"vpd_weekly": _input("hPa")}, mode="strict", exact=True
             )
 
     def test_incompatible_units_raise(self, dr):
         with pytest.raises(pint.DimensionalityError):
-            check_input_units(dr, {"vpd_pa_weekly": _input("kg")}, mode="strict")
+            check_input_units(dr, {"vpd_weekly": _input("kg")}, mode="strict")
 
     def test_missing_units_strict_raises(self, dr):
         with pytest.raises(ValueError, match="no 'units' attribute"):
-            check_input_units(dr, {"vpd_pa_weekly": _input(None)}, mode="strict")
+            check_input_units(dr, {"vpd_weekly": _input(None)}, mode="strict")
 
     def test_missing_units_warn_warns(self, dr):
         with pytest.warns(UserWarning, match="unvalidated"):
-            check_input_units(dr, {"vpd_pa_weekly": _input(None)}, mode="warn")
+            check_input_units(dr, {"vpd_weekly": _input(None)}, mode="warn")
 
     def test_unparseable_units_strict_raises(self, dr):
         # A present-but-unparseable units string is as un-validatable as a missing
         # one; in strict mode it raises a clear error rather than an opaque one.
         with pytest.raises(ValueError, match="unparseable"):
-            check_input_units(dr, {"vpd_pa_weekly": _input("fraction")}, mode="strict")
+            check_input_units(dr, {"vpd_weekly": _input("fraction")}, mode="strict")
 
     def test_unparseable_units_warn_warns(self, dr):
         with pytest.warns(UserWarning, match="unparseable"):
-            check_input_units(dr, {"vpd_pa_weekly": _input("fraction")}, mode="warn")
+            check_input_units(dr, {"vpd_weekly": _input("fraction")}, mode="warn")
 
     def test_off_mode_skips_everything(self, dr):
         # Even a dimensionally incompatible unit is ignored in 'off' mode.
-        check_input_units(dr, {"vpd_pa_weekly": _input("kg")}, mode="off")
+        check_input_units(dr, {"vpd_weekly": _input("kg")}, mode="off")
 
     def test_input_without_declared_consumer_ignored(self, dr):
         # An input the DAG does not consume with a declared unit is left alone.
         check_input_units(dr, {"some_other_var": _input("kg")}, mode="strict")
 
     def test_non_dataarray_inputs_ignored(self, dr):
-        check_input_units(dr, {"vpd_pa_weekly": 3.0}, mode="strict")
+        check_input_units(dr, {"vpd_weekly": 3.0}, mode="strict")
 
 
 # ---------------------------------------------------------------------------
@@ -232,11 +232,11 @@ method_optchi = "lavergne20_c3"
 
 [inputs.daily]
 path = "{synthetic_data_dir / "daily.nc"}"
-vars = ["precipitation_mm", "sunshine_fraction", "temperature_celcius", "lai", "gpp"]
+vars = ["precipitation", "sunshine_fraction", "temperature", "lai", "gpp"]
 
 [inputs.weekly]
 path = "{synthetic_data_dir / "weekly.nc"}"
-vars = ["co2_ppm", "fapar", "ppfd_umol_m2_s1", "pressure_pa", "vpd_pa"]
+vars = ["co2", "fapar", "ppfd", "pressure", "vpd"]
 
 [inputs.monthly]
 path = "{synthetic_data_dir / "monthly.nc"}"
@@ -266,7 +266,7 @@ class TestDryRunCLI:
 
     def test_passes_and_writes_nothing(self, tmp_path, synthetic_data_dir):
         out = tmp_path / "gpp_daily.nc"
-        outputs = f'[outputs.daily]\npath = "{out}"\nvars = ["temperature_celcius"]\n'
+        outputs = f'[outputs.daily]\npath = "{out}"\nvars = ["temperature"]\n'
         cfg = _config(tmp_path, synthetic_data_dir, outputs)
         result = runner.invoke(app, ["run", cfg, "--dry-run"])
         assert result.exit_code == 0, result.output
@@ -277,7 +277,7 @@ class TestDryRunCLI:
 
     def test_missing_output_dir_fails(self, tmp_path, synthetic_data_dir):
         out = tmp_path / "missing" / "out.nc"
-        outputs = f'[outputs.daily]\npath = "{out}"\nvars = ["temperature_celcius"]\n'
+        outputs = f'[outputs.daily]\npath = "{out}"\nvars = ["temperature"]\n'
         cfg = _config(tmp_path, synthetic_data_dir, outputs)
         result = runner.invoke(app, ["run", cfg, "--dry-run"])
         assert result.exit_code != 0

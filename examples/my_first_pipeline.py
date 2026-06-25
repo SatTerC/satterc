@@ -103,9 +103,9 @@ def _():
     [inputs.daily]
     path = "daily.csv"
     vars = [
-      "precipitation_mm",
+      "precipitation",
       "sunshine_fraction",
-      "temperature_celcius",
+      "temperature",
     ]
 
     [inputs.static]
@@ -202,7 +202,7 @@ def _(build_driver, parsed_config):
 @app.cell
 def _(dr):
     dr.visualize_path_between(
-        "precipitation_mm_daily",
+        "precipitation_daily",
         "soil_moisture_daily",
         show_legend=False,
         graphviz_kwargs={"graph_attr": {"ratio": "compress", "size": "10,15"}},
@@ -292,7 +292,7 @@ def _(mo):
     **Daily CSV** — one row per day, first column a parseable date:
 
     ```csv
-    time,precipitation_mm,sunshine_fraction,temperature_celcius
+    time,precipitation,sunshine_fraction,temperature
     2020-01-01,3.2,0.45,8.1
     2020-01-02,0.0,0.71,9.3
     ...
@@ -318,9 +318,9 @@ def _(mo):
     [inputs.daily]
     path = "/data/my-site/daily.csv"
     vars = [
-      "precipitation_mm",
+      "precipitation",
       "sunshine_fraction",
-      "temperature_celcius",
+      "temperature",
     ]
 
     [inputs.static]

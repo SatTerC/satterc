@@ -1,7 +1,7 @@
 """Runtime unit validation helpers for the SatTerC DAG.
 
 Each model node owns its own unit declarations via the
-:func:`satterc.dag._utils.declare_units` decorator (``input_units`` / ``output_units``);
+`satterc.dag._utils.declare_units` decorator (``input_units`` / ``output_units``);
 there is deliberately no central registry of variable units, so the framework
 never has to anticipate what inputs a user might bring. This module provides the
 validation/conversion helpers and the validation-mode state used by that decorator.
@@ -103,7 +103,7 @@ def get_mode() -> Mode:
     """Resolve the active unit validation mode.
 
     Resolution order: ``SATTERC_UNITS_MODE`` environment variable, then the
-    value set via :func:`set_mode`, then :data:`DEFAULT_MODE`.
+    value set via `set_mode`, then `DEFAULT_MODE`.
     """
     env = os.environ.get(MODE_ENV_VAR)
     if env:
@@ -145,7 +145,7 @@ def get_exact_match() -> bool:
     """Resolve the active exact-unit-match flag.
 
     Resolution order: ``SATTERC_UNITS_EXACT`` environment variable, then the
-    value set via :func:`set_exact_match`, then :data:`DEFAULT_EXACT`.
+    value set via `set_exact_match`, then `DEFAULT_EXACT`.
     """
     env = os.environ.get(EXACT_ENV_VAR)
     if env:
@@ -175,7 +175,7 @@ def assert_valid_unit(unit: str, context: str) -> None:
     string (a typo such as ``"degrees_C"``, or ``"not_a_unit"``) is rejected as
     soon as a node is defined, rather than only when that node runs in
     ``strict``/``warn`` mode — and never in ``off`` mode. ``context`` names the
-    offending site (e.g. ``"pmodel input 'vpd_pa_weekly'"``) for the message.
+    offending site (e.g. ``"pmodel input 'vpd_weekly'"``) for the message.
 
     The registry raises a variety of exception types for bad input
     (``pint.UndefinedUnitError``, ``AssertionError``, …); all are caught and
@@ -194,11 +194,11 @@ def assert_valid_unit(unit: str, context: str) -> None:
 def units_compatible(a: str, b: str) -> bool:
     """Return whether two declared units are *dimensionally* compatible.
 
-    Mirrors the runtime conversion semantics of :func:`check_units`: ``"hPa"`` and
+    Mirrors the runtime conversion semantics of `check_units`: ``"hPa"`` and
     ``"Pa"`` are compatible (one converts to the other), whereas ``"Pa"`` and
     ``"kg"`` are not. Used by the build-time DAG check
-    (:func:`satterc.dag.unit_check.check_dag_units`). Both strings are assumed
-    already validated by :func:`assert_valid_unit` at decoration time.
+    (`satterc.dag.unit_check.check_dag_units`). Both strings are assumed
+    already validated by `assert_valid_unit` at decoration time.
     """
     return _UREG.Unit(a).is_compatible_with(_UREG.Unit(b))
 
@@ -253,7 +253,7 @@ def _annotated_unit(hint: Any) -> str | None:
 
     The convention is therefore *unit first*: the unit must precede any
     descriptive string. A description placed before the unit would be mis-read as
-    the unit — but :func:`assert_valid_unit` rejects it at decoration time unless
+    the unit — but `assert_valid_unit` rejects it at decoration time unless
     the description itself parses as a valid unit, so the failure is loud.
     Non-string metadata (ints, markers) is skipped regardless of position.
 
@@ -289,7 +289,7 @@ def units_from_signature(
       its ``Annotated`` unit (a ``dict``); if it is a bare ``Annotated[DataArray,
       unit]`` return, the bare unit ``str``; otherwise ``None``.
 
-    This is the single source the runtime :func:`satterc.dag._utils.declare_units`
+    This is the single source the runtime `satterc.dag._utils.declare_units`
     decorator and the (Phase 2) static DAG check both read, so unit declarations
     live in one place — the node's own signature.
     """

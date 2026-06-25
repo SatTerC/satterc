@@ -79,8 +79,8 @@ class TestStripSuffix:
     """_strip_suffix extracts base name and frequency from variable names."""
 
     def test_daily_suffix(self):
-        base, freq = _strip_suffix("temperature_celcius_daily")
-        assert base == "temperature_celcius"
+        base, freq = _strip_suffix("temperature_daily")
+        assert base == "temperature"
         assert freq == "_daily"
 
     def test_weekly_suffix(self):

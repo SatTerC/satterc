@@ -1,9 +1,9 @@
 """
-Satterc-compatable interface to PyRealm's 'Splash' model.
+Satterc-compatible interface to PyRealm's 'SPLASH' model.
 
-This module provides the Splash class, which wraps the SPLASH model
-to calculate soil moisture, actual evapotranspiration (AET), and runoff based
-on climate inputs.
+This module provides the `splash` node, which wraps PyRealm's SPLASH model
+to calculate actual evapotranspiration (AET), soil moisture, and runoff from
+climate inputs.
 """
 
 from typing import Annotated, TypedDict, cast
@@ -21,17 +21,22 @@ from ._utils import declare_units
 
 
 class SplashOut(TypedDict):
-    """Outputs of the :func:`splash` node, with their declared units."""
+    """Outputs of the `splash` node, at daily resolution."""
 
     actual_evapotranspiration_daily: Annotated[DataArray, "mm d-1"]
+    """Actual evapotranspiration: the daily water loss to the atmosphere
+    (millimetres per day)."""
     soil_moisture_daily: Annotated[DataArray, "mm"]
-    runoff_daily: Annotated[DataArray, "mm d-1"]
+    """Soil moisture content at the end of the day (millimetres)."""
+    runoff_daily: Annotated[DataArray, "mm"]
+    """Runoff: the soil-moisture overflow amount above capacity for the day
+    (millimetres, an amount rather than a rate)."""
 
 
 def _splash_block(
     sunshine_fraction: NDArray[np.float64],
-    temperature_celcius: NDArray[np.float64],
-    precipitation_mm: NDArray[np.float64],
+    temperature: NDArray[np.float64],
+    precipitation: NDArray[np.float64],
     elevation: NDArray[np.float64],
     latitude: NDArray[np.float64],
     max_soil_moisture: NDArray[np.float64],
@@ -54,8 +59,8 @@ def _splash_block(
     bug, where every pixel silently received pixel 0's latitude/elevation/capacity.
     """
     sf = np.moveaxis(np.asarray(sunshine_fraction, dtype=float), -1, 0)
-    tc = np.moveaxis(np.asarray(temperature_celcius, dtype=float), -1, 0)
-    pn = np.moveaxis(np.asarray(precipitation_mm, dtype=float), -1, 0)
+    tc = np.moveaxis(np.asarray(temperature, dtype=float), -1, 0)
+    pn = np.moveaxis(np.asarray(precipitation, dtype=float), -1, 0)
 
     model = pyrealm.splash.splash.SplashModel(
         lat=np.atleast_2d(np.asarray(latitude, dtype=float)),
@@ -83,8 +88,8 @@ def _splash_block(
 
 def _splash(
     sunshine_fraction_daily: DataArray,
-    temperature_celcius_daily: DataArray,
-    precipitation_mm_daily: DataArray,
+    temperature_daily: DataArray,
+    precipitation_daily: DataArray,
     elevation: DataArray,
     latitude: DataArray,
     max_soil_moisture: DataArray,
@@ -93,7 +98,7 @@ def _splash(
     soil_moisture_init_max_iter: int = 10,
     soil_moisture_init_max_diff: float = 1.0,
 ) -> SplashOut:
-    """Apply SPLASH over the ``(time, pixel)`` block via :func:`xarray.apply_ufunc`.
+    """Apply SPLASH over the ``(time, pixel)`` block via `xarray.apply_ufunc`.
 
     SPLASH is sequential along ``time`` (soil moisture carries state day to day) but
     embarrassingly parallel over ``pixel``, so ``time`` is the input/output core dim and
@@ -106,8 +111,8 @@ def _splash(
     aet, moisture, runoff = xr.apply_ufunc(
         _splash_block,
         sunshine_fraction_daily,
-        temperature_celcius_daily,
-        precipitation_mm_daily,
+        temperature_daily,
+        precipitation_daily,
         elevation,
         latitude,
         max_soil_moisture,
@@ -146,8 +151,8 @@ def _splash(
 def splash(
     dates_daily: DatetimeIndex,
     sunshine_fraction_daily: Annotated[DataArray, "1"],
-    temperature_celcius_daily: Annotated[DataArray, "degC"],
-    precipitation_mm_daily: Annotated[DataArray, "mm"],
+    temperature_daily: Annotated[DataArray, "degC"],
+    precipitation_daily: Annotated[DataArray, "mm d-1"],
     elevation: Annotated[DataArray, "m"],
     latitude: DataArray,
     max_soil_moisture: Annotated[DataArray, "mm"],
@@ -161,33 +166,43 @@ def splash(
 
     Parameters
     ----------
+    dates_daily
+        Daily datetime index.
     sunshine_fraction_daily
         Fraction of daylight hours that are sunny (dimensionless, 0-1).
-    temperature_celcius_daily
-        Air temperature (degrees Celsius).
-    precipitation_mm_daily
-        Precipitation (mm).
+    temperature_daily
+        Daily mean air temperature (degrees Celsius).
+    precipitation_daily
+        Precipitation (millimetres per day).
+    elevation
+        Elevation of the site (metres).
     latitude
         Latitude of the site (degrees).
-    elevation
-        Elevation of the site (meters).
+    max_soil_moisture
+        Maximum soil moisture capacity (millimetres).
     soil_moisture_init_max_iter
-        Maximum number of one year iterations used to estimate initial soil moisture.
+        Maximum number of one-year iterations used to estimate initial soil
+        moisture.
     soil_moisture_init_max_diff
-        Maximum acceptable difference between year start and year end soil moisture.
+        Maximum acceptable difference between year-start and year-end soil
+        moisture (millimetres).
 
     Returns
     -------
-    tuple
-        Tuple containing:
-        - actual_evapotranspiration_daily: actual evapotranspiration (mm per day)
-        - soil_moisture_daily: soil moisture content (mm)
-        - runoff_daily: runoff (mm per day)
+    SplashOut
+        Dictionary of daily outputs:
+
+        - actual_evapotranspiration_daily: actual evapotranspiration
+          (millimetres per day)
+        - soil_moisture_daily: soil moisture content (millimetres)
+        - runoff_daily: runoff overflow amount (millimetres)
+
+        See `SplashOut` for per-output detail.
     """
     return _splash(
         sunshine_fraction_daily=sunshine_fraction_daily,
-        temperature_celcius_daily=temperature_celcius_daily,
-        precipitation_mm_daily=precipitation_mm_daily,
+        temperature_daily=temperature_daily,
+        precipitation_daily=precipitation_daily,
         elevation=elevation,
         latitude=latitude,
         max_soil_moisture=max_soil_moisture,

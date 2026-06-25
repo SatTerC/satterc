@@ -1,4 +1,4 @@
-"""Storage Gap Model (SGAM) vegetation model interface for the SatTerC pipeline."""
+"""Simplified Growth and Allocation Model (SGAM) interface for the SatTerC pipeline."""
 
 from typing import Annotated, TypedDict, cast
 
@@ -43,36 +43,88 @@ _SGAM_OUTPUT_NAMES: tuple[str, ...] = (
 
 
 class SgamOut(TypedDict):
-    """Outputs of the :func:`sgam` node, with their declared units.
+    """Outputs of the `sgam` node, at weekly resolution.
 
-    Carbon pools and fluxes are carbon mass per unit area (gC m-2); the
-    remaining diagnostics are dimensionless.
+    Carbon pools are standing stocks; the npp/turnover/respiration/disturbance
+    quantities are weekly fluxes recorded as the carbon amount per weekly
+    timestep. Both pools and fluxes are carbon mass per unit ground area
+    (grams of carbon per square metre); the remaining diagnostics are
+    dimensionless.
     """
 
     leaf_pool_weekly: Annotated[xr.DataArray, "g m-2"]
+    """Standing leaf carbon pool (grams of carbon per square metre)."""
     stem_pool_weekly: Annotated[xr.DataArray, "g m-2"]
+    """Standing stem carbon pool (grams of carbon per square metre)."""
     root_pool_weekly: Annotated[xr.DataArray, "g m-2"]
+    """Standing root carbon pool (grams of carbon per square metre)."""
     litter_pool_weekly: Annotated[xr.DataArray, "g m-2"]
+    """Litter carbon pool, fed by turnover and (for non-crop disturbance)
+    disturbance losses; accumulate-only, since decomposition is RothC's role
+    (grams of carbon per square metre)."""
     removed_pool_weekly: Annotated[xr.DataArray, "g m-2"]
+    """Cumulative carbon removed from the system by disturbance/harvest
+    (grams of carbon per square metre)."""
     npp_leaf_weekly: Annotated[xr.DataArray, "g m-2"]
+    """Net primary productivity directed to the leaf pool, as the weekly growth
+    flux (grams of carbon per square metre per week)."""
     npp_stem_weekly: Annotated[xr.DataArray, "g m-2"]
+    """Net primary productivity directed to the stem pool, as the weekly growth
+    flux (grams of carbon per square metre per week)."""
     npp_root_weekly: Annotated[xr.DataArray, "g m-2"]
+    """Net primary productivity directed to the root pool, as the weekly growth
+    flux (grams of carbon per square metre per week)."""
     turnover_leaf_weekly: Annotated[xr.DataArray, "g m-2"]
+    """Leaf litterfall flux to the litter pool (grams of carbon per square metre
+    per week)."""
     turnover_stem_weekly: Annotated[xr.DataArray, "g m-2"]
+    """Stem litterfall flux to the litter pool (grams of carbon per square metre
+    per week)."""
     turnover_root_weekly: Annotated[xr.DataArray, "g m-2"]
+    """Root litterfall flux to the litter pool (grams of carbon per square metre
+    per week)."""
     respiration_leaf_weekly: Annotated[xr.DataArray, "g m-2"]
+    """Autotrophic respiration attributed to the leaf pool (grams of carbon per
+    square metre per week)."""
     respiration_stem_weekly: Annotated[xr.DataArray, "g m-2"]
+    """Autotrophic respiration attributed to the stem pool (grams of carbon per
+    square metre per week)."""
     respiration_root_weekly: Annotated[xr.DataArray, "g m-2"]
+    """Autotrophic respiration attributed to the root pool (grams of carbon per
+    square metre per week)."""
     disturbance_leaf_weekly: Annotated[xr.DataArray, "g m-2"]
+    """Carbon lost from the leaf pool to disturbance, as a positive flux. For
+    non-crop PFTs this transfers to litter; for crops it transfers to the
+    removed pool (grams of carbon per square metre per week)."""
     disturbance_stem_weekly: Annotated[xr.DataArray, "g m-2"]
+    """Carbon lost from the stem pool to disturbance, as a positive flux.
+    Non-zero only for crops, where it transfers to the removed pool (grams of
+    carbon per square metre per week)."""
     disturbance_root_weekly: Annotated[xr.DataArray, "g m-2"]
+    """Carbon lost from the root pool to disturbance, as a positive flux.
+    Non-zero only for crops, where it transfers to litter (grams of carbon per
+    square metre per week)."""
     cue_weekly: Annotated[xr.DataArray, "1"]
+    """Carbon use efficiency: the fraction of GPP retained as biomass, in
+    [0.2, 0.7] (dimensionless)."""
     allocation_leaf_weekly: Annotated[xr.DataArray, "1"]
+    """Fraction of NPP allocated to the leaf pool, in (0, 1). The three
+    allocation fractions sum to 1 at every timestep (dimensionless)."""
     allocation_stem_weekly: Annotated[xr.DataArray, "1"]
+    """Fraction of NPP allocated to the stem pool, in (0, 1). The three
+    allocation fractions sum to 1 at every timestep (dimensionless)."""
     allocation_root_weekly: Annotated[xr.DataArray, "1"]
+    """Fraction of NPP allocated to the root pool, in (0, 1). The three
+    allocation fractions sum to 1 at every timestep (dimensionless)."""
     drought_modifier_weekly: Annotated[xr.DataArray, "1"]
+    """Combined drought stress scalar in [0, 1] (1.0 = no stress, 0.0 = maximum
+    stress) (dimensionless)."""
     lue_score_weekly: Annotated[xr.DataArray, "1"]
+    """Light use efficiency relative to its PFT-specific maximum, clipped to
+    [0, 1] (dimensionless)."""
     iwue_score_weekly: Annotated[xr.DataArray, "1"]
+    """Intrinsic water use efficiency relative to its PFT-specific maximum,
+    clipped to [0, 1] (dimensionless)."""
 
 
 def _pft_int_to_enum(value: int) -> PlantFunctionalType:
@@ -160,7 +212,7 @@ def _disturbances_block(
 
     ``apply_ufunc`` places the ``time`` core dim last, so each input arrives as
     ``(pixel, time)`` (or ``(time,)`` with no pixel broadcast).
-    :meth:`Disturbances.forward` diffs GPP/LAI along axis 0, so ``time`` is moved to
+    `Disturbances.forward` diffs GPP/LAI along axis 0, so ``time`` is moved to
     the front for the call and the result moved back to ``(pixel, time)``.
     ``moveaxis`` is a no-op on a 1D ``(time,)`` array, so the single-pixel case is
     handled too.
@@ -177,7 +229,7 @@ def _disturbances_block(
 
 
 def _disturbances_daily(
-    temperature_celcius_daily: xr.DataArray,
+    temperature_daily: xr.DataArray,
     gpp_daily: xr.DataArray,
     lai_daily: xr.DataArray,
 ) -> xr.DataArray:
@@ -191,7 +243,7 @@ def _disturbances_daily(
     """
     out = xr.apply_ufunc(
         _disturbances_block,
-        temperature_celcius_daily,
+        temperature_daily,
         gpp_daily,
         lai_daily,
         input_core_dims=[["time"]] * 3,
@@ -202,41 +254,44 @@ def _disturbances_daily(
 
     # apply_ufunc drops the `time` coord (a core dim) and orders the output as
     # (pixel, time); reattach the coord and restore the canonical (time, pixel).
-    time_coord = temperature_celcius_daily.coords["time"]
+    time_coord = temperature_daily.coords["time"]
     return out.assign_coords(time=time_coord).transpose("time", "pixel")
 
 
 @declare_units
 def disturbances_daily(
-    temperature_celcius_daily: Annotated[xr.DataArray, "degC"],
+    temperature_daily: Annotated[xr.DataArray, "degC"],
     gpp_daily: Annotated[xr.DataArray, "g m-2 d-1"],
     lai_daily: Annotated[xr.DataArray, "1"],
     plant_type: xr.DataArray,
     latitude: xr.DataArray,
 ) -> Annotated[xr.DataArray, "1"]:
-    """Calculate daily disturbance events.
+    """Detect daily disturbance events from anomalous declines in GPP and LAI.
 
     Parameters
     ----------
-    temperature_celcius_daily : xr.DataArray
-        Daily air temperature (degrees Celsius).
+    temperature_daily : xr.DataArray
+        Daily mean air temperature (degrees Celsius).
     gpp_daily : xr.DataArray
-        Daily gross primary productivity (gC/m²).
+        Daily gross primary productivity (grams of carbon per square metre per
+        day).
     lai_daily : xr.DataArray
-        Daily leaf area index.
+        Daily leaf area index (dimensionless).
     plant_type: xr.DataArray
-        Plant functional type.
+        Plant functional type as integer (0=tree, 1=grass, 2=shrub, 3=crop).
     latitude: xr.DataArray
-        Latitude.
+        Latitude for each pixel (degrees).
 
     Returns
     -------
     xr.DataArray
-        Daily disturbance indicators.
+        Daily disturbance severity: the relative decline in GPP/LAI used to flag
+        a disturbance, in [0, 1] where 0 is no disturbance and 1 is a total loss
+        (dimensionless).
     """
     # plant_type/latitude are declared dependencies for forthcoming pft-/hemisphere-
     # aware thresholds (see the TODOs in _disturbances_block) but are not used yet.
-    return _disturbances_daily(temperature_celcius_daily, gpp_daily, lai_daily)
+    return _disturbances_daily(temperature_daily, gpp_daily, lai_daily)
 
 
 def _sgam_1px(
@@ -264,12 +319,12 @@ def _sgam_1px(
 
     The climate/driver arguments are 1D ``(time,)`` arrays for one pixel;
     ``plant_type``, ``latitude`` and the init pools are per-pixel scalars and
-    ``pft_params`` is the per-pixel :class:`~sgam.pft.PftParams` object (threaded
+    ``pft_params`` is the per-pixel `PftParams` object (threaded
     through ``apply_ufunc`` as one element of an object-dtype ``(pixel,)`` array).
     ``week_of_year`` depends only on the date range, so it is computed once in
-    :func:`_sgam` and passed through unchanged. Returns one ``(time,)`` array per
-    output, ordered as :data:`_SGAM_OUTPUT_NAMES`. This is the per-pixel kernel mapped
-    over ``pixel`` by :func:`_sgam` via :func:`xarray.apply_ufunc`.
+    `_sgam` and passed through unchanged. Returns one ``(time,)`` array per
+    output, ordered as `_SGAM_OUTPUT_NAMES`. This is the per-pixel kernel mapped
+    over ``pixel`` by `_sgam` via `xarray.apply_ufunc`.
     """
     output = Sgam(
         plant_type=_pft_int_to_enum(int(plant_type)),
@@ -326,10 +381,10 @@ def _sgam_1px(
 def _sgam(
     plant_type: xr.DataArray,
     pft_params: xr.Dataset,
-    temperature_celcius_weekly: xr.DataArray,
+    temperature_weekly: xr.DataArray,
     gpp_weekly: xr.DataArray,
     soil_moisture_weekly: xr.DataArray,
-    vpd_pa_weekly: xr.DataArray,
+    vpd_weekly: xr.DataArray,
     lue_weekly: xr.DataArray,
     iwue_weekly: xr.DataArray,
     dates_weekly: pd.Index,
@@ -343,13 +398,13 @@ def _sgam(
     use_dynamic_allocation: bool = True,
     strict_mass_balance: bool = False,
 ) -> SgamOut:
-    """Map :func:`_sgam_1px` over the stacked ``pixel`` dimension.
+    """Map `_sgam_1px` over the stacked ``pixel`` dimension.
 
-    The per-pixel SGAM kernel is applied via :func:`xarray.apply_ufunc` with ``time`` as
+    The per-pixel SGAM kernel is applied via `xarray.apply_ufunc` with ``time`` as
     the input/output core dimension and ``pixel`` as the broadcast (mapped) dim. The 2D
     ``(time, pixel)`` climate/driver inputs declare ``time`` as their core dim; the 1D
     ``(pixel,)`` metadata and init-pool inputs declare no core dim (so each call gets a
-    per-pixel scalar). The structured per-pixel :class:`~sgam.pft.PftParams` are passed
+    per-pixel scalar). The structured per-pixel `PftParams` are passed
     as one object-dtype ``(pixel,)`` array. ``week_of_year`` and the boolean flags are
     pixel-invariant constants passed through ``kwargs``. ``dask="parallelized"`` is a
     no-op for eager numpy inputs but keeps the node compatible with a future dask-backed
@@ -375,10 +430,8 @@ def _sgam(
     # the byte size of object dtype, so an unchunked object array triggers an
     # auto-rechunk error inside apply_ufunc. Mirror the pixel chunks of the
     # (dask-backed) reference input; stay eager numpy otherwise (a no-op when eager).
-    if temperature_celcius_weekly.chunks is not None:
-        pft_objs = pft_objs.chunk(
-            {"pixel": temperature_celcius_weekly.chunksizes["pixel"]}
-        )
+    if temperature_weekly.chunks is not None:
+        pft_objs = pft_objs.chunk({"pixel": temperature_weekly.chunksizes["pixel"]})
 
     # apply_ufunc inputs must be real DataArrays; substitute zeros for omitted pools.
     if litter_pool_init is None:
@@ -388,10 +441,10 @@ def _sgam(
 
     outputs = xr.apply_ufunc(
         _sgam_1px,
-        temperature_celcius_weekly,
+        temperature_weekly,
         gpp_weekly,
         soil_moisture_weekly,
-        vpd_pa_weekly,
+        vpd_weekly,
         lue_weekly,
         iwue_weekly,
         disturbances_weekly,
@@ -417,7 +470,7 @@ def _sgam(
 
     # apply_ufunc drops the `time` coordinate (a core dim) and orders outputs as
     # (pixel, time); reattach the coordinate and restore the canonical (time, pixel).
-    time_coord = temperature_celcius_weekly.coords["time"]
+    time_coord = temperature_weekly.coords["time"]
     return cast(
         SgamOut,
         {
@@ -432,10 +485,10 @@ def _sgam(
 def sgam(
     plant_type: xr.DataArray,
     pft_params: xr.Dataset,
-    temperature_celcius_weekly: Annotated[xr.DataArray, "degC"],
+    temperature_weekly: Annotated[xr.DataArray, "degC"],
     gpp_weekly: Annotated[xr.DataArray, "g m-2 d-1"],
     soil_moisture_weekly: Annotated[xr.DataArray, "mm"],
-    vpd_pa_weekly: Annotated[xr.DataArray, "Pa"],
+    vpd_weekly: Annotated[xr.DataArray, "Pa"],
     lue_weekly: Annotated[xr.DataArray, "g MJ-1"],
     iwue_weekly: Annotated[xr.DataArray, "Pa"],
     disturbances_weekly: xr.DataArray,
@@ -449,42 +502,46 @@ def sgam(
     use_dynamic_allocation: bool = True,
     strict_mass_balance: bool = False,
 ) -> SgamOut:
-    """Run the Storage Gap Model (SGAM) vegetation model.
+    """Run the Simplified Growth and Allocation Model (SGAM) vegetation model.
 
     Parameters
     ----------
     plant_type : xr.DataArray
         Plant functional type as integer (0=tree, 1=grass, 2=shrub, 3=crop).
     pft_params : xr.Dataset
-        PFT parameters for each pixel. Output of pft_params node.
-    temperature_celcius_weekly : xr.DataArray
-        Weekly air temperature (degrees Celsius).
+        PFT parameters for each pixel. Output of the ``pft_params`` node.
+    temperature_weekly : xr.DataArray
+        Weekly mean air temperature (degrees Celsius).
     gpp_weekly : xr.DataArray
-        Weekly gross primary productivity (gC/m²).
+        Weekly gross primary productivity (grams of carbon per square metre per
+        day).
     soil_moisture_weekly : xr.DataArray
-        Weekly soil moisture (mm).
-    vpd_pa_weekly : xr.DataArray
-        Weekly vapor pressure deficit (Pa).
+        Weekly mean soil moisture (millimetres).
+    vpd_weekly : xr.DataArray
+        Weekly mean vapour pressure deficit (pascals).
     lue_weekly : xr.DataArray
-        Weekly light use efficiency (gC/MJ).
+        Weekly mean light use efficiency (grams of carbon per megajoule).
     iwue_weekly : xr.DataArray
-        Weekly intrinsic water use efficiency (Pa).
+        Weekly mean intrinsic water use efficiency (pascals).
     disturbances_weekly : xr.DataArray
-        Weekly disturbance indicators.
+        Weekly disturbance severity: the maximum daily relative decline observed
+        during the week, in [0, 1] (dimensionless).
     dates_weekly : pd.Index
         Weekly datetime index.
     leaf_pool_init : xr.DataArray
-        Initial leaf pool size.
+        Initial leaf carbon pool (grams of carbon per square metre).
     stem_pool_init : xr.DataArray
-        Initial stem pool size.
+        Initial stem carbon pool (grams of carbon per square metre).
     root_pool_init : xr.DataArray
-        Initial root pool size.
+        Initial root carbon pool (grams of carbon per square metre).
     latitude : xr.DataArray
-        Latitude for each pixel (used to determine hemisphere).
+        Latitude for each pixel (degrees; used to determine hemisphere).
     litter_pool_init : xr.DataArray, optional
-        Initial litter pool size. Defaults to 0.0.
+        Initial litter carbon pool (grams of carbon per square metre). Defaults
+        to 0.0.
     removed_init : xr.DataArray, optional
-        Initial removed-carbon pool size. Defaults to 0.0.
+        Initial removed-carbon pool (grams of carbon per square metre). Defaults
+        to 0.0.
     use_dynamic_allocation : bool, optional
         If True (default), allocation fractions vary with environmental
         conditions. If False, use fixed base allocations from pft_params.
@@ -494,16 +551,18 @@ def sgam(
 
     Returns
     -------
-    dict[str, xr.DataArray]
-        Dictionary containing vegetation pool sizes, fluxes, and diagnostics.
+    SgamOut
+        Dictionary of weekly carbon pools, fluxes (NPP, turnover, respiration,
+        disturbance losses), and dimensionless diagnostics. See `SgamOut`
+        for the full list of outputs and their units.
     """
     return _sgam(
         plant_type=plant_type,
         pft_params=pft_params,
-        temperature_celcius_weekly=temperature_celcius_weekly,
+        temperature_weekly=temperature_weekly,
         gpp_weekly=gpp_weekly,
         soil_moisture_weekly=soil_moisture_weekly,
-        vpd_pa_weekly=vpd_pa_weekly,
+        vpd_weekly=vpd_weekly,
         lue_weekly=lue_weekly,
         iwue_weekly=iwue_weekly,
         dates_weekly=dates_weekly,

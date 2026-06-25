@@ -65,8 +65,8 @@ class TestInputSpecs:
 
     def test_daily_input_vars(self, parsed_config):
         vars_ = parsed_config.input_specs["daily"].vars
-        assert "temperature_celcius" in vars_
-        assert "precipitation_mm" in vars_
+        assert "temperature" in vars_
+        assert "precipitation" in vars_
         assert "sunshine_fraction" in vars_
 
     def test_static_input_vars(self, parsed_config):
@@ -298,8 +298,8 @@ class TestDerive:
                 "derive": [
                     {
                         "output": "aridity_index_daily",
-                        "inputs": ["precipitation_mm_daily", "aet_daily"],
-                        "expression": "precipitation_mm_daily / aet_daily",
+                        "inputs": ["precipitation_daily", "aet_daily"],
+                        "expression": "precipitation_daily / aet_daily",
                     }
                 ]
             }
@@ -318,8 +318,8 @@ class TestDerive:
                 "derive": [
                     {
                         "output": "aridity_index_daily",
-                        "inputs": ["precipitation_mm_daily", "aet_daily"],
-                        "expression": "precipitation_mm_daily / aet_daily",
+                        "inputs": ["precipitation_daily", "aet_daily"],
+                        "expression": "precipitation_daily / aet_daily",
                     }
                 ]
             }
@@ -329,8 +329,8 @@ class TestDerive:
         assert len(specs) == 1
         assert isinstance(specs[0], DeriveSpec)
         assert specs[0].output == "aridity_index_daily"
-        assert specs[0].inputs == ["precipitation_mm_daily", "aet_daily"]
-        assert specs[0].expression == "precipitation_mm_daily / aet_daily"
+        assert specs[0].inputs == ["precipitation_daily", "aet_daily"]
+        assert specs[0].expression == "precipitation_daily / aet_daily"
         assert specs[0].import_path is None
         assert specs[0].function is None
 
@@ -340,7 +340,7 @@ class TestDerive:
                 "derive": [
                     {
                         "output": "mean_growth_temperature_weekly",
-                        "inputs": ["temperature_celcius_daily"],
+                        "inputs": ["temperature_daily"],
                         "_import_path": "mypackage.met_utils",
                         "function": "mean_growth_temperature",
                     }
@@ -360,8 +360,8 @@ class TestDerive:
                 "derive": [
                     {
                         "output": "aridity_index_daily",
-                        "inputs": ["precipitation_mm_daily", "aet_daily"],
-                        "expression": "precipitation_mm_daily / aet_daily",
+                        "inputs": ["precipitation_daily", "aet_daily"],
+                        "expression": "precipitation_daily / aet_daily",
                         "units": "1",
                     }
                 ]

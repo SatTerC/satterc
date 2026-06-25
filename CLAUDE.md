@@ -66,7 +66,7 @@ Each module contains plain functions that become DAG nodes. Key patterns:
 
 - `@extract_fields` (from `hamilton.function_modifiers`) — splits a dict return into multiple DAG outputs
 - `@xarray_io()` — wraps numpy-based functions to accept/return xarray objects
-- Variable names carry frequency suffixes: `temperature_celcius_daily`, `gpp_monthly`, etc.
+- Variable names carry frequency suffixes: `temperature_daily`, `gpp_monthly`, etc.
 
 ### Configuration-driven composition
 
