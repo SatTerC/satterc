@@ -241,7 +241,7 @@ def _is_dataarray_type(tp: Any) -> bool:
     return False
 
 
-def _annotated_unit(hint: Any) -> str | None:
+def annotated_unit(hint: Any) -> str | None:
     """Return the declared unit carried by an ``Annotated`` type hint, or ``None``.
 
     The unit is the **first ``str``** in the ``Annotated`` metadata, e.g.
@@ -299,7 +299,7 @@ def units_from_signature(
     input_units = {
         name: unit
         for name, hint in hints.items()
-        if (unit := _annotated_unit(hint)) is not None
+        if (unit := annotated_unit(hint)) is not None
     }
 
     output_units: dict[str, str] | str | None
@@ -308,10 +308,10 @@ def units_from_signature(
         output_units = {
             name: unit
             for name, hint in ret_hints.items()
-            if (unit := _annotated_unit(hint)) is not None
+            if (unit := annotated_unit(hint)) is not None
         }
     else:
-        output_units = _annotated_unit(ret)
+        output_units = annotated_unit(ret)
 
     return input_units, output_units
 
