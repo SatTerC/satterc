@@ -130,26 +130,48 @@ def _(Config, tomllib):
     output = "aridity_index_daily"
     inputs = ["precipitation_daily", "actual_evapotranspiration_daily"]
     expression = "precipitation_daily / actual_evapotranspiration_daily"
+    units = "1"  # ratio of two mm d-1 fluxes -> dimensionless
 
     [[derive]]
     output = "leaf_area_index_weekly"
     inputs = ["leaf_pool_weekly", "pft_params"]
     expression = 'leaf_pool_weekly / pft_params["leaf_carbon_area"]'
+    units = "m2 m-2"  # leaf carbon per ground area / leaf carbon per leaf area
 
+    # SPLASH AET is a daily rate (mm d-1); RothC wants a monthly total (mm).
+    # Summing the daily rate over the month integrates it (daily Δt = 1 day, so
+    # Σ mm d-1 is numerically the monthly mm total); units = "mm" relabels the
+    # rate as the resulting total.
     [[derive]]
     output = "evaporation_monthly"
-    inputs = ["actual_evapotranspiration_monthly"]
-    expression = "actual_evapotranspiration_monthly"
+    inputs = ["actual_evapotranspiration_daily"]
+    expression = "actual_evapotranspiration_daily.resample(time='1ME').sum()"
+    units = "mm"
 
+    # Precipitation is likewise a daily rate (mm d-1); aggregate to a monthly
+    # total (mm) for RothC the same way. (Done as a derive rather than a plain
+    # [[resample]] because that would feed the mm d-1 rate straight into RothC's
+    # mm input and the resample output name would collide with this one.)
+    [[derive]]
+    output = "precipitation_monthly"
+    inputs = ["precipitation_daily"]
+    expression = "precipitation_daily.resample(time='1ME').sum()"
+    units = "mm"
+
+    # Use the monthly litter pool as a (rough) proxy for the carbon entering the
+    # soil. SGAM reports it as a stock in g m-2; RothC wants t ha-1, so convert
+    # explicitly with pint (g m-2 -> t ha-1 is a factor-100 change).
     [[derive]]
     output = "soil_carbon_input_monthly"
     inputs = ["litter_pool_monthly"]
-    expression = "litter_pool_monthly"
+    expression = "litter_pool_monthly.pint.quantify().pint.to('t ha-1').pint.dequantify()"
+    units = "t ha-1"
 
     [[derive]]
     output = "inert_organic_matter"
     inputs = ["organic_carbon_stocks"]
-    expression = "0.049 * organic_carbon_stocks**1.139"
+    expression = "0.049 * organic_carbon_stocks**1.139"  # Falloon IOM (t ha-1)
+    units = "t ha-1"
 
     [[resample]]
     vars = [
@@ -164,8 +186,6 @@ def _(Config, tomllib):
     [[resample]]
     vars = [
       "temperature",
-      "precipitation",
-      "actual_evapotranspiration",
     ]
     from_freq = "daily"
     to_freq = "monthly"

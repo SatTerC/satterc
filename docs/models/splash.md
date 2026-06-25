@@ -70,7 +70,7 @@ SPLASH requires the following daily `DataArray` inputs:
 |----------|-------|-------------|
 | `sunshine_fraction_daily` | dimensionless (0–1) | Fraction of daylight hours that are sunny |
 | `temperature_daily` | °C | Air temperature |
-| `precipitation_daily` | mm | Precipitation |
+| `precipitation_daily` | mm·d⁻¹ | Precipitation |
 
 And the following static `DataArray` inputs:
 
@@ -88,7 +88,7 @@ SPLASH returns three daily `DataArray` outputs:
 |----------|-------|-------------|
 | `actual_evapotranspiration_daily` | mm·d⁻¹ | Actual evapotranspiration |
 | `soil_moisture_daily` | mm | Soil moisture content |
-| `runoff_daily` | mm·d⁻¹ | Surface water runoff |
+| `runoff_daily` | mm | Surface water runoff |
 
 ### Python API
 

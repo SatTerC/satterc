@@ -80,7 +80,7 @@ Static variables have no suffix.
 |----------|----------|-------------|
 | **Inputs (daily)** | `sunshine_fraction` | Fraction of daylight hours that are sunny (0–1) |
 | | `temperature` | Air temperature (°C) |
-| | `precipitation` | Precipitation (mm) |
+| | `precipitation` | Precipitation (mm/day) |
 | **Inputs (static)** | `elevation` | Elevation (m) |
 | | `latitude` | Latitude (degrees) — or use `[grid]` section |
 | | `max_soil_moisture` | Maximum soil moisture capacity (mm) |
@@ -88,7 +88,7 @@ Static variables have no suffix.
 | | `soil_moisture_init_max_diff` | Max diff for soil moisture convergence (default: 1.0) |
 | **Outputs (daily)** | `actual_evapotranspiration` | Actual evapotranspiration (mm/day) |
 | | `soil_moisture` | Soil moisture content (mm) |
-| | `runoff` | Runoff (mm/day) |
+| | `runoff` | Runoff (mm) |
 
 ### P-Model
 

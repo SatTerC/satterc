@@ -25,7 +25,7 @@ class SplashOut(TypedDict):
 
     actual_evapotranspiration_daily: Annotated[DataArray, "mm d-1"]
     soil_moisture_daily: Annotated[DataArray, "mm"]
-    runoff_daily: Annotated[DataArray, "mm d-1"]
+    runoff_daily: Annotated[DataArray, "mm"]
 
 
 def _splash_block(
@@ -147,7 +147,7 @@ def splash(
     dates_daily: DatetimeIndex,
     sunshine_fraction_daily: Annotated[DataArray, "1"],
     temperature_daily: Annotated[DataArray, "degC"],
-    precipitation_daily: Annotated[DataArray, "mm"],
+    precipitation_daily: Annotated[DataArray, "mm d-1"],
     elevation: Annotated[DataArray, "m"],
     latitude: DataArray,
     max_soil_moisture: Annotated[DataArray, "mm"],
@@ -166,7 +166,7 @@ def splash(
     temperature_daily
         Air temperature (degrees Celsius).
     precipitation_daily
-        Precipitation (mm).
+        Precipitation (mm d-1).
     latitude
         Latitude of the site (degrees).
     elevation
@@ -182,7 +182,7 @@ def splash(
         Tuple containing:
         - actual_evapotranspiration_daily: actual evapotranspiration (mm per day)
         - soil_moisture_daily: soil moisture content (mm)
-        - runoff_daily: runoff (mm per day)
+        - runoff_daily: runoff (mm)
     """
     return _splash(
         sunshine_fraction_daily=sunshine_fraction_daily,

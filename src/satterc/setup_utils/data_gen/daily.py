@@ -61,7 +61,7 @@ def temperature_daily(
         data=data,
         dims=["time", "pixel"],
         coords={"time": time_coord, "pixel": pixel_coords},
-        attrs={"units": "degrees_C", "long_name": "air temperature"},
+        attrs={"units": "degC", "long_name": "air temperature"},
         name="temperature",
     )
 
@@ -70,7 +70,7 @@ def precipitation_daily(
     time_coord: NDArray[np.datetime64],
     pixel_coords: pd.MultiIndex,
 ) -> xr.DataArray:
-    """Daily precipitation in mm."""
+    """Daily precipitation in mm/day."""
     n_days = len(time_coord)
     n_pixels = len(pixel_coords)
 
@@ -87,7 +87,7 @@ def precipitation_daily(
         data=data,
         dims=["time", "pixel"],
         coords={"time": time_coord, "pixel": pixel_coords},
-        attrs={"units": "mm", "long_name": "precipitation"},
+        attrs={"units": "mm/day", "long_name": "precipitation"},
         name="precipitation",
     )
 
@@ -141,7 +141,7 @@ def gpp_daily(
     pixel_coords: pd.MultiIndex,
     temperature_daily: xr.DataArray,
 ) -> xr.DataArray:
-    """Daily Gross Primary Productivity (gC/m2/d)."""
+    """Daily Gross Primary Productivity (g m-2 d-1)."""
     n_days = len(time_coord)
     n_pixels = len(pixel_coords)
 
@@ -155,7 +155,7 @@ def gpp_daily(
         data=data,
         dims=["time", "pixel"],
         coords={"time": time_coord, "pixel": pixel_coords},
-        attrs={"units": "gC/m2/d", "long_name": "gross primary productivity"},
+        attrs={"units": "g m-2 d-1", "long_name": "gross primary productivity"},
         name="gpp",
     )
 

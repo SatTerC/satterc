@@ -208,8 +208,8 @@ def rothc(
     evaporation_monthly: Annotated[DataArray, "mm"],
     plant_cover_monthly: DataArray,
     dpm_rpm_ratio_monthly: DataArray,
-    soil_carbon_input_monthly: Annotated[DataArray, "t ha-1 month-1"],
-    farmyard_manure_input_monthly: Annotated[DataArray, "t ha-1 month-1"],
+    soil_carbon_input_monthly: Annotated[DataArray, "t ha-1"],
+    farmyard_manure_input_monthly: Annotated[DataArray, "t ha-1"],
     clay_content: Annotated[DataArray, "percent"],
     inert_organic_matter: Annotated[DataArray, "t ha-1"],
     soil_depth: Annotated[DataArray, "cm"],
@@ -242,9 +242,9 @@ def rothc(
     dpm_rpm_ratio_monthly
         Ratio of decomposable to resistant plant material.
     soil_carbon_input_monthly
-        Carbon input in tC/ha/month.
+        Carbon input for the month (t ha-1).
     farmyard_manure_input_monthly
-        Farmyard manure input in tC/ha/month.
+        Farmyard manure input for the month (t ha-1).
     clay_content
         Clay content percentage.
     soil_depth
@@ -420,14 +420,20 @@ def dpm_rpm_ratio_monthly(
     )
 
 
+@declare_units
 def farmyard_manure_input_monthly(
     plant_type: DataArray,
     dates_monthly: DatetimeIndex,
-) -> DataArray:
+) -> Annotated[DataArray, "t ha-1"]:
     """Return array of zeros for farmyard manure input.
 
     In a future version, this could be driven by a grazing/manure C flux
     estimated by SGAM for grass-dominated pixels. Such a flux would need
     to be exposed as a monthly SGAM output and wired here.
     """
-    return xr.zeros_like(plant_type.expand_dims(time=dates_monthly))
+    # Built from ``plant_type`` only for its shape/coords; drop its inherited
+    # attrs so the zeros are stamped with this node's declared unit (``t ha-1``)
+    # rather than ``plant_type``'s "dimensionless".
+    zeros = xr.zeros_like(plant_type.expand_dims(time=dates_monthly), dtype=float)
+    zeros.attrs.clear()
+    return zeros
