@@ -114,10 +114,10 @@ defaults — colours, layout, the legend, or even a custom style function. Keepi
 it in its own file means one style can be reused across many pipelines:
 
 ```sh
-satterc graph config.toml --style graphviz.toml --pdf
+satterc graph config.toml --style examples/graphviz.toml --pdf
 ```
 
-See the commented [`graphviz.toml`](https://github.com/SatTerC/satterc/blob/main/graphviz.toml)
+See the commented [`examples/graphviz.toml`](https://github.com/SatTerC/satterc/blob/main/examples/graphviz.toml)
 template for the full set of keys (`palette`, `graph_attr`/`node_attr`/`edge_attr`,
 `show_legend`, `cluster_by_frequency`, and `style_function`).
 

@@ -83,3 +83,5 @@ Tests in `tests/` use session-scoped fixtures that generate synthetic netCDF dat
 ### Examples
 
 Marimo interactive notebooks live in `examples/`. Each has `satterc==<version>` pinned in its inline `# dependencies` block — update this when bumping the package version, then re-export with `just export-all`.
+
+`examples/` also holds two plain config files (not notebooks): `config.toml`, a full four-model pipeline mirroring `full_pipeline.py`, and `graphviz.toml`, a commented `satterc graph --style` template. Neither is loaded by any code or tooling (`just export`/`marimo check` only touch `.py`); they are user-facing references that the docs link to.
