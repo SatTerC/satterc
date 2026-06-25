@@ -70,7 +70,7 @@ def precipitation_daily(
     time_coord: NDArray[np.datetime64],
     pixel_coords: pd.MultiIndex,
 ) -> xr.DataArray:
-    """Daily precipitation in mm/day."""
+    """Daily precipitation in mm d-1."""
     n_days = len(time_coord)
     n_pixels = len(pixel_coords)
 
@@ -87,7 +87,7 @@ def precipitation_daily(
         data=data,
         dims=["time", "pixel"],
         coords={"time": time_coord, "pixel": pixel_coords},
-        attrs={"units": "mm/day", "long_name": "precipitation"},
+        attrs={"units": "mm d-1", "long_name": "precipitation"},
         name="precipitation",
     )
 
@@ -110,7 +110,7 @@ def sunshine_fraction_daily(
         data=data,
         dims=["time", "pixel"],
         coords={"time": time_coord, "pixel": pixel_coords},
-        attrs={"units": "dimensionless", "long_name": "sunshine fraction"},
+        attrs={"units": "1", "long_name": "sunshine fraction"},
         name="sunshine_fraction",
     )
 
@@ -119,7 +119,7 @@ def lai_daily(
     time_coord: NDArray[np.datetime64],
     pixel_coords: pd.MultiIndex,
 ) -> xr.DataArray:
-    """Daily Leaf Area Index (m2/m2)."""
+    """Daily Leaf Area Index (dimensionless ratio, m2 m-2)."""
     n_days = len(time_coord)
     n_pixels = len(pixel_coords)
 
@@ -131,7 +131,7 @@ def lai_daily(
         data=data,
         dims=["time", "pixel"],
         coords={"time": time_coord, "pixel": pixel_coords},
-        attrs={"units": "m2/m2", "long_name": "leaf area index"},
+        attrs={"units": "1", "long_name": "leaf area index"},
         name="lai",
     )
 
@@ -172,7 +172,7 @@ def dummy_variable_daily(
         data=np.full((n_days, n_pixels), np.nan),
         dims=["time", "pixel"],
         coords={"time": time_coord, "pixel": pixel_coords},
-        attrs={"units": "dimensionless", "long_name": "dummy variable"},
+        attrs={"units": "1", "long_name": "dummy variable"},
         name="dummy_variable",
     )
 
@@ -217,7 +217,7 @@ def fapar_daily(
         data=data,
         dims=["time", "pixel"],
         coords={"time": time_coord, "pixel": pixel_coords},
-        attrs={"units": "dimensionless", "long_name": "fAPAR"},
+        attrs={"units": "1", "long_name": "fAPAR"},
         name="fapar",
     )
 
@@ -226,7 +226,7 @@ def ppfd_daily(
     time_coord: NDArray[np.datetime64],
     pixel_coords: pd.MultiIndex,
 ) -> xr.DataArray:
-    """Photosynthetic photon flux density in umol/m2/s."""
+    """Photosynthetic photon flux density in umol m-2 s-1."""
     n_days = len(time_coord)
     n_pixels = len(pixel_coords)
 
@@ -239,7 +239,10 @@ def ppfd_daily(
         data=data,
         dims=["time", "pixel"],
         coords={"time": time_coord, "pixel": pixel_coords},
-        attrs={"units": "umol/m2/s", "long_name": "photosynthetic photon flux density"},
+        attrs={
+            "units": "umol m-2 s-1",
+            "long_name": "photosynthetic photon flux density",
+        },
         name="ppfd",
     )
 

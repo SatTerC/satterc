@@ -47,6 +47,23 @@ from pint_xarray.errors import PintExceptionGroup
 # import. Every ``.pint.quantify()`` call below then understands CF unit strings.
 pint_xarray.setup_registry(_UREG)
 
+
+class UnitsWarning(UserWarning):
+    """Emitted when a DataArray input cannot be fully unit-validated.
+
+    Raised by `check_units` (and therefore by `declare_units`-decorated nodes)
+    when an input has a missing or unparseable ``units`` attribute and the active
+    validation mode is ``"warn"``. Also raised by the static DAG unit check when
+    it finds a unit declaration mismatch.
+
+    Subclasses ``UserWarning`` so callers can target it specifically::
+
+        import warnings
+        from satterc import UnitsWarning
+        warnings.filterwarnings("error", category=UnitsWarning)
+    """
+
+
 Mode = Literal["strict", "warn", "off"]
 
 VALID_MODES: frozenset[str] = frozenset({"strict", "warn", "off"})
@@ -317,7 +334,12 @@ def units_from_signature(
 
 
 def check_units(
-    da: xr.DataArray, declared: str, name: str, mode: Mode, exact: bool = False
+    da: xr.DataArray,
+    declared: str,
+    name: str,
+    mode: Mode,
+    exact: bool = False,
+    qualname: str | None = None,
 ) -> xr.DataArray:
     """Validate and convert an input ``DataArray`` to its declared unit.
 
@@ -334,17 +356,24 @@ def check_units(
     values, e.g. ``"hPa"`` where ``"Pa"`` is declared) raises ``ValueError``
     instead of being silently converted. Equivalent spellings (``"pascal"`` for
     ``"Pa"``) are still accepted, since no value change is implied.
+
+    ``qualname`` is the ``__qualname__`` of the calling node function; when
+    provided it is prepended to warning messages as ``[qualname] ...`` so the
+    source of the warning is identifiable without inspecting the call stack.
     """
+    prefix = f"[{qualname}] " if qualname else ""
     have = da.attrs.get("units")
     if have is None:
         if mode == "strict":
             raise ValueError(
-                f"input {name!r} has no 'units' attribute (declared {declared!r})"
+                f"{prefix}input {name!r} has no 'units' attribute "
+                f"(declared {declared!r})"
             )
         if mode == "warn":
             warnings.warn(
-                f"input {name!r} unvalidated: no 'units' attribute "
+                f"{prefix}input {name!r} unvalidated: no 'units' attribute "
                 f"(declared {declared!r})",
+                UnitsWarning,
                 stacklevel=2,
             )
         return da
@@ -356,13 +385,14 @@ def check_units(
         # than letting an opaque parse error escape (and break a ``warn`` run).
         if mode == "strict":
             raise ValueError(
-                f"input {name!r} has unparseable 'units' attribute {have!r} "
+                f"{prefix}input {name!r} has unparseable 'units' attribute {have!r} "
                 f"(declared {declared!r}): {type(exc).__name__}: {exc}"
             ) from exc
         if mode == "warn":
             warnings.warn(
-                f"input {name!r} unvalidated: unparseable 'units' attribute {have!r} "
-                f"(declared {declared!r})",
+                f"{prefix}input {name!r} unvalidated: unparseable 'units' attribute "
+                f"{have!r} (declared {declared!r})",
+                UnitsWarning,
                 stacklevel=2,
             )
         return da

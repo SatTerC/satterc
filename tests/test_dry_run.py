@@ -18,6 +18,7 @@ import pytest
 import xarray as xr
 from typer.testing import CliRunner
 
+from satterc import UnitsWarning
 from satterc.cli import app
 from satterc.config import IOSpec, ResampleSpec, SubsetSpec
 from satterc.dag.driver import build_driver
@@ -113,7 +114,7 @@ class TestCheckInputUnitsDirect:
             check_input_units(dr, {"vpd_weekly": _input(None)}, mode="strict")
 
     def test_missing_units_warn_warns(self, dr):
-        with pytest.warns(UserWarning, match="unvalidated"):
+        with pytest.warns(UnitsWarning, match="unvalidated"):
             check_input_units(dr, {"vpd_weekly": _input(None)}, mode="warn")
 
     def test_unparseable_units_strict_raises(self, dr):
@@ -123,7 +124,7 @@ class TestCheckInputUnitsDirect:
             check_input_units(dr, {"vpd_weekly": _input("fraction")}, mode="strict")
 
     def test_unparseable_units_warn_warns(self, dr):
-        with pytest.warns(UserWarning, match="unparseable"):
+        with pytest.warns(UnitsWarning, match="unparseable"):
             check_input_units(dr, {"vpd_weekly": _input("fraction")}, mode="warn")
 
     def test_off_mode_skips_everything(self, dr):

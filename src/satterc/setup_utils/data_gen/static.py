@@ -192,7 +192,7 @@ def plant_type(n_lat: int, n_lon: int, pixel_coords: pd.MultiIndex) -> xr.DataAr
         data=data,
         dims=["pixel"],
         coords={"pixel": pixel_coords},
-        attrs={"units": "dimensionless", "long_name": "plant type"},
+        attrs={"units": "1", "long_name": "plant type"},
         name="plant_type",
     )
 
@@ -256,10 +256,10 @@ def clay_content(n_lat: int, n_lon: int, pixel_coords: pd.MultiIndex) -> xr.Data
 
 
 def soil_depth(elevation: xr.DataArray) -> xr.DataArray:
-    """Compute static soil depth in mm.
+    """Compute static soil depth in cm.
 
-    Decreases with elevation: deeper soils in lowland valleys (1200 mm) and
-    shallower on upland terrain (400 mm).
+    Decreases with elevation: deeper soils in lowland valleys (120 cm) and
+    shallower on upland terrain (40 cm).
 
     Parameters
     ----------
@@ -271,13 +271,13 @@ def soil_depth(elevation: xr.DataArray) -> xr.DataArray:
     xr.DataArray
         Soil depth data array with dims=["pixel"].
     """
-    data = np.clip(1200.0 - 0.8 * elevation.values, 400.0, 1200.0)
+    data = np.clip(120.0 - 0.08 * elevation.values, 40.0, 120.0)
 
     return xr.DataArray(
         data=data,
         dims=["pixel"],
         coords={"pixel": elevation.coords["pixel"]},
-        attrs={"units": "mm", "long_name": "soil depth"},
+        attrs={"units": "cm", "long_name": "soil depth"},
         name="soil_depth",
     )
 

@@ -11,7 +11,7 @@ from hamilton import driver
 from hamilton.function_modifiers import extract_fields
 from hamilton.settings import ENABLE_POWER_USER_MODE
 
-from satterc import units
+from satterc import UnitsWarning, units
 from satterc.config import NodeSpec, ResampleSpec
 from satterc.dag._utils import declare_units
 from satterc.dag.driver import build_driver
@@ -156,7 +156,7 @@ class TestDimensionalMismatch:
 
     def test_warn_warns(self, register):
         dr = self._dr(register)
-        with pytest.warns(UserWarning, match="dimensionally incompatible"):
+        with pytest.warns(UnitsWarning, match="dimensionally incompatible"):
             check_dag_units(dr, mode="warn")
 
     def test_off_is_silent(self, register):
@@ -414,3 +414,42 @@ class TestNodePropagation:
     def test_compatible_consumer_of_node_var_passes(self, register):
         with units.mode("strict"):
             self._build(register, "g m-2 d-1")
+
+
+# ---------------------------------------------------------------------------
+# UnitsWarning: runtime decorator path includes node qualname in message
+# ---------------------------------------------------------------------------
+
+
+class TestUnitsWarningQualname:
+    """The node function's qualname appears in UnitsWarning messages emitted by
+    the @declare_units runtime wrapper, making the source of the warning clear
+    without requiring the user to inspect the satterc call stack."""
+
+    def test_missing_units_warning_includes_qualname(self):
+        from typing import Annotated
+
+        @declare_units
+        def my_model_node(vpd: Annotated[xr.DataArray, "Pa"]) -> xr.DataArray:
+            return vpd
+
+        da = xr.DataArray([1.0])  # no 'units' attr
+        with (
+            units.mode("warn"),
+            pytest.warns(UnitsWarning, match=r"\[.*my_model_node\].*unvalidated"),
+        ):
+            my_model_node(vpd=da)
+
+    def test_unparseable_units_warning_includes_qualname(self):
+        from typing import Annotated
+
+        @declare_units
+        def another_node(vpd: Annotated[xr.DataArray, "Pa"]) -> xr.DataArray:
+            return vpd
+
+        da = xr.DataArray([1.0], attrs={"units": "fraction"})
+        with (
+            units.mode("warn"),
+            pytest.warns(UnitsWarning, match=r"\[.*another_node\].*unparseable"),
+        ):
+            another_node(vpd=da)

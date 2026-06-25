@@ -79,7 +79,7 @@ def declare_units(func: Callable[..., Any]) -> Callable[..., Any]:
                 declared = input_units.get(name)
                 if declared is not None and isinstance(val, xr.DataArray):
                     bound.arguments[name] = check_units(
-                        val, declared, name, mode, exact
+                        val, declared, name, mode, exact, qualname=qualname
                     )
             args, kwargs = bound.args, bound.kwargs
 

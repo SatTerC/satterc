@@ -38,6 +38,7 @@ from hamilton import graph_types
 
 from ..units import (
     Mode,
+    UnitsWarning,
     check_units,
     get_exact_match,
     get_mode,
@@ -172,7 +173,7 @@ def check_dag_units(
     message = "unit declaration mismatch(es) in DAG:\n" + "\n".join(findings)
     if mode == "strict":
         raise ValueError(message)
-    warnings.warn(message, stacklevel=2)
+    warnings.warn(message, UnitsWarning, stacklevel=2)
 
 
 def check_input_units(

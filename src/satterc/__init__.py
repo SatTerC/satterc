@@ -21,6 +21,7 @@ from .io import (
     merge_subset_outputs,
     save_outputs,
 )
+from .units import UnitsWarning
 
 __all__ = [
     "BlockingSpec",
@@ -29,6 +30,7 @@ __all__ = [
     "ParsedConfig",
     "ResampleSpec",
     "SubsetSpec",
+    "UnitsWarning",
     "__version__",
     "build_driver",
     "create_output_store",
