@@ -1,7 +1,7 @@
 """
 Satterc-compatible interface to PyRealm's 'SPLASH' model.
 
-This module provides the :func:`splash` node, which wraps PyRealm's SPLASH model
+This module provides the `splash` node, which wraps PyRealm's SPLASH model
 to calculate actual evapotranspiration (AET), soil moisture, and runoff from
 climate inputs.
 """
@@ -21,7 +21,7 @@ from ._utils import declare_units
 
 
 class SplashOut(TypedDict):
-    """Outputs of the :func:`splash` node, at daily resolution."""
+    """Outputs of the `splash` node, at daily resolution."""
 
     actual_evapotranspiration_daily: Annotated[DataArray, "mm d-1"]
     """Actual evapotranspiration: the daily water loss to the atmosphere
@@ -98,7 +98,7 @@ def _splash(
     soil_moisture_init_max_iter: int = 10,
     soil_moisture_init_max_diff: float = 1.0,
 ) -> SplashOut:
-    """Apply SPLASH over the ``(time, pixel)`` block via :func:`xarray.apply_ufunc`.
+    """Apply SPLASH over the ``(time, pixel)`` block via `xarray.apply_ufunc`.
 
     SPLASH is sequential along ``time`` (soil moisture carries state day to day) but
     embarrassingly parallel over ``pixel``, so ``time`` is the input/output core dim and
@@ -197,7 +197,7 @@ def splash(
         - soil_moisture_daily: soil moisture content (millimetres)
         - runoff_daily: runoff overflow amount (millimetres)
 
-        See :class:`SplashOut` for per-output detail.
+        See `SplashOut` for per-output detail.
     """
     return _splash(
         sunshine_fraction_daily=sunshine_fraction_daily,

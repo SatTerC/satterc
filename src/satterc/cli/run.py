@@ -104,7 +104,7 @@ def run(
 def _dry_run(parsed: "ParsedConfig", config_file: Path, allow_overrides: bool) -> None:
     """Validate everything a real run depends on, without executing it.
 
-    Runs the same setup as :func:`run` up to (but excluding) execution: parse
+    Runs the same setup as `run` up to (but excluding) execution: parse
     config, load inputs (lazily — file metadata only), build the driver (which runs
     the build-time unit check), validate the execution plan, validate the loaded
     inputs' units against what the DAG declares, and confirm the output

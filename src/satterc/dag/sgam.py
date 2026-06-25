@@ -43,7 +43,7 @@ _SGAM_OUTPUT_NAMES: tuple[str, ...] = (
 
 
 class SgamOut(TypedDict):
-    """Outputs of the :func:`sgam` node, at weekly resolution.
+    """Outputs of the `sgam` node, at weekly resolution.
 
     Carbon pools are standing stocks; the npp/turnover/respiration/disturbance
     quantities are weekly fluxes recorded as the carbon amount per weekly
@@ -212,7 +212,7 @@ def _disturbances_block(
 
     ``apply_ufunc`` places the ``time`` core dim last, so each input arrives as
     ``(pixel, time)`` (or ``(time,)`` with no pixel broadcast).
-    :meth:`Disturbances.forward` diffs GPP/LAI along axis 0, so ``time`` is moved to
+    `Disturbances.forward` diffs GPP/LAI along axis 0, so ``time`` is moved to
     the front for the call and the result moved back to ``(pixel, time)``.
     ``moveaxis`` is a no-op on a 1D ``(time,)`` array, so the single-pixel case is
     handled too.
@@ -319,12 +319,12 @@ def _sgam_1px(
 
     The climate/driver arguments are 1D ``(time,)`` arrays for one pixel;
     ``plant_type``, ``latitude`` and the init pools are per-pixel scalars and
-    ``pft_params`` is the per-pixel :class:`~sgam.pft.PftParams` object (threaded
+    ``pft_params`` is the per-pixel `PftParams` object (threaded
     through ``apply_ufunc`` as one element of an object-dtype ``(pixel,)`` array).
     ``week_of_year`` depends only on the date range, so it is computed once in
-    :func:`_sgam` and passed through unchanged. Returns one ``(time,)`` array per
-    output, ordered as :data:`_SGAM_OUTPUT_NAMES`. This is the per-pixel kernel mapped
-    over ``pixel`` by :func:`_sgam` via :func:`xarray.apply_ufunc`.
+    `_sgam` and passed through unchanged. Returns one ``(time,)`` array per
+    output, ordered as `_SGAM_OUTPUT_NAMES`. This is the per-pixel kernel mapped
+    over ``pixel`` by `_sgam` via `xarray.apply_ufunc`.
     """
     output = Sgam(
         plant_type=_pft_int_to_enum(int(plant_type)),
@@ -398,13 +398,13 @@ def _sgam(
     use_dynamic_allocation: bool = True,
     strict_mass_balance: bool = False,
 ) -> SgamOut:
-    """Map :func:`_sgam_1px` over the stacked ``pixel`` dimension.
+    """Map `_sgam_1px` over the stacked ``pixel`` dimension.
 
-    The per-pixel SGAM kernel is applied via :func:`xarray.apply_ufunc` with ``time`` as
+    The per-pixel SGAM kernel is applied via `xarray.apply_ufunc` with ``time`` as
     the input/output core dimension and ``pixel`` as the broadcast (mapped) dim. The 2D
     ``(time, pixel)`` climate/driver inputs declare ``time`` as their core dim; the 1D
     ``(pixel,)`` metadata and init-pool inputs declare no core dim (so each call gets a
-    per-pixel scalar). The structured per-pixel :class:`~sgam.pft.PftParams` are passed
+    per-pixel scalar). The structured per-pixel `PftParams` are passed
     as one object-dtype ``(pixel,)`` array. ``week_of_year`` and the boolean flags are
     pixel-invariant constants passed through ``kwargs``. ``dask="parallelized"`` is a
     no-op for eager numpy inputs but keeps the node compatible with a future dask-backed
@@ -553,7 +553,7 @@ def sgam(
     -------
     SgamOut
         Dictionary of weekly carbon pools, fluxes (NPP, turnover, respiration,
-        disturbance losses), and dimensionless diagnostics. See :class:`SgamOut`
+        disturbance losses), and dimensionless diagnostics. See `SgamOut`
         for the full list of outputs and their units.
     """
     return _sgam(

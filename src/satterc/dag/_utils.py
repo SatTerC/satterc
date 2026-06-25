@@ -18,7 +18,7 @@ def declare_units(func: Callable[..., Any]) -> Callable[..., Any]:
     """Apply a node's signature-declared units at runtime.
 
     Reads the decorated node's own type annotations once, via
-    :func:`satterc.units.units_from_signature`: parameters annotated
+    `satterc.units.units_from_signature`: parameters annotated
     ``Annotated[DataArray, "<unit>"]` declare input units, and a ``TypedDict``
     return (or a bare ``Annotated[DataArray, "<unit>"]`` return) declares output
     units. Those annotations are the single source of truth — the same one the
@@ -28,7 +28,7 @@ def declare_units(func: Callable[..., Any]) -> Callable[..., Any]:
     At call time the wrapper:
 
     1. validates/converts each declared ``DataArray`` input to its unit via
-       :func:`satterc.units.check_units`, honouring the active mode
+       `satterc.units.check_units`, honouring the active mode
        (`satterc.units.get_mode`); validation is skipped entirely in ``off`` mode;
     2. runs the node body;
     3. stamps each declared output ``DataArray`` with its unit (a ``dict`` return
@@ -38,7 +38,7 @@ def declare_units(func: Callable[..., Any]) -> Callable[..., Any]:
     Only ``DataArray`` values are validated/stamped. Non-``DataArray`` arguments
     (`DatetimeIndex`, `Dataset`, scalar config parameters) carry no unit metadata
     and pass through untouched. This decorator does **not** convert between
-    ``DataArray`` and ``ndarray`` — that boundary is the :func:`xarray.apply_ufunc`
+    ``DataArray`` and ``ndarray`` — that boundary is the `xarray.apply_ufunc`
     seam inside each model node's inner numpy implementation.
 
     Every declared unit string is checked against the registry **here, at

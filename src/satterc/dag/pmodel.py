@@ -19,7 +19,7 @@ from ._utils import declare_units
 
 
 class PModelOut(TypedDict):
-    """Outputs of the :func:`pmodel` node, at weekly resolution."""
+    """Outputs of the `pmodel` node, at weekly resolution."""
 
     gpp_weekly: Annotated[DataArray, "g m-2 d-1"]
     """Gross primary productivity: the carbon fixed by photosynthesis, expressed
@@ -52,8 +52,8 @@ def _pmodel_block(
     pyrealm's P-Model is vectorised over the spatial axis, so this kernel runs on the
     full array — or a single dask chunk — in one call; there is no per-pixel loop.
     Returns ``(gpp, lue, iwue)`` arrays matching the input shape, ordered as the fields
-    of :class:`PModelOut`. This is the unit mapped over the block by :func:`_pmodel` via
-    :func:`xarray.apply_ufunc`.
+    of `PModelOut`. This is the unit mapped over the block by `_pmodel` via
+    `xarray.apply_ufunc`.
     """
     # Environmental drivers computed upon instantiation of PModelEnvironment
     env = pyrealm.pmodel.PModelEnvironment(
@@ -99,7 +99,7 @@ def _pmodel(
     method_kphio: str,
     method_arrhenius: str,
 ) -> PModelOut:
-    """Apply the P-Model to a ``(time, pixel)`` block via :func:`xarray.apply_ufunc`.
+    """Apply the P-Model to a ``(time, pixel)`` block via `xarray.apply_ufunc`.
 
     The P-Model is element-wise (every cell independent), so no core dimensions are
     declared and ``apply_ufunc`` broadcasts over both ``time`` and ``pixel``; pyrealm
@@ -196,7 +196,7 @@ def pmodel(
         - lue_weekly: light use efficiency (grams of carbon per megajoule)
         - iwue_weekly: intrinsic water use efficiency (pascals)
 
-        See :class:`PModelOut` for per-output detail.
+        See `PModelOut` for per-output detail.
     """
     return _pmodel(
         temperature_weekly=temperature_weekly,

@@ -1,13 +1,13 @@
 r"""Build-time (static) unit-consistency check for the Hamilton DAG.
 
 The runtime check (``declare_units`` → ``check_units``) only fires when a node
-executes. :func:`check_dag_units` adds the complementary guarantee at *build*
+executes. `check_dag_units` adds the complementary guarantee at *build*
 time: every internal edge whose producer and consumer both declare a unit is
 verified for consistency, so a mismatch surfaces as soon as the driver is built
 rather than part way through a run.
 
 Declarations are read from each node's public function signature via
-:func:`satterc.units.units_from_signature` — the same single source the runtime
+`satterc.units.units_from_signature` — the same single source the runtime
 check uses. Hamilton unifies nodes by name, so a node name that is both
 *produced* with a declared unit (a ``TypedDict`` field or bare ``Annotated``
 return) and *consumed* with a declared unit (an ``Annotated`` parameter) is a
@@ -19,7 +19,7 @@ files, have no statically declared producer unit (resample preserves the source
 validated against the file's own ``units``). Those edges are not checked here and
 fall back to the runtime check.
 
-The complementary :func:`check_input_units` performs the *runtime* leg of that
+The complementary `check_input_units` performs the *runtime* leg of that
 fallback for **external file inputs**: it validates the ``units`` attribute of the
 actually-loaded input ``DataArray``\\ s against the units declared by the nodes that
 consume them. This is the only data-dependent part of unit validation (every
@@ -60,7 +60,7 @@ def _collect_unit_maps(
     """Read declared units off the built DAG's node signatures.
 
     Returns three maps, the shared source for both the build-time
-    (:func:`check_dag_units`) and runtime (:func:`check_input_units`) checks:
+    (`check_dag_units`) and runtime (`check_input_units`) checks:
 
     - ``produced``: node name -> ``(declared_unit, producer_label)``;
     - ``consumed``: node name -> ``[(declared_unit, consumer_label), ...]``;
@@ -121,10 +121,10 @@ def check_dag_units(
       ``"hPa"``) are reported only when ``exact`` is enabled.
 
     Behaviour follows the active validation mode (resolved from
-    :func:`satterc.units.get_mode` when ``mode`` is ``None``): ``off`` skips the
+    `satterc.units.get_mode` when ``mode`` is ``None``): ``off`` skips the
     check entirely, ``warn`` emits a warning listing the findings, ``strict``
-    raises :class:`ValueError`. ``exact`` defaults to
-    :func:`satterc.units.get_exact_match`.
+    raises `ValueError`. ``exact`` defaults to
+    `satterc.units.get_exact_match`.
     """
     mode = mode or get_mode()
     if mode == "off":
@@ -187,7 +187,7 @@ def check_input_units(
     This is the *runtime* leg of unit validation that cannot be done statically: it
     reads the ``units`` attribute of each actually-loaded input ``DataArray`` and
     checks it against the unit declared by the node(s) that consume it, via the same
-    :func:`satterc.units.check_units` the executing DAG uses — so it raises/warns
+    `satterc.units.check_units` the executing DAG uses — so it raises/warns
     identically (``strict`` raises, ``warn`` warns, ``off`` is skipped; dimensional
     incompatibility always raises; ``exact`` forbids value-changing conversions). No
     node is executed, which makes this suitable as a ``run --dry-run`` pre-flight.

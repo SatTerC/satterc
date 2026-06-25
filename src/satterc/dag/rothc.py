@@ -16,7 +16,7 @@ from ._utils import declare_units
 
 
 class RothCOut(TypedDict):
-    """Outputs of the :func:`rothc` node, at monthly resolution.
+    """Outputs of the `rothc` node, at monthly resolution.
 
     All quantities are carbon mass per unit ground area (tonnes of carbon per
     hectare): the first four are the active soil-carbon pools, the fifth is their
@@ -85,10 +85,10 @@ def _rothc_1px(
 
     The climate/driver arguments are 1D ``(time,)`` arrays for one pixel; ``clay``,
     ``depth`` and ``iom`` are per-pixel scalars. ``t_mod`` (the percent-modern-carbon
-    series) depends only on the date range, so it is computed once in :func:`_rothc`
+    series) depends only on the date range, so it is computed once in `_rothc`
     and passed through unchanged. Returns one ``(time,)`` array per output pool/flux,
-    ordered as :data:`_ROTHC_OUTPUT_KEYS`. This is the per-pixel kernel mapped over the
-    ``pixel`` dimension by :func:`_rothc` via :func:`xarray.apply_ufunc`.
+    ordered as `_ROTHC_OUTPUT_KEYS`. This is the per-pixel kernel mapped over the
+    ``pixel`` dimension by `_rothc` via `xarray.apply_ufunc`.
     """
     params = RothCParams(
         clay=float(clay),
@@ -150,9 +150,9 @@ def _rothc(
     equilibrium_threshold: float = 1e-6,
     zero_threshold: float = 1e-8,
 ) -> RothCOut:
-    """Map :func:`_rothc_1px` over the stacked ``pixel`` dimension.
+    """Map `_rothc_1px` over the stacked ``pixel`` dimension.
 
-    The per-pixel RothC kernel is applied via :func:`xarray.apply_ufunc` with ``time``
+    The per-pixel RothC kernel is applied via `xarray.apply_ufunc` with ``time``
     as the input/output core dimension and ``pixel`` as the broadcast (mapped) dim.
     The 2D ``(time, pixel)`` climate/driver inputs declare ``time`` as their core dim;
     the 1D ``(pixel,)`` soil inputs declare no core dim (so each call receives a
@@ -297,7 +297,7 @@ def rothc(
         - soil_organic_carbon_monthly: total soil organic carbon (sum of pools)
         - heterotrophic_respiration_monthly: CO2 from microbial decomposition
 
-        See :class:`RothCOut` for per-output detail.
+        See `RothCOut` for per-output detail.
 
     Notes
     -----

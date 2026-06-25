@@ -136,7 +136,7 @@ def flatten_pixel_index(ds: xr.Dataset) -> xr.Dataset:
     A pandas ``MultiIndex`` cannot be serialised to NetCDF/Zarr, so this resets
     it: the (y, x) levels become ordinary 1D coordinate variables along ``pixel``
     and ``pixel`` itself becomes an unlabelled dimension.  The inverse of
-    :func:`unstack_pixel`.
+    `unstack_pixel`.
     """
     if "pixel" in ds.dims and isinstance(ds.indexes.get("pixel"), pd.MultiIndex):
         return ds.reset_index("pixel")
@@ -147,7 +147,7 @@ def unstack_pixel(ds: xr.Dataset) -> xr.Dataset:
     """Reconstruct a (y, x) grid from a stacked/flattened ``pixel`` dataset.
 
     Handles both a live ``pixel`` MultiIndex and a flattened dataset (as produced
-    by :func:`flatten_pixel_index` and read back from disk), where the grid levels
+    by `flatten_pixel_index` and read back from disk), where the grid levels
     are stored as ordinary 1D coords along ``pixel``.
     """
     if "pixel" not in ds.dims:
@@ -436,7 +436,7 @@ def get_outputs(
         If ``False`` (default) gridded results are unstacked to a ``(y, x)`` grid.
         If ``True`` the stacked ``pixel`` layout is kept (with the MultiIndex
         flattened to serialisable 1D coords) so that subset processes can write
-        partial outputs that are reassembled later — see :func:`unstack_pixel`.
+        partial outputs that are reassembled later — see `unstack_pixel`.
     """
     transform = flatten_pixel_index if stacked else unstack_if_gridded
     out: dict[str, xr.Dataset] = {}
@@ -632,7 +632,7 @@ def merge_subset_outputs(
     return written
 
 
-#: Output file extensions :func:`save_outputs` knows how to write.
+#: Output file extensions `save_outputs` knows how to write.
 _SUPPORTED_OUTPUT_SUFFIXES: frozenset[str] = frozenset(
     {".nc", ".netcdf", ".zarr", ".csv", ".parquet", ".pq"}
 )
@@ -648,7 +648,7 @@ def assert_output_paths_writable(
     unsupported file extension, a missing or unwritable parent directory, a subset
     run targeting a Zarr store that has not been pre-created, or a subset run
     targeting an unsupported (CSV/Parquet) output. This mirrors the dispatch and
-    guards in :func:`save_outputs`, :func:`_save` and :func:`_save_zarr_region`, so a
+    guards in `save_outputs`, `_save` and `_save_zarr_region`, so a
     clean pass here means ``save_outputs`` will not reject the path. Used by
     ``satterc run --dry-run``.
     """
