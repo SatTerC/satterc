@@ -266,6 +266,17 @@ class Config:
         data.pop("grid", None)
         return []
 
+    def _parse_graphviz(self, data: dict, driver_config: dict) -> list[str]:
+        """Handle a stray [graphviz] section.
+
+        DAG-visualisation styling lives in its own file passed to ``satterc
+        graph --style`` (see ``satterc.cli.graph_style``), not in the science
+        config.  A misplaced [graphviz] section here is silently ignored rather
+        than mistaken for an external module missing ``_import_path``.
+        """
+        data.pop("graphviz", None)
+        return []
+
     def _parse_inputs(self, data: dict, driver_config: dict, input_specs: dict) -> None:
         """Handle [inputs.*] sections."""
         for freq, params in data.pop("inputs", {}).items():
@@ -426,6 +437,7 @@ class Config:
         - [inputs.*]      — I/O specs; freq derived from subsection key
         - [outputs.*]     — I/O specs; freq derived from subsection key
         - [grid]          — silently accepted (grid computation is now in load_inputs())
+        - [graphviz]      — silently ignored (DAG styling is a `graph --style` file)
         - [models.*]      — built-in model modules
         - [[derive]]      — config-driven derived variable nodes
         - [[resample]]    — temporal resampling module
@@ -445,6 +457,7 @@ class Config:
         output_specs: dict[str, IOSpec] = {}
         modules: list[str] = []
         self._parse_grid(data, driver_config)
+        self._parse_graphviz(data, driver_config)
         self._parse_inputs(data, driver_config, input_specs)
         self._parse_outputs(data, driver_config, output_specs)
         modules += self._parse_models(data, driver_config)

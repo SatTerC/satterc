@@ -86,20 +86,40 @@ Before running, inspect the DAG to verify the structure looks correct:
 satterc graph config.toml --pdf
 ```
 
-This produces `pipeline.pdf` showing all nodes and their dependencies. The graph is colour-coded:
+This produces `pipeline.pdf` showing all nodes and their dependencies. Each node
+displays its declared **unit** (read from the `Annotated[DataArray, "<unit>"]`
+type) in place of the generic `DataArray` type, the requested output nodes are
+highlighted with a coloured border, edges are coloured by temporal frequency,
+and nodes are grouped into dashed `daily`/`weekly`/`monthly` clusters. Nodes are
+filled by category:
 
-| Colour | Frequency |
-|--------|-----------|
-| Aquamarine | Static inputs |
+| Colour | Category |
+|--------|----------|
+| Teal | Static inputs |
 | Orange | Daily |
-| Yellow | Weekly |
-| Brown | Monthly |
+| Blue | Weekly |
+| Green | Monthly |
+| Pink border | Requested outputs |
 
 You can also output as PNG:
 
 ```sh
 satterc graph config.toml --png
 ```
+
+### Customising the styling
+
+Pass a separate styling file with `--style` (or `-s`) to override any of the
+defaults — colours, layout, the legend, or even a custom style function. Keeping
+it in its own file means one style can be reused across many pipelines:
+
+```sh
+satterc graph config.toml --style examples/graphviz.toml --pdf
+```
+
+See the commented [`examples/graphviz.toml`](https://github.com/SatTerC/satterc/blob/main/examples/graphviz.toml)
+template for the full set of keys (`palette`, `graph_attr`/`node_attr`/`edge_attr`,
+`show_legend`, `cluster_by_frequency`, and `style_function`).
 
 /// admonition | Note
     type: note
