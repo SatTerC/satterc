@@ -1,9 +1,9 @@
 """
-Satterc-compatable interface to PyRealm's 'Splash' model.
+Satterc-compatible interface to PyRealm's 'SPLASH' model.
 
-This module provides the Splash class, which wraps the SPLASH model
-to calculate soil moisture, actual evapotranspiration (AET), and runoff based
-on climate inputs.
+This module provides the :func:`splash` node, which wraps PyRealm's SPLASH model
+to calculate actual evapotranspiration (AET), soil moisture, and runoff from
+climate inputs.
 """
 
 from typing import Annotated, TypedDict, cast
@@ -21,7 +21,15 @@ from ._utils import declare_units
 
 
 class SplashOut(TypedDict):
-    """Outputs of the :func:`splash` node, with their declared units."""
+    """Outputs of the :func:`splash` node, at daily resolution.
+
+    actual_evapotranspiration_daily : actual evapotranspiration, the daily water
+        loss to the atmosphere (millimetres per day).
+    soil_moisture_daily : soil moisture content at the end of the day
+        (millimetres).
+    runoff_daily : runoff, the soil-moisture overflow amount above capacity for
+        the day (millimetres, an amount rather than a rate).
+    """
 
     actual_evapotranspiration_daily: Annotated[DataArray, "mm d-1"]
     soil_moisture_daily: Annotated[DataArray, "mm"]
@@ -161,28 +169,38 @@ def splash(
 
     Parameters
     ----------
+    dates_daily
+        Daily datetime index.
     sunshine_fraction_daily
         Fraction of daylight hours that are sunny (dimensionless, 0-1).
     temperature_daily
-        Air temperature (degrees Celsius).
+        Daily mean air temperature (degrees Celsius).
     precipitation_daily
-        Precipitation (mm d-1).
+        Precipitation (millimetres per day).
+    elevation
+        Elevation of the site (metres).
     latitude
         Latitude of the site (degrees).
-    elevation
-        Elevation of the site (meters).
+    max_soil_moisture
+        Maximum soil moisture capacity (millimetres).
     soil_moisture_init_max_iter
-        Maximum number of one year iterations used to estimate initial soil moisture.
+        Maximum number of one-year iterations used to estimate initial soil
+        moisture.
     soil_moisture_init_max_diff
-        Maximum acceptable difference between year start and year end soil moisture.
+        Maximum acceptable difference between year-start and year-end soil
+        moisture (millimetres).
 
     Returns
     -------
-    tuple
-        Tuple containing:
-        - actual_evapotranspiration_daily: actual evapotranspiration (mm per day)
-        - soil_moisture_daily: soil moisture content (mm)
-        - runoff_daily: runoff (mm)
+    SplashOut
+        Dictionary of daily outputs:
+
+        - actual_evapotranspiration_daily: actual evapotranspiration
+          (millimetres per day)
+        - soil_moisture_daily: soil moisture content (millimetres)
+        - runoff_daily: runoff overflow amount (millimetres)
+
+        See :class:`SplashOut` for per-output detail.
     """
     return _splash(
         sunshine_fraction_daily=sunshine_fraction_daily,

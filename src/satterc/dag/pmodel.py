@@ -19,7 +19,14 @@ from ._utils import declare_units
 
 
 class PModelOut(TypedDict):
-    """Outputs of the :func:`pmodel` node, with their declared units."""
+    """Outputs of the :func:`pmodel` node, at weekly resolution.
+
+    gpp_weekly : gross primary productivity, the carbon fixed by photosynthesis,
+        expressed as a rate (grams of carbon per square metre per day).
+    lue_weekly : light use efficiency, carbon fixed per unit absorbed PAR
+        (grams of carbon per megajoule).
+    iwue_weekly : intrinsic water use efficiency (pascals).
+    """
 
     gpp_weekly: Annotated[DataArray, "g m-2 d-1"]
     lue_weekly: Annotated[DataArray, "g MJ-1"]
@@ -154,23 +161,26 @@ def pmodel(
     temperature_weekly
         Air temperature (degrees Celsius).
     vpd_weekly
-        Vapor pressure deficit (Pascals).
+        Vapour pressure deficit (pascals).
     co2_weekly
         Atmospheric CO2 concentration (parts per million).
     pressure_weekly
-        Atmospheric pressure (Pascals).
+        Atmospheric pressure (pascals).
     fapar_weekly
-        Fraction of absorbed photosynthetically active radiation (dimensionless, 0-1).
+        Fraction of absorbed photosynthetically active radiation
+        (dimensionless, 0-1).
     ppfd_weekly
-        Photosynthetic photon flux density (micromoles per square meter per second).
-    soil_moisture_weekly
-        Soil moisture content (mm).
+        Photosynthetic photon flux density (micromoles per square metre per
+        second).
     mean_growth_temperature_weekly
         Mean growth temperature (degrees Celsius).
     aridity_index_weekly
         Aridity index (dimensionless, ratio of AET to precipitation).
+    soil_moisture_weekly
+        Soil moisture content (millimetres).
     method_optchi
-        Method for calculating optimal chi (leaf-internal CO2 compensation point).
+        Method for calculating optimal chi (leaf-internal CO2 compensation
+        point).
     method_jmaxlim
         Method for Jmax limitation.
     method_kphio
@@ -180,11 +190,15 @@ def pmodel(
 
     Returns
     -------
-    tuple
-        Tuple of weekly outputs:
-        - gpp_weekly: Gross primary productivity (gC per m2 per day)
-        - lue_weekly: Light use efficiency (gC per MJ PAR)
-        - iwue_weekly: Intrinsic water use efficiency (Pa)
+    PModelOut
+        Dictionary of weekly outputs:
+
+        - gpp_weekly: gross primary productivity (grams of carbon per square
+          metre per day)
+        - lue_weekly: light use efficiency (grams of carbon per megajoule)
+        - iwue_weekly: intrinsic water use efficiency (pascals)
+
+        See :class:`PModelOut` for per-output detail.
     """
     return _pmodel(
         temperature_weekly=temperature_weekly,

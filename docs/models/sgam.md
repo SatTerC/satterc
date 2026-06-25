@@ -140,7 +140,7 @@ SGAM requires the following weekly `DataArray` inputs:
 | Variable | Units | Description |
 |----------|-------|-------------|
 | `temperature_weekly` | °C | Weekly mean air temperature |
-| `gpp_weekly` | gC m⁻² wk⁻¹ | Gross primary productivity |
+| `gpp_weekly` | gC m⁻² day⁻¹ | Gross primary productivity |
 | `soil_moisture_weekly` | mm | Soil moisture content |
 | `vpd_weekly` | Pa | Vapour pressure deficit |
 | `lue_weekly` | gC MJ⁻¹ | Light use efficiency |

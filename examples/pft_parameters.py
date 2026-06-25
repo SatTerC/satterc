@@ -344,7 +344,7 @@ def _(mo):
 
     $$u_i = \frac{\theta_i - \theta_i^{\min}}{\theta_i^{\max} - \theta_i^{\min}}$$
 
-    Normalisation by prior range maps *prior* widths to [0, 1], but the posterior
+    Normalisation by prior range maps *prior* widths to \[0, 1\], but the posterior
     widths in normalised space are still very different (~25×). A single isotropic
     step size cannot serve both directions well, so we use **per-parameter step sizes**
     matched to each posterior width (≈ 1σ per direction):
