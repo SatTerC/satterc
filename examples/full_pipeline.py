@@ -3,8 +3,11 @@
 # dependencies = [
 #     "marimo",
 #     "matplotlib==3.10.9",
-#     "satterc==0.4.0",
+#     "satterc==0.4.1",
 # ]
+#
+# [tool.uv.sources]
+# satterc = { path = ".." }
 # ///
 
 import marimo

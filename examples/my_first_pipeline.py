@@ -1,10 +1,13 @@
 # /// script
 # requires-python = ">=3.13"
 # dependencies = [
-#   "satterc==0.4.0",
+#   "satterc==0.4.1",
 #   "marimo",
 #   "matplotlib==3.10.9",
 # ]
+#
+# [tool.uv.sources]
+# satterc = { path = ".." }
 # ///
 
 import marimo

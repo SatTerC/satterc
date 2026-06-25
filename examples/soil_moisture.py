@@ -4,10 +4,13 @@
 #     "marimo",
 #     "matplotlib==3.10.9",
 #     "numpy==2.4.4",
-#     "satterc==0.4.0",
+#     "satterc==0.4.1",
 #     "scipy==1.17.1",
 #     "xarray==2026.4.0",
 # ]
+#
+# [tool.uv.sources]
+# satterc = { path = ".." }
 # ///
 
 import marimo
