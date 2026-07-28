@@ -65,7 +65,7 @@ def pmodel_inputs() -> dict:
         ppfd_weekly=_temporal(np.abs(_vary(500.0, 150.0))),
         mean_growth_temperature_weekly=_temporal(_vary(15.0, 5.0)),
         aridity_index_weekly=_temporal(np.clip(_vary(0.5, 0.2), 0, 2)),
-        soil_moisture_weekly=_temporal(np.abs(_vary(100.0, 30.0))),
+        volumetric_water_content_weekly=_temporal(np.clip(_vary(0.3, 0.1), 0.0, 0.8)),
         **METHODS,
     )
 
@@ -89,7 +89,7 @@ def _reference_loop(inputs: dict) -> dict[str, np.ndarray]:
             patm=col("pressure_weekly", i),
             fapar=col("fapar_weekly", i),
             ppfd=col("ppfd_weekly", i),
-            theta=col("soil_moisture_weekly", i) / 300,
+            theta=col("volumetric_water_content_weekly", i),
             mean_growth_temperature=col("mean_growth_temperature_weekly", i),
             aridity_index=col("aridity_index_weekly", i),
         )
@@ -181,7 +181,7 @@ class TestCachingIntact:
             "fapar_weekly": _mda(0.5),
             "ppfd_weekly": _mda(500.0),
             "aridity_index_weekly": _mda(0.5),
-            "soil_moisture_weekly": _mda(100.0),
+            "volumetric_water_content_weekly": _mda(0.3),
         }
         # mean_growth_temperature_weekly is itself a node (derived from daily
         # temperature); override it directly so the cached test needs no upstream.

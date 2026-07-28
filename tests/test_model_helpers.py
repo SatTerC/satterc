@@ -319,7 +319,7 @@ class TestPmodelExecution:
             ppfd_weekly=_da(np.full((n_weeks, n_pixels), 500.0)),
             mean_growth_temperature_weekly=_da(np.full((n_weeks, n_pixels), 15.0)),
             aridity_index_weekly=_da(np.full((n_weeks, n_pixels), 0.5)),
-            soil_moisture_weekly=_da(np.full((n_weeks, n_pixels), 100.0)),
+            volumetric_water_content_weekly=_da(np.full((n_weeks, n_pixels), 0.3)),
             method_optchi="prentice14",
             method_jmaxlim="wang17",
             method_kphio="temperature",
@@ -452,7 +452,7 @@ class TestPmodelDriverExecution:
                 "fapar_weekly": _wda(0.5),
                 "ppfd_weekly": _wda(500.0),
                 "aridity_index_weekly": _wda(0.5),
-                "soil_moisture_weekly": _wda(100.0),
+                "volumetric_water_content_weekly": _wda(0.3),
             },
         )
         gpp = result["gpp_weekly"]

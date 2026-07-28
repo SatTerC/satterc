@@ -43,7 +43,7 @@ def _pmodel_block(
     ppfd_weekly: NDArray,
     mean_growth_temperature_weekly: NDArray,
     aridity_index_weekly: NDArray,
-    soil_moisture_weekly: NDArray,
+    volumetric_water_content_weekly: NDArray,
     *,
     method_optchi: str,
     method_jmaxlim: str,
@@ -66,7 +66,7 @@ def _pmodel_block(
         patm=pressure_weekly,
         fapar=fapar_weekly,
         ppfd=ppfd_weekly,
-        theta=soil_moisture_weekly / 300,  # TODO: figure out how to remove this factor!
+        theta=volumetric_water_content_weekly,
         mean_growth_temperature=mean_growth_temperature_weekly,
         aridity_index=aridity_index_weekly,
     )
@@ -96,7 +96,7 @@ def _pmodel(
     ppfd_weekly: DataArray,
     mean_growth_temperature_weekly: DataArray,
     aridity_index_weekly: DataArray,
-    soil_moisture_weekly: DataArray,
+    volumetric_water_content_weekly: DataArray,
     method_optchi: str,
     method_jmaxlim: str,
     method_kphio: str,
@@ -120,7 +120,7 @@ def _pmodel(
         ppfd_weekly,
         mean_growth_temperature_weekly,
         aridity_index_weekly,
-        soil_moisture_weekly,
+        volumetric_water_content_weekly,
         kwargs={
             "method_optchi": method_optchi,
             "method_jmaxlim": method_jmaxlim,
@@ -149,7 +149,7 @@ def pmodel(
     ppfd_weekly: Annotated[DataArray, "umol m-2 s-1", WEEKLY],
     mean_growth_temperature_weekly: Annotated[DataArray, "degC", WEEKLY],
     aridity_index_weekly: Annotated[DataArray, "1", WEEKLY],
-    soil_moisture_weekly: Annotated[DataArray, "mm", WEEKLY],
+    volumetric_water_content_weekly: Annotated[DataArray, "m3 m-3", WEEKLY],
     *,
     method_optchi: str = "prentice14",
     method_jmaxlim: str = "wang17",
@@ -178,8 +178,12 @@ def pmodel(
         Mean growth temperature (degrees Celsius).
     aridity_index_weekly
         Aridity index (dimensionless, ratio of AET to precipitation).
-    soil_moisture_weekly
-        Soil moisture content (millimetres).
+    volumetric_water_content_weekly
+        Volumetric soil water content: the fraction of soil volume occupied by
+        water (cubic metres of water per cubic metre of soil). This is pyrealm's
+        ``theta``, not SPLASH's soil moisture, which is a depth of water in
+        millimetres — see the ``volumetric_water_content`` node in the example
+        config for the conversion.
     method_optchi
         Method for calculating optimal chi (leaf-internal CO2 compensation
         point).
@@ -211,7 +215,7 @@ def pmodel(
         ppfd_weekly=ppfd_weekly,
         mean_growth_temperature_weekly=mean_growth_temperature_weekly,
         aridity_index_weekly=aridity_index_weekly,
-        soil_moisture_weekly=soil_moisture_weekly,
+        volumetric_water_content_weekly=volumetric_water_content_weekly,
         method_optchi=method_optchi,
         method_jmaxlim=method_jmaxlim,
         method_kphio=method_kphio,

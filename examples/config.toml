@@ -84,6 +84,24 @@ expression = "precipitation_daily / actual_evapotranspiration_daily"
 units = "1"  # ratio of two mm d-1 fluxes -> dimensionless
 freq = "D"
 
+# pyrealm's P-model wants volumetric water content (its `theta`, m3 m-3): the
+# fraction of soil volume that is water. SPLASH reports something different -- a
+# depth of water, in mm, held in a bucket of capacity `max_soil_moisture`. So
+# soil_moisture / max_soil_moisture is relative saturation (0-1), and multiplying
+# by porosity turns that into a volume fraction.
+#
+# 0.45 is a representative mineral-soil porosity, written as a literal here to
+# keep the default config free of extra inputs. To let it vary in space, replace
+# the literal with a `porosity` node -- derived from `clay_content`, which is
+# already a static input, or read from a `porosity` variable added to
+# [inputs.static].
+[[node]]
+name = "volumetric_water_content_weekly"
+inputs = ["soil_moisture_weekly", "max_soil_moisture"]
+expression = "soil_moisture_weekly / max_soil_moisture * 0.45"
+units = "m3 m-3"
+freq = "7D"
+
 [[node]]
 name = "leaf_area_index_weekly"
 inputs = ["leaf_pool_weekly", "pft_params"]
