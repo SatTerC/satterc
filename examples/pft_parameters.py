@@ -179,10 +179,14 @@ def _(Path, generate_synthetic_data, load_inputs, parsed_config, tempfile):
     parsed_config.input_specs["weekly"].path = str(_tmpdir / "weekly.nc")
     parsed_config.input_specs["static"].path = str(_tmpdir / "static.nc")
 
-    generate_synthetic_data(config=parsed_config, grid=(1, 1), n_days=730, seed=42)
+    # Two pixels, because the synthetic generator cycles plant type through
+    # `sgam.pft.PlantFunctionalType` order (0=tree, 1=grass, 2=shrub, 3=crop) by
+    # pixel index. Pixel 1 is therefore the grassland this notebook talks about.
+    generate_synthetic_data(config=parsed_config, grid=(1, 2), n_days=730, seed=42)
+    GRASS_PIXEL = 1
 
     inputs = load_inputs(parsed_config.input_specs)
-    return (inputs,)
+    return GRASS_PIXEL, inputs
 
 
 @app.cell
@@ -209,7 +213,7 @@ def _(mo):
 
 
 @app.cell
-def _(dr, inputs, np):
+def _(GRASS_PIXEL, dr, inputs, np):
     _SGAM_INPUTS = [
         "gpp_weekly",
         "lue_weekly",
@@ -231,13 +235,13 @@ def _(dr, inputs, np):
     # each step only recomputes the sgam node, not the upstream SPLASH/P-model chain.
     upstream = {k: _all_outputs[k] for k in _SGAM_INPUTS if k != "leaf_pool_weekly"}
 
-    true_lue_max = float(_all_outputs["pft_params"]["lue_max"].values[0])
+    true_lue_max = float(_all_outputs["pft_params"]["lue_max"].values[GRASS_PIXEL])
     true_leaf_turnover = float(
-        _all_outputs["pft_params"]["leaf_turnover_rate"].values[0]
+        _all_outputs["pft_params"]["leaf_turnover_rate"].values[GRASS_PIXEL]
     )
 
     np.random.seed(42)
-    _true_leaf_pool = _all_outputs["leaf_pool_weekly"].values[:, 0]
+    _true_leaf_pool = _all_outputs["leaf_pool_weekly"].values[:, GRASS_PIXEL]
     synthetic_obs = _true_leaf_pool + np.random.normal(0, 2.0, _true_leaf_pool.shape)
     return synthetic_obs, true_leaf_turnover, true_lue_max, upstream
 
@@ -391,7 +395,7 @@ def _(mo):
 
 
 @app.cell
-def _(inputs, np):
+def _(GRASS_PIXEL, inputs, np):
     def objective_function(params, dr, observations, upstream):
         lue_max, leaf_turnover = params
         modified_pft = upstream["pft_params"].copy()
@@ -401,7 +405,7 @@ def _(inputs, np):
         outputs = dr.execute(
             final_vars=["leaf_pool_weekly"], inputs=inputs, overrides=overrides
         )
-        modelled = outputs["leaf_pool_weekly"].values[:, 0]
+        modelled = outputs["leaf_pool_weekly"].values[:, GRASS_PIXEL]
         return np.mean((modelled - observations) ** 2)
 
     return (objective_function,)

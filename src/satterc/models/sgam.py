@@ -130,7 +130,19 @@ class SgamOut(TypedDict):
 
 
 def _pft_int_to_enum(value: int) -> PlantFunctionalType:
-    return list(PlantFunctionalType)[value]
+    """Map a ``plant_type`` integer onto `sgam.pft.PlantFunctionalType`.
+
+    The integer is a 0-based index into the enum's declaration order
+    (0=tree, 1=grass, 2=shrub, 3=crop).
+    """
+    members = list(PlantFunctionalType)
+    if not 0 <= value < len(members):
+        raise ValueError(
+            f"plant_type {value} is not a valid plant functional type: "
+            f"expected an integer in [0, {len(members) - 1}] "
+            f"({', '.join(f'{i}={m.name.lower()}' for i, m in enumerate(members))})."
+        )
+    return members[value]
 
 
 def _build_pft_params_dataset(plant_type: xr.DataArray) -> xr.Dataset:
