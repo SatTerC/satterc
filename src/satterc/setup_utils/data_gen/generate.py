@@ -1,21 +1,20 @@
 """Generate synthetic input data for a satterc config.
 
-Everything is generated at daily resolution — by an explicit generator in
-`satterc.setup_utils.data_gen.daily` / `.static` where one exists, and by a
-name-heuristic fallback otherwise — then aggregated to the coarser files with
-`conduit.transforms.resample`.
+Everything is generated at daily resolution — from the tables in
+`satterc.setup_utils.data_gen.daily` / `.static` where the variable has an entry,
+and from a name-heuristic fallback otherwise — then aggregated to the coarser
+files with `conduit.transforms.resample`.
 
-The aggregation happens *after* the DAG rather than inside it. conduit's resample
-is a plain function lowered into a config-generated node, not a Hamilton module
-that can be added to a driver, so there is nothing to wire in here; calling it
-directly is both simpler and closer to what the pipeline itself will do.
+Generation is driven by `satterc.setup_utils.data_gen.spec.Resolver`, which
+memoises each variable and resolves dependencies between them on demand. It is
+deliberately not a Hamilton DAG: the pipeline's own graph is conduit's business,
+whereas this is a handful of generators in one process, and a plain resolver
+keeps the tables free of framework wiring.
 """
 
-import inspect
 import json
 from os import PathLike
 from pathlib import Path
-from typing import Any
 
 import numpy as np
 import xarray as xr
@@ -23,21 +22,17 @@ from conduit import IOSpec, ParsedConfig
 from conduit.formats import dataset_to_frame, format_for, write_frame, write_in_group
 from conduit.gridded.io import unstack_if_gridded
 from conduit.transforms import resample
-from hamilton import driver
-from hamilton.settings import ENABLE_POWER_USER_MODE
 
-from . import daily, static
-from .fallback import build_fallback_module
+from .daily import DAILY_VARS
+from .fallback import fallback_var
+from .spec import Grid, Resolver
+from .static import STATIC_VARS
 
 #: Target offsets for the coarser input files. Mirrors
 #: `satterc.setup_utils.config_gen.RESAMPLE_FREQ_MAP` and the `Freq` contracts the
 #: model modules declare, so generated data satisfies them.
 _WEEKLY_FREQ = "7D"
 _MONTHLY_FREQ = "1ME"
-
-
-def _set_random_seed(seed: int) -> None:
-    np.random.seed(seed)
 
 
 def _spec_vars(label: str, spec: "IOSpec | None") -> list[str]:
@@ -89,29 +84,13 @@ def _save_dataset_with_crs(ds: xr.Dataset, path: str | PathLike) -> None:
     write_in_group(ds, p, "dataset")
 
 
-def _known_daily_fns() -> set[str]:
-    return {
-        name
-        for name, obj in inspect.getmembers(daily, inspect.isfunction)
-        if not name.startswith("_")
-    }
-
-
-def _known_static_fns() -> set[str]:
-    return {
-        name
-        for name, obj in inspect.getmembers(static, inspect.isfunction)
-        if not name.startswith("_")
-    }
-
-
 def generate_synthetic_data(
     config: ParsedConfig,
     grid: tuple[int, int],
     n_days: int,
     seed: int = 42,
 ) -> None:
-    """Generate synthetic input data using a Hamilton DAG.
+    """Generate synthetic input data for every input section of a config.
 
     Parameters
     ----------
@@ -124,9 +103,11 @@ def generate_synthetic_data(
     n_days : int
         Number of days to generate.
     seed : int
-        Random seed for reproducibility.
+        Random seed for reproducibility. Note that the values depend on the
+        variables requested and the order they are generated in, so two configs
+        asking for different variables will not agree on the ones they share.
     """
-    _set_random_seed(seed)
+    np.random.seed(seed)
 
     n_lat, n_lon = grid
 
@@ -135,68 +116,37 @@ def generate_synthetic_data(
     monthly_spec = config.input_specs.get("monthly")
     static_spec = config.input_specs.get("static")
 
-    daily_vars: set[str] = set(_spec_vars("daily", daily_spec))
-    weekly_vars: set[str] = set(_spec_vars("weekly", weekly_spec))
-    monthly_vars: set[str] = set(_spec_vars("monthly", monthly_spec))
-    static_vars: list[str] = _spec_vars("static", static_spec)
+    daily_vars = set(_spec_vars("daily", daily_spec))
+    weekly_vars = set(_spec_vars("weekly", weekly_spec))
+    monthly_vars = set(_spec_vars("monthly", monthly_spec))
+    static_vars = _spec_vars("static", static_spec)
 
-    driver_config: dict[str, Any] = {
-        ENABLE_POWER_USER_MODE: True,
-        "n_lat": n_lat,
-        "n_lon": n_lon,
-        "n_days": n_days,
-        "start_date": "2020-01-01",
-        "seed": seed,
-    }
-
-    # Everything temporal is produced daily and aggregated below, so a variable
-    # that only ever appears in the weekly or monthly file still needs a daily
-    # generator (or a fallback).
-    all_temporal_vars = daily_vars | weekly_vars | monthly_vars
-    monthly_targets = all_temporal_vars
-
-    known_daily = _known_daily_fns()
-    known_static = _known_static_fns()
-    unknown_daily = [v for v in all_temporal_vars if f"{v}_daily" not in known_daily]
-    unknown_static = [v for v in static_vars if v not in known_static]
-
-    modules = [daily, static]
-    if unknown_daily or unknown_static:
-        modules.append(build_fallback_module(unknown_daily, unknown_static))
-
-    dr = (
-        driver.Builder()
-        .with_modules(*modules)
-        .with_config(driver_config)
-        .allow_module_overrides()
-        .build()
+    resolver = Resolver(
+        grid=Grid(n_lat=n_lat, n_lon=n_lon, n_days=n_days),
+        daily_vars=DAILY_VARS,
+        static_vars=STATIC_VARS,
+        fallback=fallback_var,
     )
 
-    targets = [f"{v}_daily" for v in sorted(all_temporal_vars)] + static_vars
-    results = dr.execute(targets)  # type: ignore[reportArgumentType]
-
     def _at(var: str, freq: str | None) -> xr.DataArray:
-        source = results[f"{var}_daily"]
+        # Everything temporal is produced daily and aggregated here, so a
+        # variable that only ever appears in the weekly or monthly file is still
+        # generated by a daily entry (or a fallback).
+        source = resolver.daily(var)
         return source if freq is None else resample(source, freq=freq)
 
-    if daily_vars and daily_spec:
-        daily_ds = unstack_if_gridded(
-            xr.merge([_at(v, None) for v in sorted(daily_vars)])
-        )
-        _save_dataset_with_crs(daily_ds, daily_spec.path)
+    sections = [
+        (daily_vars, daily_spec, None),
+        (weekly_vars, weekly_spec, _WEEKLY_FREQ),
+        (monthly_vars, monthly_spec, _MONTHLY_FREQ),
+    ]
+    for names, spec, freq in sections:
+        if names and spec:
+            ds = unstack_if_gridded(xr.merge([_at(v, freq) for v in sorted(names)]))
+            _save_dataset_with_crs(ds, spec.path)
 
-    if weekly_vars and weekly_spec:
-        weekly_ds = unstack_if_gridded(
-            xr.merge([_at(v, _WEEKLY_FREQ) for v in sorted(weekly_vars)])
+    if static_vars and static_spec:
+        static_ds = unstack_if_gridded(
+            xr.merge([resolver.static(v) for v in static_vars])
         )
-        _save_dataset_with_crs(weekly_ds, weekly_spec.path)
-
-    if monthly_targets and monthly_spec:
-        monthly_ds = unstack_if_gridded(
-            xr.merge([_at(v, _MONTHLY_FREQ) for v in sorted(monthly_targets)])
-        )
-        _save_dataset_with_crs(monthly_ds, monthly_spec.path)
-
-    if static_spec:
-        static_ds = unstack_if_gridded(xr.merge([results[v] for v in static_vars]))  # type: ignore[reportArgumentType]
         _save_dataset_with_crs(static_ds, static_spec.path)

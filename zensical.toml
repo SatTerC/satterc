@@ -41,10 +41,11 @@ nav = [
       "api/satterc.models/sgam.md",
       "api/satterc.models/rothc.md",
       "api/satterc.setup_utils/config_gen.md",
+      "api/satterc.setup_utils/data_gen/spec.md",
       "api/satterc.setup_utils/data_gen/daily.md",
+      "api/satterc.setup_utils/data_gen/static.md",
       "api/satterc.setup_utils/data_gen/fallback.md",
       "api/satterc.setup_utils/data_gen/generate.md",
-      "api/satterc.setup_utils/data_gen/static.md",
   ]},
 ]
 
@@ -144,6 +145,7 @@ annotations_path = "brief"
 docstring_style = "numpy"
 docstring_section_style = "list"
 inherited_members = true
+members_order = "source"
 line_length = 88
 merge_init_into_class = true
 separate_signature = true

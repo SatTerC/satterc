@@ -103,7 +103,7 @@ def generate(
         ),
     ] = 42,
 ) -> None:
-    """Generate synthetic input data for Hamilton DAG testing."""
+    """Generate synthetic input data for every input section of a config."""
     n_lat, n_lon = grid
     if n_lat <= 0 or n_lon <= 0:
         raise typer.BadParameter("Grid dimensions must be positive integers.")

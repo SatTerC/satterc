@@ -20,6 +20,13 @@ checkout, if present) rather than guessing at its API.
 - Marimo example notebooks pin `satterc==<version>` in inline `# dependencies` — update when bumping the package version, then re-export with `just export-all`.
 - Plain config files in `examples/` (`config.toml`, `graphviz.toml`) are **not** loaded by any code or tooling — they are user-facing references only, so nothing will catch a mistake in them. Check with `satterc run --dry-run`.
 - Documentation uses **zensical** (markdown, mkdocstrings-material-like), **not** Sphinx/rst.
+- Synthetic data is table-driven: a variable is one `Var` row (units, long name,
+  one generator lambda) in `setup_utils/data_gen/daily.py` or `static.py`. Adding
+  a model's inputs means adding rows, not writing generator functions. A variable
+  with no row still generates — `fallback.py` infers plausible noise from the
+  name — so only add a row where the *structure* matters: the model responds to
+  seasonality, or another variable derives from it. Each entry is a module-level
+  constant with a docstring, so the docs pick it up with no extra step.
 - Generic behaviour belongs upstream. If a change would be useful to a pipeline
   that is not about carbon, it probably belongs in conduit, not here.
 
