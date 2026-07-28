@@ -136,11 +136,27 @@ def _(Config, tomllib):
       "stem_pool_init",
     ]
 
+    # pyrealm's `aridity_index` is climatological and oriented PET/P: both terms
+    # accumulate over the whole record, giving one value per pixel rather than a
+    # time series. SPLASH computes PET on its way to AET and exposes it.
     [[node]]
-    name = "aridity_index_daily"
-    inputs = ["precipitation_daily", "actual_evapotranspiration_daily"]
-    expression = "precipitation_daily / actual_evapotranspiration_daily"
-    units = "1"  # ratio of two mm d-1 fluxes -> dimensionless
+    name = "aridity_index"
+    inputs = ["potential_evapotranspiration_daily", "precipitation_daily"]
+    expression = "potential_evapotranspiration_daily.sum('time') / precipitation_daily.sum('time')"
+    units = "1"  # ratio of two mm totals -> dimensionless
+
+    # Both the P-model (as pyrealm's `theta`) and SGAM (against the PFT's
+    # `wilting_point`/`field_capacity`) want volumetric water content (m3 m-3).
+    # SPLASH reports a depth of water in mm held in a bucket of capacity
+    # `max_soil_moisture`, so dividing gives relative saturation (0-1) and
+    # multiplying by a representative mineral-soil porosity (0.45) turns that
+    # into a volume fraction.
+    [[node]]
+    name = "volumetric_water_content_weekly"
+    inputs = ["soil_moisture_weekly", "max_soil_moisture"]
+    expression = "soil_moisture_weekly / max_soil_moisture * 0.45"
+    units = "m3 m-3"
+    freq = "7D"
 
     [[node]]
     name = "leaf_area_index_weekly"
@@ -191,7 +207,6 @@ def _(Config, tomllib):
       "temperature",
       "precipitation",
       "soil_moisture",
-      "aridity_index",
     ]
     from = "daily"
     to = "weekly"
