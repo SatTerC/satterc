@@ -630,12 +630,13 @@ class TestDisturbancesDaily:
         def _static_da(values):
             return xr.DataArray(values, dims=["pixel"], coords={"pixel": pixel})
 
+        from satterc.models.sgam import pft_params
+
         result = disturbances_daily(
             temperature_daily=_da(np.full((n_days, n_pixels), 15.0)),
             gpp_daily=_da(np.full((n_days, n_pixels), 5.0)),
             lai_daily=_da(np.full((n_days, n_pixels), 2.0)),
-            plant_type=_static_da(np.zeros(n_pixels, dtype=float)),
-            latitude=_static_da(np.array([51.5, 52.0])),
+            pft_params=pft_params(_static_da(np.array([0, 3]))),
         )
         assert isinstance(result, xr.DataArray)
         assert result.sizes["time"] == n_days

@@ -221,24 +221,36 @@ def _disturbances_block(
     temperature: NDArray[np.float64],
     gpp: NDArray[np.float64],
     lai: NDArray[np.float64],
+    disturbance_threshold: NDArray[np.float64],
+    *,
+    growing_season_limit: float,
 ) -> NDArray[np.float64]:
     """Run disturbance detection on a whole pixel-block (vectorised over pixels).
 
-    ``apply_ufunc`` places the ``time`` core dim last, so each input arrives as
-    ``(pixel, time)`` (or ``(time,)`` with no pixel broadcast).
+    ``apply_ufunc`` places the ``time`` core dim last, so each time series arrives
+    as ``(pixel, time)`` (or ``(time,)`` with no pixel broadcast) and the per-pixel
+    ``disturbance_threshold`` as ``(pixel,)`` (or a 0-d scalar).
     `Disturbances.forward` diffs GPP/LAI along axis 0, so ``time`` is moved to
     the front for the call and the result moved back to ``(pixel, time)``.
     ``moveaxis`` is a no-op on a 1D ``(time,)`` array, so the single-pixel case is
     handled too.
+
+    With ``time`` leading, the time series are ``(time, pixel)`` and the threshold
+    ``(pixel,)`` broadcasts against them along the trailing axis, so the whole
+    block is still one call: `Disturbances.forward` only ever uses
+    ``disturbance_threshold`` in an elementwise numpy comparison, so an array of
+    per-pixel thresholds works exactly like a scalar and no ``vectorize=True``
+    map over pixels is needed.
     """
     temp = np.moveaxis(np.asarray(temperature, dtype=float), -1, 0)
     g = np.moveaxis(np.asarray(gpp, dtype=float), -1, 0)
     la = np.moveaxis(np.asarray(lai, dtype=float), -1, 0)
-    # TODO: upgrade growing_season_limit to a function of pft and latitude!
-    # TODO: upgrade disturbance_threshold to a function of pft!
-    result = Disturbances(growing_season_limit=10.0, disturbance_threshold=0.3).forward(
-        temp, g, la, aggregate=False
+    detector = Disturbances(
+        growing_season_limit=growing_season_limit,
+        # Per-pixel array rather than the declared scalar; see the docstring.
+        disturbance_threshold=np.asarray(disturbance_threshold, dtype=float),  # type: ignore[reportArgumentType]
     )
+    result = detector.forward(temp, g, la, aggregate=False)
     return np.moveaxis(result, 0, -1)
 
 
@@ -246,11 +258,15 @@ def _disturbances_daily(
     temperature_daily: xr.DataArray,
     gpp_daily: xr.DataArray,
     lai_daily: xr.DataArray,
+    disturbance_threshold: xr.DataArray,
+    growing_season_limit: float,
 ) -> xr.DataArray:
     """Apply disturbance detection over the ``(time, pixel)`` block via apply_ufunc.
 
     Disturbance detection diffs along ``time`` (so ``time`` is the input/output core
     dim) but is otherwise element-wise over ``pixel`` (the broadcast/mapped dim).
+    ``disturbance_threshold`` is a per-pixel ``(pixel,)`` input with no core dim, so
+    it broadcasts alongside the time series.
     ``vectorize`` is left ``False`` so the whole pixel-block reaches the numpy kernel
     in one call; ``dask="parallelized"`` keeps a future dask-backed (chunked-``pixel``)
     run reachable.
@@ -260,8 +276,10 @@ def _disturbances_daily(
         temperature_daily,
         gpp_daily,
         lai_daily,
-        input_core_dims=[["time"]] * 3,
+        disturbance_threshold,
+        input_core_dims=[["time"]] * 3 + [[]],
         output_core_dims=[["time"]],
+        kwargs={"growing_season_limit": growing_season_limit},
         dask="parallelized",
         output_dtypes=[float],
     )
@@ -278,10 +296,17 @@ def disturbances_daily(
     temperature_daily: Annotated[xr.DataArray, "degC", DAILY],
     gpp_daily: Annotated[xr.DataArray, "g m-2 d-1", DAILY],
     lai_daily: Annotated[xr.DataArray, "1", DAILY],
-    plant_type: xr.DataArray,
-    latitude: xr.DataArray,
+    pft_params: xr.Dataset,
+    growing_season_limit: float = 10.0,
 ) -> Annotated[xr.DataArray, "1", DAILY]:
     """Detect daily disturbance events from anomalous declines in GPP and LAI.
+
+    A disturbance is flagged on a day that is (a) within the growing season, i.e.
+    warmer than ``growing_season_limit``, and (b) shows a relative decline in
+    *both* GPP and LAI larger than the PFT's ``disturbance_threshold``. The
+    threshold is taken per pixel from the ``pft_params`` node, so crops (0.1)
+    register far more events than trees (0.3), with shrubs (0.25) and grass
+    (0.2) in between.
 
     Parameters
     ----------
@@ -292,10 +317,14 @@ def disturbances_daily(
         day).
     lai_daily : xr.DataArray
         Daily leaf area index (dimensionless).
-    plant_type: xr.DataArray
-        Plant functional type as integer (0=tree, 1=grass, 2=shrub, 3=crop).
-    latitude: xr.DataArray
-        Latitude for each pixel (degrees).
+    pft_params : xr.Dataset
+        PFT parameters for each pixel. Output of the ``pft_params`` node; only
+        ``disturbance_threshold`` is used here.
+    growing_season_limit : float, optional
+        Minimum daily mean temperature for a day to count as within the growing
+        season (degrees Celsius). Defaults to 10.0. This is a temperature gate,
+        not a calendar one, so it needs no hemisphere correction: the seasonal
+        phase is already carried by ``temperature_daily``.
 
     Returns
     -------
@@ -304,9 +333,13 @@ def disturbances_daily(
         a disturbance, in [0, 1] where 0 is no disturbance and 1 is a total loss
         (dimensionless).
     """
-    # plant_type/latitude are declared dependencies for forthcoming pft-/hemisphere-
-    # aware thresholds (see the TODOs in _disturbances_block) but are not used yet.
-    return _disturbances_daily(temperature_daily, gpp_daily, lai_daily)
+    return _disturbances_daily(
+        temperature_daily,
+        gpp_daily,
+        lai_daily,
+        pft_params["disturbance_threshold"],
+        growing_season_limit,
+    )
 
 
 def _sgam_1px(
