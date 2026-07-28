@@ -94,7 +94,8 @@ The implementation supports several methodological choices:
 The P-model is configured in your TOML config file:
 
 ```toml
-[models.pmodel]
+[pmodel]
+_import_path = "satterc.models.pmodel"
 method_kphio = "sandoval"
 method_optchi = "lavergne20_c3"
 ```
@@ -131,7 +132,7 @@ The P-model returns three weekly `DataArray` outputs:
 
 ### Python API
 
-See the [API documentation](../api/satterc.dag/pmodel.md) for full function signatures and parameter details.
+See the [API documentation](../api/satterc.models/pmodel.md) for full function signatures and parameter details.
 
 ## References
 

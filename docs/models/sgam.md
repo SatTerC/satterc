@@ -123,7 +123,8 @@ Any violation beyond a relative tolerance of $10^{-6}$ indicates a numerical err
 SGAM is configured in your TOML config file:
 
 ```toml
-[models.sgam]
+[sgam]
+_import_path = "satterc.models.sgam"
 use_dynamic_allocation = true
 strict_mass_balance = false
 ```
@@ -169,7 +170,8 @@ Optional static inputs:
 SGAM includes helper nodes to detect disturbances from daily data:
 
 ```toml
-[models.sgam]
+[sgam]
+_import_path = "satterc.models.sgam"
 ```
 
 The `disturbances_daily` node computes daily disturbance events from temperature, GPP, and LAI, then `disturbances_weekly` aggregates to weekly maximum severity.
@@ -240,7 +242,7 @@ $$\text{LAI} = \frac{\text{leaf\_pool}}{\text{leaf\_carbon\_area}}$$
 
 ### Python API
 
-See the [API documentation](../api/satterc.dag/sgam.md) for full function signatures and parameter details.
+See the [API documentation](../api/satterc.models/sgam.md) for full function signatures and parameter details.
 
 ## References
 

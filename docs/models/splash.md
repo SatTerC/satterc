@@ -50,7 +50,8 @@ SPLASH estimates initial soil moisture by iterating over a full year of climate 
 SPLASH is configured in your TOML config file:
 
 ```toml
-[models.splash]
+[splash]
+_import_path = "satterc.models.splash"
 soil_moisture_init_max_iter = 10
 soil_moisture_init_max_diff = 1.0
 ```
@@ -92,7 +93,7 @@ SPLASH returns three daily `DataArray` outputs:
 
 ### Python API
 
-See the [API documentation](../api/satterc.dag/splash.md) for full function signatures and parameter details.
+See the [API documentation](../api/satterc.models/splash.md) for full function signatures and parameter details.
 
 ## References
 

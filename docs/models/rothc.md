@@ -54,7 +54,8 @@ For full model details, see:
 RothC is configured in your TOML config file:
 
 ```toml
-[models.rothc]
+[rothc]
+_import_path = "satterc.models.rothc"
 n_years_spinup = 1
 ```
 
@@ -84,6 +85,16 @@ And the following static `DataArray` inputs:
 | `soil_depth` | cm | Soil depth |
 | `inert_organic_matter` | tC·ha⁻¹ | Initial inert organic matter |
 
+### Bridge nodes
+
+Three of RothC's monthly inputs are produced by this module rather than loaded:
+`plant_cover_monthly`, `dpm_rpm_ratio_monthly` and
+`farmyard_manure_input_monthly`. Each builds a monthly series out of per-pixel
+static data (`plant_type`, `latitude`), which leaves them nothing to get a
+calendar from — so each also takes `temperature_monthly`, read purely for its
+time coordinate. If you supply your own version of one of these nodes, it needs a
+time-bearing input for the same reason.
+
 ### Outputs
 
 RothC returns six monthly `DataArray` outputs, all in tC·ha⁻¹:
@@ -99,7 +110,7 @@ RothC returns six monthly `DataArray` outputs, all in tC·ha⁻¹:
 
 ### Python API
 
-See the [API documentation](../api/satterc.dag/rothc.md) for full function signatures and parameter details.
+See the [API documentation](../api/satterc.models/rothc.md) for full function signatures and parameter details.
 
 ## References
 
