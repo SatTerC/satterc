@@ -10,7 +10,13 @@ import pytest
 from satterc.setup_utils.data_gen import daily, static
 from satterc.setup_utils.data_gen.daily import DAILY_VARS
 from satterc.setup_utils.data_gen.fallback import fallback_var
-from satterc.setup_utils.data_gen.spec import Grid, Resolver, Var, collect_vars
+from satterc.setup_utils.data_gen.spec import (
+    Grid,
+    Resolver,
+    StaticCtx,
+    Var,
+    collect_vars,
+)
 from satterc.setup_utils.data_gen.static import STATIC_VARS
 
 N_DAYS = 40
@@ -56,6 +62,70 @@ class TestGrid:
     def test_time_coord_length(self):
         grid = Grid(n_lat=1, n_lon=1, n_days=N_DAYS)
         assert len(grid.time_coord) == N_DAYS
+
+
+def _static_ctx(grid: Grid) -> StaticCtx:
+    """A bare context, for exercising the geometry helpers without a table."""
+    return StaticCtx(Resolver(grid, {}, {}, fallback_var), np.random.default_rng(0))
+
+
+class TestGridGeometry:
+    """The box and start date are arguments, not constants."""
+
+    def test_lat_lon_ranges_are_honoured(self):
+        grid = Grid(2, 3, 10, lat_range=(-45.0, -40.0), lon_range=(170.0, 175.0))
+        assert grid.lat.min() == -45.0
+        assert grid.lat.max() == -40.0
+        assert grid.lon.min() == 170.0
+        assert grid.lon.max() == 175.0
+
+    def test_start_date_is_honoured(self):
+        grid = Grid(1, 1, 10, start_date="2016-02-25")
+        assert str(grid.time_coord[0]) == "2016-02-25"
+        assert str(grid.time_coord[5]) == "2016-03-01"  # 2016 is a leap year
+
+    def test_norm_spans_the_grid_wherever_it_sits(self):
+        ctx = _static_ctx(
+            Grid(3, 3, 10, lat_range=(-5.0, 5.0), lon_range=(100.0, 110.0))
+        )
+        assert ctx.lat_norm.min() == 0.0
+        assert ctx.lat_norm.max() == 1.0
+        assert ctx.lon_norm.min() == 0.0
+        assert ctx.lon_norm.max() == 1.0
+
+    def test_norm_of_a_single_pixel_does_not_divide_by_zero(self):
+        ctx = _static_ctx(Grid(1, 1, 10))
+        assert ctx.lat_norm.tolist() == [0.0]
+        assert ctx.lon_norm.tolist() == [0.0]
+
+
+class TestClimateFollowsTheBox:
+    """Moving the grid must move the climate, or a bbox option is a trap."""
+
+    def _monthly_mean(self, lat_range) -> np.ndarray:
+        resolver = Resolver(
+            Grid(2, 2, 730, lat_range=lat_range, lon_range=(0.0, 5.0)),
+            DAILY_VARS,
+            STATIC_VARS,
+            fallback_var,
+            seed=1,
+        )
+        temperature = resolver.daily("temperature")
+        return temperature.mean("pixel").groupby("time.month").mean().values
+
+    def test_tropics_are_warm_and_aseasonal(self):
+        monthly = self._monthly_mean((-5.0, 5.0))
+        assert monthly.mean() > 20.0
+        assert monthly.max() - monthly.min() < 3.0
+
+    def test_northern_midlatitudes_peak_in_summer(self):
+        monthly = self._monthly_mean((50.0, 54.0))
+        assert 5.0 < monthly.mean() < 15.0
+        assert monthly.argmax() + 1 in (6, 7, 8)
+
+    def test_southern_midlatitudes_peak_in_december(self):
+        monthly = self._monthly_mean((-45.0, -40.0))
+        assert monthly.argmax() + 1 in (12, 1, 2)
 
 
 class TestBuild:

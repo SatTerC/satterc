@@ -28,12 +28,6 @@ _POOL_BY_TYPE: dict[int, tuple[float, float, float]] = {
 }
 
 
-def _normalised_lat(lat: NDArray[np.float64]) -> NDArray[np.float64]:
-    """Latitude rescaled to [0, 1] across the grid, 0 at the southern edge."""
-    lat_min = lat.min()
-    return (lat - lat_min) / ((lat.max() - lat_min) or 1.0)
-
-
 def _pool(ctx: StaticCtx, index: int) -> NDArray[np.float64]:
     """Look up one carbon pool from `_POOL_BY_TYPE` for each pixel's plant type."""
     plant_type = ctx.static("plant_type")
@@ -52,7 +46,7 @@ latitude = Var(
 elevation = Var(
     "m",
     "elevation",
-    lambda g: 100.0 + 200.0 * _normalised_lat(g.lat) + g.smooth_noise(35.0),
+    lambda g: 100.0 + 200.0 * g.lat_norm + g.smooth_noise(35.0),
     bounds=(0.0, 1000.0),
 )
 """South-north gradient (100 m to 300 m) plus spatially coherent noise.

@@ -1,6 +1,7 @@
 """Generate synthetic input data for testing."""
 
 import re
+from datetime import date
 from pathlib import Path
 from typing import Annotated
 
@@ -9,6 +10,11 @@ from conduit import ParsedConfig, load_config
 from typer import Abort
 
 from ..setup_utils.data_gen import generate_synthetic_data
+from ..setup_utils.data_gen.spec import (
+    DEFAULT_LAT_RANGE,
+    DEFAULT_LON_RANGE,
+    DEFAULT_START_DATE,
+)
 
 app = typer.Typer(help="Generate synthetic input data for testing.")
 
@@ -32,6 +38,47 @@ def _parse_duration(duration: str) -> int:
     elif unit == "y":
         return int(value * 365.25)
     raise ValueError(f"Invalid duration unit: {unit}")
+
+
+def _parse_bbox(bbox: str) -> tuple[tuple[float, float], tuple[float, float]]:
+    """Parse ``'lat_min,lat_max,lon_min,lon_max'`` into lat and lon ranges.
+
+    Taken as one comma-separated string rather than four option values because a
+    western longitude starts with ``-``, which click reads as the start of
+    another option.
+    """
+    parts = bbox.split(",")
+    if len(parts) != 4:
+        raise typer.BadParameter(
+            f"Invalid bounding box: '{bbox}'. Expected four comma-separated "
+            f"numbers, 'lat_min,lat_max,lon_min,lon_max' (e.g. '50,54,-4,2')."
+        )
+    try:
+        lat_min, lat_max, lon_min, lon_max = (float(p) for p in parts)
+    except ValueError:
+        raise typer.BadParameter(
+            f"Invalid bounding box: '{bbox}'. All four values must be numbers."
+        ) from None
+    if lat_min > lat_max or lon_min > lon_max:
+        raise typer.BadParameter(
+            f"Invalid bounding box: '{bbox}'. Each min must not exceed its max."
+        )
+    if not (lat_min >= -90.0 and lat_max <= 90.0):
+        raise typer.BadParameter(f"Latitudes must lie in [-90, 90]: '{bbox}'.")
+    if not (lon_min >= -180.0 and lon_max <= 180.0):
+        raise typer.BadParameter(f"Longitudes must lie in [-180, 180]: '{bbox}'.")
+    return (lat_min, lat_max), (lon_min, lon_max)
+
+
+def _parse_start_date(start_date: str) -> str:
+    """Validate an ISO ``YYYY-MM-DD`` start date."""
+    try:
+        date.fromisoformat(start_date)
+    except ValueError:
+        raise typer.BadParameter(
+            f"Invalid start date: '{start_date}'. Expected ISO 'YYYY-MM-DD'."
+        ) from None
+    return start_date
 
 
 def _validate_output_paths(
@@ -102,6 +149,25 @@ def generate(
             help="Random seed for reproducibility.",
         ),
     ] = 42,
+    bbox: Annotated[
+        str,
+        typer.Option(
+            "--bbox",
+            "-b",
+            help=(
+                "Bounding box as 'lat_min,lat_max,lon_min,lon_max' in degrees "
+                "(e.g. '50,54,-4,2'). The climate follows the box, so a tropical "
+                "one comes out warm and aseasonal."
+            ),
+        ),
+    ] = ",".join(str(v) for v in (*DEFAULT_LAT_RANGE, *DEFAULT_LON_RANGE)),
+    start_date: Annotated[
+        str,
+        typer.Option(
+            "--start-date",
+            help="ISO date of the first day, 'YYYY-MM-DD'.",
+        ),
+    ] = DEFAULT_START_DATE,
 ) -> None:
     """Generate synthetic input data for every input section of a config."""
     n_lat, n_lon = grid
@@ -109,6 +175,8 @@ def generate(
         raise typer.BadParameter("Grid dimensions must be positive integers.")
 
     n_days = _parse_duration(duration)
+    lat_range, lon_range = _parse_bbox(bbox)
+    start_date = _parse_start_date(start_date)
 
     config = load_config(config_file)
 
@@ -130,7 +198,8 @@ def generate(
     typer.echo("Generating synthetic data:")
     typer.echo(f"  Config file: {config_file}")
     typer.echo(f"  Grid dimensions: {n_lat} x {n_lon}")
-    typer.echo(f"  Duration: {duration} ({n_days} days)")
+    typer.echo(f"  Duration: {duration} ({n_days} days) from {start_date}")
+    typer.echo(f"  Bounding box: {lat_range} lat, {lon_range} lon")
     typer.echo(f"  Random seed: {seed}")
 
     generate_synthetic_data(
@@ -138,6 +207,9 @@ def generate(
         grid=(n_lat, n_lon),
         n_days=n_days,
         seed=seed,
+        lat_range=lat_range,
+        lon_range=lon_range,
+        start_date=start_date,
     )
 
     typer.echo("Data saved to:")

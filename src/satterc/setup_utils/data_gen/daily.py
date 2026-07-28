@@ -32,26 +32,38 @@ temperature = Var(
     "degC",
     "air temperature",
     lambda g: (
-        10.0
-        + (g.lat - 52.0) * 0.5
-        + (g.lon + 1.0) * 0.3
-        + g.cycle(10.0, phase=-np.pi / 2)
+        27.0
+        - 0.33 * np.abs(g.lat)
+        + (g.lon_norm - 0.5) * 2.0
+        + g.cycle(1.0, phase=-np.pi / 2) * 12.0 * np.sin(np.radians(g.lat))
         + g.ar1(sigma=2.0)
     ),
 )
-"""Cooler at higher latitudes, milder near the west coast, peaking in summer."""
+"""Warm at the equator and cold towards the poles, with a mild west-east gradient
+across the grid and a seasonal swing that grows with latitude.
+
+Scaling the seasonal term by ``sin(latitude)`` does two jobs: the swing shrinks to
+nothing at the equator, and it changes sign in the southern hemisphere, so July is
+winter there. Over the default UK box this is ~10 degC year-round with a ~10 degC
+seasonal amplitude, which is what the values were checked against.
+"""
 
 precipitation = Var(
     "mm d-1",
     "precipitation",
     lambda g: np.where(
         g.uniform(0.0, 1.0) < 0.6,
-        g.rng.exponential(np.abs(2.5 + (54.0 - g.lat) * 0.3 + g.cycle(1.0)) + 0.1),
+        g.rng.exponential(np.abs(2.5 + 1.2 * (1.0 - g.lat_norm) + g.cycle(1.0)) + 0.1),
         0.0,
     ),
     bounds=(0.0, None),
 )
 """Intermittent: 60% of days are wet, and wet-day totals are exponential.
+
+The wet-day mean falls across the grid from south to north. That is a gradient
+for something downstream to resolve rather than a claim about real precipitation
+climatology, so it is expressed in grid-relative terms and holds wherever the
+grid is placed.
 
 Rain is the one climate input whose *distribution* matters rather than its mean —
 a model integrating soil moisture responds quite differently to a steady drizzle

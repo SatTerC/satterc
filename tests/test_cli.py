@@ -9,7 +9,12 @@ from typer.testing import CliRunner
 
 from satterc._version import __version__
 from satterc.cli import app
-from satterc.cli.data_gen import _parse_duration, _validate_output_paths
+from satterc.cli.data_gen import (
+    _parse_bbox,
+    _parse_duration,
+    _parse_start_date,
+    _validate_output_paths,
+)
 from satterc.cli.setup import _display_models, _parse_selections, _toggle_selections
 
 runner = CliRunner()
@@ -191,6 +196,41 @@ class TestDataGenHelpers:
 
         with pytest.raises(typer.BadParameter):
             _parse_duration("bad")
+
+    def test_parse_bbox_returns_lat_and_lon_ranges(self):
+        assert _parse_bbox("50,54,-4,2") == ((50.0, 54.0), (-4.0, 2.0))
+
+    def test_parse_bbox_accepts_negative_longitudes(self):
+        """The reason the box is one string: click reads a leading '-' as a flag."""
+        assert _parse_bbox("-45,-40,-170,-160") == ((-45.0, -40.0), (-170.0, -160.0))
+
+    @pytest.mark.parametrize(
+        "bbox",
+        [
+            "50,54,-4",  # too few
+            "50,54,-4,2,9",  # too many
+            "50,54,west,2",  # not numeric
+            "54,50,-4,2",  # lat min above max
+            "50,54,2,-4",  # lon min above max
+            "50,95,-4,2",  # latitude off the planet
+            "50,54,-4,200",  # longitude off the planet
+        ],
+    )
+    def test_parse_bbox_invalid_raises(self, bbox):
+        import typer
+
+        with pytest.raises(typer.BadParameter):
+            _parse_bbox(bbox)
+
+    def test_parse_start_date_accepts_iso(self):
+        assert _parse_start_date("2016-02-29") == "2016-02-29"
+
+    @pytest.mark.parametrize("value", ["2020-13-01", "01/01/2020", "not-a-date"])
+    def test_parse_start_date_invalid_raises(self, value):
+        import typer
+
+        with pytest.raises(typer.BadParameter):
+            _parse_start_date(value)
 
     def test_validate_output_paths_fresh_files(self, datagen_config_toml):
         toml_path, data_dir = datagen_config_toml

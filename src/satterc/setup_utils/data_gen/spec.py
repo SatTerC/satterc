@@ -32,9 +32,14 @@ logger = logging.getLogger(__name__)
 #: Length of the seasonal cycle in days.
 DAYS_PER_YEAR = 365.25
 
-_DEFAULT_START_DATE = "2020-01-01"
-_LAT_RANGE = (50.0, 54.0)
-_LON_RANGE = (-4.0, 2.0)
+#: Defaults for `Grid`: a small box over the United Kingdom, starting on a
+#: non-leap year. Nothing in the tables assumes this particular box — the
+#: generators are written against latitude itself, or against a variable's
+#: position within whatever grid it is given — but it is the region the values
+#: were sanity-checked over.
+DEFAULT_START_DATE = "2020-01-01"
+DEFAULT_LAT_RANGE = (50.0, 54.0)
+DEFAULT_LON_RANGE = (-4.0, 2.0)
 
 
 @dataclass(frozen=True)
@@ -83,6 +88,12 @@ def collect_vars(module: ModuleType) -> dict[str, Var]:
     }
 
 
+def _rescale(values: NDArray[np.float64]) -> NDArray[np.float64]:
+    """Rescale to [0, 1]. A single-valued axis maps to 0 rather than dividing by 0."""
+    low = values.min()
+    return (values - low) / ((values.max() - low) or 1.0)
+
+
 def smooth2d(arr: NDArray[np.float64], radius: int) -> NDArray[np.float64]:
     """Box-filter smooth a 2D array, reflecting at boundaries."""
     if radius <= 0 or min(arr.shape) <= 1:
@@ -110,7 +121,9 @@ class Grid:
         n_lat: int,
         n_lon: int,
         n_days: int,
-        start_date: str = _DEFAULT_START_DATE,
+        lat_range: tuple[float, float] = DEFAULT_LAT_RANGE,
+        lon_range: tuple[float, float] = DEFAULT_LON_RANGE,
+        start_date: str = DEFAULT_START_DATE,
     ) -> None:
         self.n_lat = n_lat
         self.n_lon = n_lon
@@ -120,8 +133,8 @@ class Grid:
         self.time_coord = np.datetime64(start_date) + np.arange(n_days)
 
         lat_grid, lon_grid = np.meshgrid(
-            np.linspace(*_LAT_RANGE, n_lat),
-            np.linspace(*_LON_RANGE, n_lon),
+            np.linspace(*lat_range, n_lat),
+            np.linspace(*lon_range, n_lon),
             indexing="ij",
         )
         self.lat: NDArray[np.float64] = lat_grid.ravel()
@@ -158,6 +171,24 @@ class _Ctx:
     def lon(self) -> NDArray[np.float64]:
         """Longitude of each pixel, shape ``(n_pixels,)``."""
         return self.grid.lon
+
+    @property
+    def lat_norm(self) -> NDArray[np.float64]:
+        """Position within the grid's latitude span, shape ``(n_pixels,)``.
+
+        0 at the grid's southern edge, 1 at its northern one. Use this for a
+        gradient that should hold wherever the grid is placed; use `lat` when the
+        physics genuinely depends on latitude itself.
+        """
+        return _rescale(self.grid.lat)
+
+    @property
+    def lon_norm(self) -> NDArray[np.float64]:
+        """Position within the grid's longitude span, shape ``(n_pixels,)``.
+
+        0 at the grid's western edge, 1 at its eastern one.
+        """
+        return _rescale(self.grid.lon)
 
     @property
     def n_pixels(self) -> int:

@@ -24,7 +24,13 @@ from conduit.transforms import resample
 
 from .daily import DAILY_VARS
 from .fallback import fallback_var
-from .spec import Grid, Resolver
+from .spec import (
+    DEFAULT_LAT_RANGE,
+    DEFAULT_LON_RANGE,
+    DEFAULT_START_DATE,
+    Grid,
+    Resolver,
+)
 from .static import STATIC_VARS
 
 #: Target offsets for the coarser input files. Mirrors
@@ -88,6 +94,9 @@ def generate_synthetic_data(
     grid: tuple[int, int],
     n_days: int,
     seed: int = 42,
+    lat_range: tuple[float, float] = DEFAULT_LAT_RANGE,
+    lon_range: tuple[float, float] = DEFAULT_LON_RANGE,
+    start_date: str = DEFAULT_START_DATE,
 ) -> None:
     """Generate synthetic input data for every input section of a config.
 
@@ -105,6 +114,12 @@ def generate_synthetic_data(
         Random seed for reproducibility. Each variable draws from its own stream,
         derived from this seed and the variable's name, so its values do not
         depend on what else the config asked for.
+    lat_range, lon_range : tuple[float, float]
+        Bounding box, as ``(min, max)`` degrees. The temporal generators are
+        written against latitude itself, so moving the box moves the climate with
+        it — a tropical box really does come out warm and aseasonal.
+    start_date : str
+        ISO date of the first day.
     """
     n_lat, n_lon = grid
 
@@ -119,7 +134,14 @@ def generate_synthetic_data(
     static_vars = _spec_vars("static", static_spec)
 
     resolver = Resolver(
-        grid=Grid(n_lat=n_lat, n_lon=n_lon, n_days=n_days),
+        grid=Grid(
+            n_lat=n_lat,
+            n_lon=n_lon,
+            n_days=n_days,
+            lat_range=lat_range,
+            lon_range=lon_range,
+            start_date=start_date,
+        ),
         daily_vars=DAILY_VARS,
         static_vars=STATIC_VARS,
         fallback=fallback_var,
