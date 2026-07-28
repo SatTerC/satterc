@@ -200,7 +200,7 @@ def _(dr, inputs, np):
         "lue_weekly",
         "iwue_weekly",
         "temperature_weekly",
-        "soil_moisture_weekly",
+        "volumetric_water_content_weekly",
         "vpd_weekly",
         "disturbances_weekly",
         "leaf_pool_init",

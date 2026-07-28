@@ -114,7 +114,7 @@ The P-model requires the following weekly `DataArray` inputs:
 | `pressure_weekly` | Pa | Atmospheric pressure |
 | `fapar_weekly` | dimensionless (0–1) | Fraction of absorbed PAR |
 | `ppfd_weekly` | μmol m⁻² s⁻¹ | Photosynthetic photon flux density |
-| `soil_moisture_weekly` | mm | Soil moisture content |
+| `volumetric_water_content_weekly` | m³ m⁻³ | Volumetric soil water content (pyrealm's `theta`; *not* SPLASH's mm soil moisture — see the `volumetric_water_content_weekly` node in `examples/config.toml`) |
 | `mean_growth_temperature_weekly` | °C | Mean temperature on growing days (T > 0°C) |
 | `aridity_index_weekly` | dimensionless | Aridity index |
 

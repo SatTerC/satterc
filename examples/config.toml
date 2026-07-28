@@ -95,7 +95,8 @@ expression = """(
 )"""
 units = "1"  # ratio of two mm totals -> dimensionless
 
-# pyrealm's P-model wants volumetric water content (its `theta`, m3 m-3): the
+# Both the P-model (as pyrealm's `theta`) and SGAM (against the PFT's
+# `wilting_point`/`field_capacity`) want volumetric water content (m3 m-3): the
 # fraction of soil volume that is water. SPLASH reports something different -- a
 # depth of water, in mm, held in a bucket of capacity `max_soil_moisture`. So
 # soil_moisture / max_soil_moisture is relative saturation (0-1), and multiplying

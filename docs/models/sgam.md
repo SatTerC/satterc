@@ -142,7 +142,7 @@ SGAM requires the following weekly `DataArray` inputs:
 |----------|-------|-------------|
 | `temperature_weekly` | °C | Weekly mean air temperature |
 | `gpp_weekly` | gC m⁻² day⁻¹ | Gross primary productivity |
-| `soil_moisture_weekly` | mm | Soil moisture content |
+| `volumetric_water_content_weekly` | m³ m⁻³ | Volumetric soil water content (*not* SPLASH's mm soil moisture — see the `volumetric_water_content_weekly` node in `examples/config.toml`) |
 | `vpd_weekly` | Pa | Vapour pressure deficit |
 | `lue_weekly` | gC MJ⁻¹ | Light use efficiency |
 | `iwue_weekly` | Pa | Intrinsic water use efficiency |

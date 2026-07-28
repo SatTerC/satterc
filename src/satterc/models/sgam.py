@@ -300,7 +300,7 @@ def disturbances_daily(
 def _sgam_1px(
     temperature: NDArray[np.float64],
     gpp: NDArray[np.float64],
-    soil_moisture: NDArray[np.float64],
+    volumetric_water_content: NDArray[np.float64],
     vpd: NDArray[np.float64],
     lue: NDArray[np.float64],
     iwue: NDArray[np.float64],
@@ -337,7 +337,7 @@ def _sgam_1px(
     )(
         gpp=gpp,
         temperature=temperature,
-        soil_moisture=soil_moisture,
+        soil_moisture=volumetric_water_content,
         vpd=vpd,
         lue=lue,
         iwue=iwue,
@@ -386,7 +386,7 @@ def _sgam(
     pft_params: xr.Dataset,
     temperature_weekly: xr.DataArray,
     gpp_weekly: xr.DataArray,
-    soil_moisture_weekly: xr.DataArray,
+    volumetric_water_content_weekly: xr.DataArray,
     vpd_weekly: xr.DataArray,
     lue_weekly: xr.DataArray,
     iwue_weekly: xr.DataArray,
@@ -446,7 +446,7 @@ def _sgam(
         _sgam_1px,
         temperature_weekly,
         gpp_weekly,
-        soil_moisture_weekly,
+        volumetric_water_content_weekly,
         vpd_weekly,
         lue_weekly,
         iwue_weekly,
@@ -491,7 +491,7 @@ def sgam(
     pft_params: xr.Dataset,
     temperature_weekly: Annotated[xr.DataArray, "degC", WEEKLY],
     gpp_weekly: Annotated[xr.DataArray, "g m-2 d-1", WEEKLY],
-    soil_moisture_weekly: Annotated[xr.DataArray, "mm", WEEKLY],
+    volumetric_water_content_weekly: Annotated[xr.DataArray, "m3 m-3", WEEKLY],
     vpd_weekly: Annotated[xr.DataArray, "Pa", WEEKLY],
     lue_weekly: Annotated[xr.DataArray, "g MJ-1", WEEKLY],
     iwue_weekly: Annotated[xr.DataArray, "Pa", WEEKLY],
@@ -518,8 +518,14 @@ def sgam(
     gpp_weekly : xr.DataArray
         Weekly gross primary productivity (grams of carbon per square metre per
         day).
-    soil_moisture_weekly : xr.DataArray
-        Weekly mean soil moisture (millimetres).
+    volumetric_water_content_weekly : xr.DataArray
+        Weekly mean volumetric soil water content: the fraction of soil volume
+        occupied by water (cubic metres of water per cubic metre of soil). SGAM
+        compares this against the PFT's ``wilting_point`` and ``field_capacity``,
+        which are volume fractions, so it is *not* SPLASH's soil moisture — that
+        is a depth of water in millimetres. See the
+        ``volumetric_water_content_weekly`` node in the example config for the
+        conversion.
     vpd_weekly : xr.DataArray
         Weekly mean vapour pressure deficit (pascals).
     lue_weekly : xr.DataArray
@@ -562,7 +568,7 @@ def sgam(
         pft_params=pft_params,
         temperature_weekly=temperature_weekly,
         gpp_weekly=gpp_weekly,
-        soil_moisture_weekly=soil_moisture_weekly,
+        volumetric_water_content_weekly=volumetric_water_content_weekly,
         vpd_weekly=vpd_weekly,
         lue_weekly=lue_weekly,
         iwue_weekly=iwue_weekly,

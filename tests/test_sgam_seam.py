@@ -72,7 +72,7 @@ def sgam_inputs() -> dict:
         pft_params=_build_pft_params_dataset(plant_type),
         temperature_weekly=_temporal(_vary(15.0, 5.0)),
         gpp_weekly=_temporal(np.abs(_vary(5.0, 2.0))),
-        soil_moisture_weekly=_temporal(np.abs(_vary(100.0, 30.0))),
+        volumetric_water_content_weekly=_temporal(np.clip(_vary(0.3, 0.1), 0.0, 0.45)),
         vpd_weekly=_temporal(np.abs(_vary(1000.0, 300.0))),
         lue_weekly=_temporal(np.abs(_vary(2.0, 0.5))),
         iwue_weekly=_temporal(np.abs(_vary(100.0, 20.0))),
@@ -112,7 +112,7 @@ def _reference_loop(inputs: dict) -> dict[str, np.ndarray]:
         )(
             gpp=col("gpp_weekly", i),
             temperature=col("temperature_weekly", i),
-            soil_moisture=col("soil_moisture_weekly", i),
+            soil_moisture=col("volumetric_water_content_weekly", i),
             vpd=col("vpd_weekly", i),
             lue=col("lue_weekly", i),
             iwue=col("iwue_weekly", i),
@@ -235,7 +235,7 @@ class TestCachingIntact:
             "plant_type": _sda(PLANT_TYPE.astype(float)),  # drives the pft_params node
             "temperature_weekly": _mda(ones * 15.0),
             "gpp_weekly": _mda(ones * 5.0),
-            "soil_moisture_weekly": _mda(ones * 100.0),
+            "volumetric_water_content_weekly": _mda(ones * 0.3),
             "vpd_weekly": _mda(ones * 1000.0),
             "lue_weekly": _mda(ones * 2.0),
             "iwue_weekly": _mda(ones * 100.0),
