@@ -63,8 +63,8 @@ def pmodel_inputs() -> dict:
         pressure_weekly=_temporal(np.full((N_WEEKS, N_PIXELS), 101325.0)),
         fapar_weekly=_temporal(np.clip(_vary(0.5, 0.2), 0, 1)),
         ppfd_weekly=_temporal(np.abs(_vary(500.0, 150.0))),
-        mean_growth_temperature_weekly=_temporal(_vary(15.0, 5.0)),
-        aridity_index_weekly=_temporal(np.clip(_vary(0.5, 0.2), 0, 2)),
+        mean_growth_temperature=_temporal(_vary(15.0, 5.0)),
+        aridity_index=_temporal(np.clip(_vary(0.5, 0.2), 0, 2)),
         volumetric_water_content_weekly=_temporal(np.clip(_vary(0.3, 0.1), 0.0, 0.8)),
         **METHODS,
     )
@@ -90,8 +90,8 @@ def _reference_loop(inputs: dict) -> dict[str, np.ndarray]:
             fapar=col("fapar_weekly", i),
             ppfd=col("ppfd_weekly", i),
             theta=col("volumetric_water_content_weekly", i),
-            mean_growth_temperature=col("mean_growth_temperature_weekly", i),
-            aridity_index=col("aridity_index_weekly", i),
+            mean_growth_temperature=col("mean_growth_temperature", i),
+            aridity_index=col("aridity_index", i),
         )
         model = pyrealm.pmodel.PModel(
             env=env,
@@ -180,12 +180,12 @@ class TestCachingIntact:
             "pressure_weekly": _mda(101325.0),
             "fapar_weekly": _mda(0.5),
             "ppfd_weekly": _mda(500.0),
-            "aridity_index_weekly": _mda(0.5),
+            "aridity_index": _mda(0.5),
             "volumetric_water_content_weekly": _mda(0.3),
         }
-        # mean_growth_temperature_weekly is itself a node (derived from daily
+        # mean_growth_temperature is itself a node (derived from daily
         # temperature); override it directly so the cached test needs no upstream.
-        overrides = {"mean_growth_temperature_weekly": _mda(15.0)}
+        overrides = {"mean_growth_temperature": _mda(15.0)}
         spec = CacheSpec(path=str(tmp_path / "cache"))
 
         def run(cache):

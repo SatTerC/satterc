@@ -33,6 +33,17 @@ class SplashOut(TypedDict):
     runoff_daily: Annotated[DataArray, "mm", DAILY]
     """Runoff: the soil-moisture overflow amount above capacity for the day
     (millimetres, an amount rather than a rate)."""
+    potential_evapotranspiration_daily: Annotated[DataArray, "mm d-1", DAILY]
+    """Potential evapotranspiration: the water that *would* be lost to the
+    atmosphere given the available energy, if soil moisture were not limiting
+    (millimetres per day).
+
+    SPLASH computes this on the way to actual evapotranspiration, by the
+    Priestley-Taylor relation ``PET = (1 + k_w) * EET``, where equilibrium
+    evapotranspiration follows from daytime net radiation and ``k_w = 0.26``.
+    Exposing it costs no extra compute and saves a downstream consumer having to
+    find a separate PET product: it is the demand term in an aridity index, which
+    `satterc.models.pmodel` needs."""
 
 
 def _splash_block(
@@ -46,7 +57,9 @@ def _splash_block(
     dates: pyrealm.core.calendar.Calendar,
     max_iter: int,
     max_diff: float,
-) -> tuple[NDArray[np.float64], NDArray[np.float64], NDArray[np.float64]]:
+) -> tuple[
+    NDArray[np.float64], NDArray[np.float64], NDArray[np.float64], NDArray[np.float64]
+]:
     """Run SPLASH on a whole pixel-block (vectorised over pixels by pyrealm).
 
     ``apply_ufunc`` places the ``time`` core dim last, so the climate inputs arrive as
@@ -85,6 +98,9 @@ def _splash_block(
         np.moveaxis(aet, 0, -1),
         np.moveaxis(moisture, 0, -1),
         np.moveaxis(runoff, 0, -1),
+        # Computed by SplashModel on construction, independently of the moisture
+        # iteration, so it is simply read off rather than recalculated.
+        np.moveaxis(model.evap.pet_d, 0, -1),
     )
 
 
@@ -110,7 +126,7 @@ def _splash(
     """
     calendar = pyrealm.core.calendar.Calendar(dates_daily.values)
 
-    aet, moisture, runoff = xr.apply_ufunc(
+    aet, moisture, runoff, pet = xr.apply_ufunc(
         _splash_block,
         sunshine_fraction_daily,
         temperature_daily,
@@ -119,14 +135,14 @@ def _splash(
         latitude,
         max_soil_moisture,
         input_core_dims=[["time"]] * 3 + [[]] * 3,
-        output_core_dims=[["time"]] * 3,
+        output_core_dims=[["time"]] * 4,
         kwargs={
             "dates": calendar,
             "max_iter": soil_moisture_init_max_iter,
             "max_diff": soil_moisture_init_max_diff,
         },
         dask="parallelized",
-        output_dtypes=[float] * 3,
+        output_dtypes=[float] * 4,
     )
 
     # apply_ufunc drops the `time` coord (a core dim) and orders outputs as
@@ -144,6 +160,9 @@ def _splash(
             "runoff_daily": runoff.assign_coords(time=time_coord).transpose(
                 "time", "pixel"
             ),
+            "potential_evapotranspiration_daily": pet.assign_coords(
+                time=time_coord
+            ).transpose("time", "pixel"),
         },
     )
 
@@ -199,6 +218,8 @@ def splash(
           (millimetres per day)
         - soil_moisture_daily: soil moisture content (millimetres)
         - runoff_daily: runoff overflow amount (millimetres)
+        - potential_evapotranspiration_daily: energy-limited water demand
+          (millimetres per day)
 
         See `SplashOut` for per-output detail.
     """

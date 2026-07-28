@@ -8,11 +8,10 @@ and intrinsic water use efficiency (IWUE) from environmental inputs.
 
 from typing import Annotated, TypedDict, cast
 
-import numpy as np
 import pyrealm.pmodel
 import xarray as xr
 from conduit import declare_units
-from conduit.transforms import resample
+from conduit.io import sole_time_dim
 from hamilton.function_modifiers import extract_fields
 from numpy.typing import NDArray
 from xarray import DataArray
@@ -41,8 +40,8 @@ def _pmodel_block(
     pressure_weekly: NDArray,
     fapar_weekly: NDArray,
     ppfd_weekly: NDArray,
-    mean_growth_temperature_weekly: NDArray,
-    aridity_index_weekly: NDArray,
+    mean_growth_temperature: NDArray,
+    aridity_index: NDArray,
     volumetric_water_content_weekly: NDArray,
     *,
     method_optchi: str,
@@ -67,8 +66,8 @@ def _pmodel_block(
         fapar=fapar_weekly,
         ppfd=ppfd_weekly,
         theta=volumetric_water_content_weekly,
-        mean_growth_temperature=mean_growth_temperature_weekly,
-        aridity_index=aridity_index_weekly,
+        mean_growth_temperature=mean_growth_temperature,
+        aridity_index=aridity_index,
     )
     # P-model fit performed upon instantiation of Pmodel
     model = pyrealm.pmodel.PModel(
@@ -79,12 +78,7 @@ def _pmodel_block(
         method_jmaxlim=method_jmaxlim,
     )
 
-    # TODO: justify (a) the need for this and (b) why it's reasonable
-    gpp = np.nan_to_num(model.gpp, nan=0.0)
-    lue = np.nan_to_num(model.lue, nan=0.0)
-    iwue = np.nan_to_num(model.iwue, nan=0.0)
-
-    return gpp, lue, iwue
+    return model.gpp, model.lue, model.iwue
 
 
 def _pmodel(
@@ -94,8 +88,8 @@ def _pmodel(
     pressure_weekly: DataArray,
     fapar_weekly: DataArray,
     ppfd_weekly: DataArray,
-    mean_growth_temperature_weekly: DataArray,
-    aridity_index_weekly: DataArray,
+    mean_growth_temperature: DataArray,
+    aridity_index: DataArray,
     volumetric_water_content_weekly: DataArray,
     method_optchi: str,
     method_jmaxlim: str,
@@ -110,6 +104,13 @@ def _pmodel(
     numpy inputs but keeps the node compatible with a future dask-backed (chunked)
     execution strategy.
     """
+    # `mean_growth_temperature` and `aridity_index` are climatological: one value
+    # per pixel, no time axis. apply_ufunc would hand them to the kernel with a
+    # length-1 time axis, and pyrealm's `check_input_shapes` rejects that rather
+    # than broadcasting it, so expand them here.
+    mean_growth_temperature = mean_growth_temperature.broadcast_like(temperature_weekly)
+    aridity_index = aridity_index.broadcast_like(temperature_weekly)
+
     gpp, lue, iwue = xr.apply_ufunc(
         _pmodel_block,
         temperature_weekly,
@@ -118,8 +119,8 @@ def _pmodel(
         pressure_weekly,
         fapar_weekly,
         ppfd_weekly,
-        mean_growth_temperature_weekly,
-        aridity_index_weekly,
+        mean_growth_temperature,
+        aridity_index,
         volumetric_water_content_weekly,
         kwargs={
             "method_optchi": method_optchi,
@@ -147,8 +148,8 @@ def pmodel(
     pressure_weekly: Annotated[DataArray, "Pa", WEEKLY],
     fapar_weekly: Annotated[DataArray, "1", WEEKLY],
     ppfd_weekly: Annotated[DataArray, "umol m-2 s-1", WEEKLY],
-    mean_growth_temperature_weekly: Annotated[DataArray, "degC", WEEKLY],
-    aridity_index_weekly: Annotated[DataArray, "1", WEEKLY],
+    mean_growth_temperature: Annotated[DataArray, "degC"],
+    aridity_index: Annotated[DataArray, "1"],
     volumetric_water_content_weekly: Annotated[DataArray, "m3 m-3", WEEKLY],
     *,
     method_optchi: str = "prentice14",
@@ -174,10 +175,13 @@ def pmodel(
     ppfd_weekly
         Photosynthetic photon flux density (micromoles per square metre per
         second).
-    mean_growth_temperature_weekly
+    mean_growth_temperature
         Mean growth temperature (degrees Celsius).
-    aridity_index_weekly
-        Aridity index (dimensionless, ratio of AET to precipitation).
+    aridity_index
+        Climatological aridity index, PET/P: potential evapotranspiration over
+        precipitation, both accumulated over the record. Values above 1 mean
+        demand exceeds supply. Note the orientation — pyrealm wants PET/P, so a
+        *higher* value is a *drier* site.
     volumetric_water_content_weekly
         Volumetric soil water content: the fraction of soil volume occupied by
         water (cubic metres of water per cubic metre of soil). This is pyrealm's
@@ -213,8 +217,8 @@ def pmodel(
         pressure_weekly=pressure_weekly,
         fapar_weekly=fapar_weekly,
         ppfd_weekly=ppfd_weekly,
-        mean_growth_temperature_weekly=mean_growth_temperature_weekly,
-        aridity_index_weekly=aridity_index_weekly,
+        mean_growth_temperature=mean_growth_temperature,
+        aridity_index=aridity_index,
         volumetric_water_content_weekly=volumetric_water_content_weekly,
         method_optchi=method_optchi,
         method_jmaxlim=method_jmaxlim,
@@ -224,18 +228,25 @@ def pmodel(
 
 
 @declare_units
-@declare_freq
-def mean_growth_temperature_weekly(
+def mean_growth_temperature(
     temperature_daily: Annotated[DataArray, "degC", DAILY],
-) -> Annotated[DataArray, "degC", WEEKLY]:
-    """Calculate the mean temperature on growing degree days where temp > 0°C."""
-    # NOTE: this may well be incorrect!! - see https://en.wikipedia.org/wiki/Growing_degree-day
-    # Perhaps this depends on growing_season_limit?
+) -> Annotated[DataArray, "degC"]:
+    """Mean temperature over the growing days of the record, one value per pixel.
 
-    # True on growing degree days (temp > 0.)
-    gdd_mask = temperature_daily > 0.0
+    pyrealm consumes this as an *acclimation* quantity: the ``sandoval`` quantum
+    yield method uses it to set the temperature at which the highest kphio is
+    attained, and pairs it with `aridity_index`, which pyrealm likewise documents
+    as climatological. The instantaneous temperature response is a separate term,
+    driven by ``tc``.
 
-    # Compute weekly mean, masking non-growing degree days
-    # TODO: if the whole week is < 0, this will include NaN.
-    # Need to check pmodel can deal with this!
-    return resample(temperature_daily.where(gdd_mask), freq="7D", aggfunc="mean")
+    So this reduces over the whole record rather than over a window. Computing it
+    weekly (as this node once did) returned NaN for any week in which no day rose
+    above 0 degC — an ordinary winter week, not an error — and that NaN
+    propagated through kphio into GPP.
+
+    A pixel that never rises above 0 degC over the whole record still yields NaN.
+    That is a real gap rather than an artifact of the window, so it is left to
+    propagate.
+    """
+    growing_days = temperature_daily.where(temperature_daily > 0.0)
+    return growing_days.mean(sole_time_dim(temperature_daily, "temperature_daily"))

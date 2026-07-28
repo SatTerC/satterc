@@ -77,12 +77,23 @@ vars = [
     "stem_pool_init",
 ]
 
+# pyrealm's `aridity_index` is climatological and oriented PET/P: potential
+# demand over supply, so above 1 is water-limited. Both accumulate over the whole
+# record, giving one value per pixel rather than a time series -- which is what
+# "climatological" means, and what the sandoval quantum-yield method expects.
+#
+# PET, not AET: AET is what the soil actually gave up, so P/AET would be close to
+# 1 by construction wherever water limits evaporation, which is exactly the
+# regime the index exists to detect. SPLASH computes PET from net radiation on
+# its way to AET, and satterc.models.splash exposes it.
 [[node]]
-name = "aridity_index_daily"
-inputs = ["precipitation_daily", "actual_evapotranspiration_daily"]
-expression = "precipitation_daily / actual_evapotranspiration_daily"
-units = "1"  # ratio of two mm d-1 fluxes -> dimensionless
-freq = "D"
+name = "aridity_index"
+inputs = ["potential_evapotranspiration_daily", "precipitation_daily"]
+expression = """(
+    potential_evapotranspiration_daily.sum("time")
+    / precipitation_daily.sum("time")
+)"""
+units = "1"  # ratio of two mm totals -> dimensionless
 
 # pyrealm's P-model wants volumetric water content (its `theta`, m3 m-3): the
 # fraction of soil volume that is water. SPLASH reports something different -- a
@@ -158,7 +169,6 @@ vars = [
     "temperature",
     "precipitation",
     "soil_moisture",
-    "aridity_index",
 ]
 from = "daily"
 to = "weekly"
@@ -207,7 +217,6 @@ vars = [
     "litter_pool",
     "lue",
     "lue_score",
-    "mean_growth_temperature",
     "npp_leaf",
     "npp_root",
     "npp_stem",

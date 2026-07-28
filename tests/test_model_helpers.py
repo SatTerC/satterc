@@ -3,7 +3,7 @@
 Covers:
 - satterc.models.rothc  — plant_cover_monthly, dpm_rpm_ratio_monthly, farmyard_manure_input_monthly
 - satterc.models.sgam   — _pft_int_to_enum, _build_pft_params_dataset, _pft_params_from_dataset, pft_params
-- satterc.models.pmodel — mean_growth_temperature_weekly
+- satterc.models.pmodel — mean_growth_temperature
 - model execution smoke tests for splash, pmodel (via pipeline_inputs session fixture)
 """
 
@@ -244,19 +244,27 @@ class TestSgamHelpers:
 
 
 class TestPmodelHelpers:
-    """mean_growth_temperature_weekly."""
+    """mean_growth_temperature."""
 
     def test_returns_dataarray(self):
         da = _daily(RNG.normal(10, 5, (N_DAYS, N_PIXELS)))
-        result = pmodel_module.mean_growth_temperature_weekly(da)
+        result = pmodel_module.mean_growth_temperature(da)
         assert isinstance(result, xr.DataArray)
 
-    def test_temporal_coarsening(self):
+    def test_reduces_the_whole_record_to_one_value_per_pixel(self):
+        """It is an acclimation quantity, so it has no time axis at all."""
         da = _daily(np.full((N_DAYS, N_PIXELS), 15.0))
-        result = pmodel_module.mean_growth_temperature_weekly(da)
-        # Resampled to weekly: ~52 time steps from 365 daily
-        assert result.sizes["time"] < N_DAYS
+        result = pmodel_module.mean_growth_temperature(da)
+        assert result.dims == ("pixel",)
         assert result.sizes["pixel"] == N_PIXELS
+        assert np.allclose(result.values, 15.0)
+
+    def test_a_frozen_week_no_longer_produces_nan(self):
+        """The case the old weekly window turned into NaN, and nan_to_num hid."""
+        values = np.full((N_DAYS, N_PIXELS), 15.0)
+        values[:7] = -5.0  # a week in which nothing grows
+        result = pmodel_module.mean_growth_temperature(_daily(values))
+        assert not np.isnan(result.values).any()
 
     def test_below_zero_becomes_nan(self):
         n_days = 7
@@ -269,7 +277,9 @@ class TestPmodelHelpers:
                 "pixel": [0],
             },
         )
-        result = pmodel_module.mean_growth_temperature_weekly(da)
+        result = pmodel_module.mean_growth_temperature(da)
+        # A pixel that never rises above 0 degC over the *whole record* is a real
+        # gap, not a windowing artifact, so NaN is left to propagate.
         assert np.all(np.isnan(result.values))
 
     def test_above_zero_preserved(self):
@@ -284,7 +294,7 @@ class TestPmodelHelpers:
                 "pixel": [0],
             },
         )
-        result = pmodel_module.mean_growth_temperature_weekly(da)
+        result = pmodel_module.mean_growth_temperature(da)
         np.testing.assert_allclose(result.values[~np.isnan(result.values)], value)
 
 
@@ -317,8 +327,8 @@ class TestPmodelExecution:
             pressure_weekly=_da(np.full((n_weeks, n_pixels), 101325.0)),
             fapar_weekly=_da(np.full((n_weeks, n_pixels), 0.5)),
             ppfd_weekly=_da(np.full((n_weeks, n_pixels), 500.0)),
-            mean_growth_temperature_weekly=_da(np.full((n_weeks, n_pixels), 15.0)),
-            aridity_index_weekly=_da(np.full((n_weeks, n_pixels), 0.5)),
+            mean_growth_temperature=_da(np.full((n_weeks, n_pixels), 15.0)),
+            aridity_index=_da(np.full((n_weeks, n_pixels), 0.5)),
             volumetric_water_content_weekly=_da(np.full((n_weeks, n_pixels), 0.3)),
             method_optchi="prentice14",
             method_jmaxlim="wang17",
@@ -451,7 +461,7 @@ class TestPmodelDriverExecution:
                 "pressure_weekly": _wda(101325.0),
                 "fapar_weekly": _wda(0.5),
                 "ppfd_weekly": _wda(500.0),
-                "aridity_index_weekly": _wda(0.5),
+                "aridity_index": _wda(0.5),
                 "volumetric_water_content_weekly": _wda(0.3),
             },
         )
