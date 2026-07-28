@@ -1,4 +1,4 @@
-"""Tests for the P-Model ``apply_ufunc`` block seam (``satterc.dag.pmodel._pmodel``).
+"""Tests for the P-Model ``apply_ufunc`` block seam (``satterc.models.pmodel._pmodel``).
 
 Unlike RothC/SGAM, the P-Model is a *whole-block* model: pyrealm vectorises over the
 spatial axis internally, so there was never a per-pixel Python loop. The seam replaces a
@@ -21,7 +21,7 @@ import pyrealm.pmodel
 import pytest
 import xarray as xr
 
-from satterc.dag.pmodel import _pmodel
+from satterc.models.pmodel import _pmodel
 
 N_WEEKS = 52
 N_PIXELS = 3
@@ -164,8 +164,7 @@ class TestCachingIntact:
     """The cached pmodel node matches the uncached one (seam is internal to the node)."""
 
     def test_cached_run_matches_uncached(self, tmp_path):
-        from satterc import CacheSpec
-        from satterc.dag.driver import build_driver
+        from conduit import CacheSpec, build_driver
 
         def _mda(v: float) -> xr.DataArray:
             return xr.DataArray(
@@ -190,7 +189,7 @@ class TestCachingIntact:
         spec = CacheSpec(path=str(tmp_path / "cache"))
 
         def run(cache):
-            dr = build_driver(["models.pmodel"], {}, cache=cache)
+            dr = build_driver(["satterc.models.pmodel"], {}, cache=cache)
             return dr.execute(  # type: ignore[reportArgumentType]
                 ["gpp_weekly"], inputs=inputs, overrides=overrides
             )

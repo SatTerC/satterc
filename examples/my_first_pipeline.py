@@ -1,18 +1,20 @@
 # /// script
 # requires-python = ">=3.13"
 # dependencies = [
-#   "satterc==0.4.1",
+#   "satterc==0.6.0",
+#   "conduit",
 #   "marimo",
 #   "matplotlib==3.10.9",
 # ]
 #
 # [tool.uv.sources]
 # satterc = { path = ".." }
+# conduit = { git = "https://github.com/NERC-CEH/conduit", rev = "develop" }
 # ///
 
 import marimo
 
-__generated_with = "0.23.5"
+__generated_with = "0.23.14"
 app = marimo.App(width="medium")
 
 
@@ -65,9 +67,9 @@ def _():
 
     import marimo as mo
     import matplotlib.pyplot as plt
+    from conduit import build_driver, get_final_vars, get_outputs, load_inputs
+    from conduit.config import Config
 
-    from satterc import build_driver, get_final_vars, get_outputs, load_inputs
-    from satterc.config import Config
     from satterc.setup_utils.data_gen import generate_synthetic_data
 
     return (
@@ -90,10 +92,17 @@ def _(mo):
     ## Step 1: Configure the pipeline
 
     A SatTerC pipeline is described by a configuration file written in
-    [TOML](https://toml.io/en/) — a simple, human-readable format.
-    Every section in the config activates a pipeline component — `[models.splash]` runs the
-    SPLASH water-balance model, `[inputs.daily]` loads daily climate data from the given path,
-    and `[outputs.daily]` saves the named variables to disk when the pipeline finishes.
+    [TOML](https://toml.io/en/) — a simple, human-readable format. The config schema
+    is [conduit](https://github.com/NERC-CEH/conduit)'s; SatTerC supplies the models.
+    Every section activates a pipeline component — `[splash]` loads the SPLASH
+    water-balance module by its `_import_path`, `[inputs.daily]` loads daily climate
+    data from the given path, and `[outputs.daily]` saves the named variables to disk
+    when the pipeline finishes.
+
+    Node names are `{var}{suffix}`, with the suffix defaulting to the section label,
+    so `temperature` under `[inputs.daily]` becomes the node `temperature_daily` —
+    which is what SPLASH's parameter is called. Static variables are consumed under
+    bare names, so that section sets `suffix = "\"`.
     """)
     return
 
@@ -101,7 +110,8 @@ def _(mo):
 @app.cell
 def _():
     config_toml = """
-    [models.splash]
+    [splash]
+    _import_path = "satterc.models.splash"
 
     [inputs.daily]
     path = "daily.csv"
@@ -113,6 +123,7 @@ def _():
 
     [inputs.static]
     path = "static.json"
+    suffix = ""
     vars = [
       "elevation",
       "latitude",
@@ -198,6 +209,7 @@ def _(build_driver, parsed_config):
     dr = build_driver(
         modules=parsed_config.modules,
         config=parsed_config.driver_config,
+        node_specs=parsed_config.node_specs,
     )
     return (dr,)
 
@@ -328,6 +340,7 @@ def _(mo):
 
     [inputs.static]
     path = "/data/my-site/static.json"
+    suffix = "\"
     vars = [
       "elevation",
       "latitude",
@@ -340,7 +353,7 @@ def _(mo):
     Replace the config and data-generation cells in this notebook with:
 
     ```python
-    from satterc import load_config
+    from conduit import load_config
 
     parsed_config = load_config("my_pipeline.toml")
     ```

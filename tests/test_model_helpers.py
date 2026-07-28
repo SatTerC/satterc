@@ -1,9 +1,9 @@
 """Tests for model helper functions and model execution.
 
 Covers:
-- satterc.dag.rothc  — plant_cover_monthly, dpm_rpm_ratio_monthly, farmyard_manure_input_monthly
-- satterc.dag.sgam   — _pft_int_to_enum, _build_pft_params_dataset, _pft_params_from_dataset, pft_params
-- satterc.dag.pmodel — mean_growth_temperature_weekly
+- satterc.models.rothc  — plant_cover_monthly, dpm_rpm_ratio_monthly, farmyard_manure_input_monthly
+- satterc.models.sgam   — _pft_int_to_enum, _build_pft_params_dataset, _pft_params_from_dataset, pft_params
+- satterc.models.pmodel — mean_growth_temperature_weekly
 - model execution smoke tests for splash, pmodel (via pipeline_inputs session fixture)
 """
 
@@ -12,9 +12,9 @@ import pandas as pd
 import pytest
 import xarray as xr
 
-from satterc.dag import pmodel as pmodel_module
-from satterc.dag import rothc as rothc_module
-from satterc.dag import sgam as sgam_module
+from satterc.models import pmodel as pmodel_module
+from satterc.models import rothc as rothc_module
+from satterc.models import sgam as sgam_module
 
 # ---------------------------------------------------------------------------
 # Shared helpers
@@ -27,6 +27,13 @@ N_DAYS = 365
 PIXEL_COORDS = np.arange(N_PIXELS)
 MONTHLY_DATES = pd.date_range("2020-01-01", periods=N_MONTHS, freq="ME")
 DAILY_DATES = pd.date_range("2020-01-01", periods=N_DAYS, freq="D")
+
+#: The RothC bridge nodes take a monthly DataArray purely for its time
+#: coordinate (conduit no longer supplies a `dates_monthly` node), so a bare
+#: time axis is all they need — the values and pixel dim are never read.
+MONTHLY_CLOCK = xr.DataArray(
+    np.zeros(N_MONTHS), dims=["time"], coords={"time": MONTHLY_DATES}
+)
 RNG = np.random.default_rng(42)
 
 
@@ -77,14 +84,14 @@ class TestRothcBridgeFunctions:
 
     def test_plant_cover_shape(self, plant_type_mixed, latitude_nh):
         result = rothc_module.plant_cover_monthly(
-            plant_type_mixed, latitude_nh, MONTHLY_DATES
+            plant_type_mixed, latitude_nh, MONTHLY_CLOCK
         )
         assert result.sizes["pixel"] == 4
         assert result.sizes["time"] == N_MONTHS
 
     def test_plant_cover_is_dataarray(self, plant_type_mixed, latitude_nh):
         result = rothc_module.plant_cover_monthly(
-            plant_type_mixed, latitude_nh, MONTHLY_DATES
+            plant_type_mixed, latitude_nh, MONTHLY_CLOCK
         )
         assert isinstance(result, xr.DataArray)
 
@@ -93,12 +100,12 @@ class TestRothcBridgeFunctions:
         lat = xr.DataArray(
             np.array([51.0, 52.0, 53.0]), dims=["pixel"], coords={"pixel": np.arange(3)}
         )
-        result = rothc_module.plant_cover_monthly(plant_type, lat, MONTHLY_DATES)
+        result = rothc_module.plant_cover_monthly(plant_type, lat, MONTHLY_CLOCK)
         assert np.all(result.values == 1)
 
     def test_plant_cover_crop_bare_nh_winter(self, plant_type_mixed, latitude_nh):
         result = rothc_module.plant_cover_monthly(
-            plant_type_mixed, latitude_nh, MONTHLY_DATES
+            plant_type_mixed, latitude_nh, MONTHLY_CLOCK
         )
         crop_cover = result.sel(pixel=3).values
         months = [d.month for d in MONTHLY_DATES]
@@ -116,7 +123,7 @@ class TestRothcBridgeFunctions:
     def test_plant_cover_crop_bare_sh_winter(self, latitude_sh):
         plant_type = _static(np.array([3.0]))
         result = rothc_module.plant_cover_monthly(
-            plant_type, latitude_sh, MONTHLY_DATES
+            plant_type, latitude_sh, MONTHLY_CLOCK
         )
         crop_cover = result.sel(pixel=0).values
         months = [d.month for d in MONTHLY_DATES]
@@ -132,16 +139,16 @@ class TestRothcBridgeFunctions:
             )
 
     def test_dpm_rpm_ratio_shape(self, plant_type_mixed):
-        result = rothc_module.dpm_rpm_ratio_monthly(plant_type_mixed, MONTHLY_DATES)
+        result = rothc_module.dpm_rpm_ratio_monthly(plant_type_mixed, MONTHLY_CLOCK)
         assert result.sizes["pixel"] == 4
         assert result.sizes["time"] == N_MONTHS
 
     def test_dpm_rpm_ratio_positive(self, plant_type_mixed):
-        result = rothc_module.dpm_rpm_ratio_monthly(plant_type_mixed, MONTHLY_DATES)
+        result = rothc_module.dpm_rpm_ratio_monthly(plant_type_mixed, MONTHLY_CLOCK)
         assert np.all(result.values > 0)
 
     def test_dpm_rpm_ratio_values_by_type(self, plant_type_mixed):
-        result = rothc_module.dpm_rpm_ratio_monthly(plant_type_mixed, MONTHLY_DATES)
+        result = rothc_module.dpm_rpm_ratio_monthly(plant_type_mixed, MONTHLY_CLOCK)
         np.testing.assert_allclose(result.sel(pixel=0).values, 0.25)
         np.testing.assert_allclose(result.sel(pixel=1).values, 1.44)
         np.testing.assert_allclose(result.sel(pixel=2).values, 0.67)
@@ -149,20 +156,20 @@ class TestRothcBridgeFunctions:
 
     def test_dpm_rpm_ratio_config_override(self, plant_type_mixed):
         result = rothc_module.dpm_rpm_ratio_monthly(
-            plant_type_mixed, MONTHLY_DATES, dpm_rpm_ratio_grass=0.67
+            plant_type_mixed, MONTHLY_CLOCK, dpm_rpm_ratio_grass=0.67
         )
         np.testing.assert_allclose(result.sel(pixel=1).values, 0.67)
 
     def test_farmyard_manure_shape(self, plant_type_mixed):
         result = rothc_module.farmyard_manure_input_monthly(
-            plant_type_mixed, MONTHLY_DATES
+            plant_type_mixed, MONTHLY_CLOCK
         )
         assert result.sizes["pixel"] == 4
         assert result.sizes["time"] == N_MONTHS
 
     def test_farmyard_manure_all_zeros(self, plant_type_mixed):
         result = rothc_module.farmyard_manure_input_monthly(
-            plant_type_mixed, MONTHLY_DATES
+            plant_type_mixed, MONTHLY_CLOCK
         )
         assert np.all(result.values == 0.0)
 
@@ -291,7 +298,7 @@ class TestPmodelExecution:
 
     @pytest.fixture(scope="class")
     def pmodel_result(self):
-        from satterc.dag.pmodel import _pmodel
+        from satterc.models.pmodel import _pmodel
 
         n_weeks = 52
         n_pixels = 1
@@ -344,7 +351,7 @@ class TestRothcExecution:
 
     @pytest.fixture(scope="class")
     def rothc_result(self):
-        from satterc.dag.rothc import _rothc
+        from satterc.models.rothc import _rothc
 
         n_months = 24
         n_pixels = 1
@@ -403,7 +410,7 @@ class TestPmodelDriverExecution:
     """Covers the pmodel() public wrapper (line 120) via Hamilton driver execution."""
 
     def test_driver_executes_gpp(self):
-        from satterc.dag.driver import build_driver
+        from conduit import build_driver
 
         # 364 days = exactly 52 weeks: ensures the daily→weekly resample produces
         # 52 time steps matching the provided weekly arrays.
@@ -422,7 +429,7 @@ class TestPmodelDriverExecution:
             )
 
         dr = build_driver(
-            ["models.pmodel"],
+            ["satterc.models.pmodel"],
             {
                 "method_optchi": "prentice14",
                 "method_jmaxlim": "wang17",
@@ -457,7 +464,7 @@ class TestRothcDriverExecution:
     """Covers the rothc() public wrapper (line 157) via Hamilton driver execution."""
 
     def test_driver_executes_soc(self):
-        from satterc.dag.driver import build_driver
+        from conduit import build_driver
 
         n_months = 24
         n_pixels = 1
@@ -478,7 +485,7 @@ class TestRothcDriverExecution:
                 coords={"pixel": pixel},
             )
 
-        dr = build_driver(["models.rothc"], {"n_years_spinup": 1})
+        dr = build_driver(["satterc.models.rothc"], {"n_years_spinup": 1})
         result = dr.execute(
             ["soil_organic_carbon_monthly"],
             inputs={
@@ -503,7 +510,7 @@ class TestSgamInnerExecution:
     """Smoke test: _sgam() runs end-to-end with minimal synthetic inputs."""
 
     def test_sgam_inner_returns_dict(self):
-        from satterc.dag.sgam import _build_pft_params_dataset, _sgam
+        from satterc.models.sgam import _build_pft_params_dataset, _sgam
 
         n_weeks = 52
         n_pixels = 1
@@ -548,7 +555,7 @@ class TestSgamInnerExecution:
         assert "soil_organic_carbon_monthly" not in result
 
     def test_sgam_outputs_non_negative_pools(self):
-        from satterc.dag.sgam import _build_pft_params_dataset, _sgam
+        from satterc.models.sgam import _build_pft_params_dataset, _sgam
 
         n_weeks = 52
         n_pixels = 1
@@ -596,7 +603,7 @@ class TestDisturbancesDaily:
     """Smoke test: disturbances_daily computes disturbance indicators."""
 
     def test_disturbances_output_shape(self):
-        from satterc.dag.sgam import disturbances_daily
+        from satterc.models.sgam import disturbances_daily
 
         n_days = 365
         n_pixels = 2
@@ -628,7 +635,7 @@ class TestSplashExecution:
 
     @pytest.fixture(scope="class")
     def splash_result(self):
-        from satterc.dag.splash import _splash
+        from satterc.models.splash import _splash
 
         n_days = 366  # 2020 is a leap year; SPLASH needs a full year
         n_pixels = 2
@@ -687,7 +694,7 @@ class TestSplashExecution:
 
     def test_public_splash_wrapper_returns_dict(self):
         """Test the public splash() function (covers the 'return _splash(...)' line)."""
-        from satterc.dag.splash import splash
+        from satterc.models.splash import splash
 
         n_days = 366
         n_pixels = 1
@@ -703,8 +710,8 @@ class TestSplashExecution:
         def _static_da(values):
             return xr.DataArray(values, dims=["pixel"], coords={"pixel": pixel})
 
+        # The daily calendar is read off temperature_daily's time coord.
         result = splash(
-            dates_daily=time,
             sunshine_fraction_daily=_da(
                 np.clip(rng.normal(0.5, 0.2, (n_days, n_pixels)), 0, 1)
             ),

@@ -2,14 +2,16 @@ from pathlib import Path
 
 import pytest
 import xarray as xr
+from conduit import build_driver, load_config, load_inputs
+from conduit.specs import AnnotationPolicySpec
 
-from satterc import units
-from satterc.config import load_config
-from satterc.dag.driver import build_driver
-from satterc.io import load_inputs
 from satterc.setup_utils.data_gen import generate_synthetic_data
 
-units.set_mode("off")
+# The fixtures build DAGs and run models over deliberately small, synthetic
+# arrays. Contract validation is conduit's job and is exercised by conduit's own
+# suite; here it would only add noise (and a two-timestep fixture cannot have an
+# inferable frequency at all), so the package-wide switch is off.
+AnnotationPolicySpec(enabled=False).apply()
 
 TEST_CONFIG_PATH = Path(__file__).parent / "test_config.toml"
 
@@ -77,7 +79,7 @@ def pipeline_config(synthetic_data_dir):
 
 @pytest.fixture(scope="session")
 def pipeline_inputs(pipeline_config):
-    """Load all inputs using the new load_inputs() API."""
+    """Load all inputs using conduit's load_inputs()."""
     return load_inputs(pipeline_config.input_specs)
 
 
@@ -87,4 +89,5 @@ def pipeline_driver(pipeline_config):
     return build_driver(
         pipeline_config.modules,
         pipeline_config.driver_config,
+        node_specs=pipeline_config.node_specs,
     )

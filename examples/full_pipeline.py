@@ -3,11 +3,13 @@
 # dependencies = [
 #     "marimo",
 #     "matplotlib==3.10.9",
-#     "satterc==0.4.1",
+#     "satterc==0.6.0",
+#     "conduit",
 # ]
 #
 # [tool.uv.sources]
 # satterc = { path = ".." }
+# conduit = { git = "https://github.com/NERC-CEH/conduit", rev = "develop" }
 # ///
 
 import marimo
@@ -34,9 +36,9 @@ def _():
 
     import marimo as mo  # required for Markdown etc.
     import matplotlib.pyplot as plt
+    from conduit import build_driver, get_final_vars, get_outputs, load_inputs
+    from conduit.config import Config
 
-    from satterc import build_driver, get_final_vars, get_outputs, load_inputs
-    from satterc.config import Config
     from satterc.setup_utils.data_gen import generate_synthetic_data
 
     return (
@@ -61,12 +63,13 @@ def _(mo):
 
     The pipeline configuration is defined in a [TOML](https://toml.io/en/) file.
 
-    `satterc` provides a loader / parser for pipeline configurations, which takes a path to a config file and returns a `ParsedConfig` with four attributes:
+    `conduit` provides a loader / parser for pipeline configurations, which takes a path to a config file and returns a `ParsedConfig`. The attributes we use here are:
 
     1. `modules`: a list of Python modules containing the nodes (functions) which will be used to construct the pipeline.
     2. `driver_config`: a dictionary of additional config options that is applied to the driver at _build time_ (not run time).
-    3. `input_specs`: a mapping from frequency to `IOSpec` (path, vars) — consumed by `load_inputs()`.
-    4. `output_specs`: a mapping from frequency to `IOSpec` — consumed by `get_outputs()` and `save_outputs()`.
+    3. `node_specs`: the parsed `[[node]]` and `[[resample]]` entries, from which conduit generates a module of nodes.
+    4. `input_specs`: a mapping from section label to `IOSpec` (path, vars) — consumed by `load_inputs()`.
+    5. `output_specs`: a mapping from section label to `IOSpec` — consumed by `get_outputs()` and `save_outputs()`.
     """)
     return
 
@@ -75,19 +78,22 @@ def _(mo):
 def _(Config, tomllib):
     _config_toml = """
 
-    [models.splash]
+    [splash]
+    _import_path = "satterc.models.splash"
 
-    [models.pmodel]
+    [pmodel]
+    _import_path = "satterc.models.pmodel"
     method_kphio = "sandoval"
     method_optchi = "lavergne20_c3"
 
-    [models.sgam]
+    [sgam]
+    _import_path = "satterc.models.sgam"
 
-    [models.rothc]
+    [rothc]
+    _import_path = "satterc.models.rothc"
     n_years_spinup = 1
     equilibrium_threshold = 0.0001
 
-    [grid]
 
     [inputs.daily]
     path = "daily.nc"
@@ -117,6 +123,7 @@ def _(Config, tomllib):
 
     [inputs.static]
     path = "static.nc"
+    suffix = ""
     vars = [
       "elevation",
       "plant_type",
@@ -186,20 +193,23 @@ def _(Config, tomllib):
       "soil_moisture",
       "aridity_index",
     ]
-    from_freq = "daily"
-    to_freq = "weekly"
+    from = "daily"
+    to = "weekly"
+    freq = "7D"
 
     [[resample]]
     vars = [
       "temperature",
     ]
-    from_freq = "daily"
-    to_freq = "monthly"
+    from = "daily"
+    to = "monthly"
+    freq = "1ME"
 
     [[resample]]
     vars = ["disturbances"]
-    from_freq = "daily"
-    to_freq = "weekly"
+    from = "daily"
+    to = "weekly"
+    freq = "7D"
     aggfunc = "max"
 
     [outputs.daily]
@@ -264,7 +274,8 @@ def _(mo):
 
     Building the pipeline really means building the 'driver'.
 
-    `satterc` provides a function `build_driver` which takes a list of modules and a driver configuration, and returns a built driver.
+    `conduit` provides a function `build_driver` which takes a list of modules, a driver configuration and the parsed node specs, and returns a built driver.
+    Building is also when conduit checks the whole graph's declared contracts — units, dimensions and temporal frequency — so a mis-wired pipeline fails here rather than part-way through a long run.
     Notice that we do not pass `targets` during build stage; we are only required to supply `targets` when actually executing the pipeline.
 
     Once we have constructed the driver, we can inspect it in various ways, including visualising the DAG.
@@ -279,6 +290,7 @@ def _(build_driver, parsed_config):
     dr = build_driver(
         modules=parsed_config.modules,
         config=parsed_config.driver_config,
+        node_specs=parsed_config.node_specs,
     )
 
     # This produces a visualisation of the entire DAG, which is too large..

@@ -4,12 +4,14 @@
 #     "marimo",
 #     "matplotlib==3.10.9",
 #     "numpy==2.4.4",
-#     "satterc==0.4.1",
+#     "satterc==0.6.0",
+#     "conduit",
 #     "scipy==1.17.1",
 # ]
 #
 # [tool.uv.sources]
 # satterc = { path = ".." }
+# conduit = { git = "https://github.com/NERC-CEH/conduit", rev = "develop" }
 # ///
 
 import marimo
@@ -45,10 +47,10 @@ def _():
     import marimo as mo
     import matplotlib.pyplot as plt
     import numpy as np
+    from conduit import build_driver, load_inputs
+    from conduit.config import Config
     from scipy.optimize import minimize
 
-    from satterc import build_driver, load_inputs
-    from satterc.config import Config
     from satterc.setup_utils.data_gen import generate_synthetic_data
 
     return (
@@ -81,13 +83,16 @@ def _(mo):
 @app.cell
 def _(Config, tomllib):
     _config_toml = """
-    [models.splash]
+    [splash]
+    _import_path = "satterc.models.splash"
 
-    [models.pmodel]
+    [pmodel]
+    _import_path = "satterc.models.pmodel"
     method_kphio = "sandoval"
     method_optchi = "lavergne20_c3"
 
-    [models.sgam]
+    [sgam]
+    _import_path = "satterc.models.sgam"
 
     [inputs.daily]
     path = "daily.nc"
@@ -111,6 +116,7 @@ def _(Config, tomllib):
 
     [inputs.static]
     path = "static.nc"
+    suffix = ""
     vars = [
       "elevation",
       "plant_type",
@@ -124,6 +130,7 @@ def _(Config, tomllib):
     name = "aridity_index_daily"
     inputs = ["precipitation_daily", "actual_evapotranspiration_daily"]
     expression = "precipitation_daily / actual_evapotranspiration_daily"
+    units = "1"  # ratio of two mm d-1 fluxes -> dimensionless
 
     [[resample]]
     vars = [
@@ -131,16 +138,17 @@ def _(Config, tomllib):
       "soil_moisture",
       "aridity_index",
     ]
-    from_freq = "daily"
-    to_freq = "weekly"
+    from = "daily"
+    to = "weekly"
+    freq = "7D"
 
     [[resample]]
     vars = ["disturbances"]
-    from_freq = "daily"
-    to_freq = "weekly"
+    from = "daily"
+    to = "weekly"
+    freq = "7D"
     aggfunc = "max"
 
-    [grid]
     """
 
     parsed_config = Config(tomllib.loads(_config_toml)).parse()
@@ -167,6 +175,7 @@ def _(build_driver, parsed_config):
     dr = build_driver(
         modules=parsed_config.modules,
         config=parsed_config.driver_config,
+        node_specs=parsed_config.node_specs,
     )
     return (dr,)
 
@@ -194,7 +203,6 @@ def _(dr, inputs, np):
         "soil_moisture_weekly",
         "vpd_weekly",
         "disturbances_weekly",
-        "dates_weekly",
         "leaf_pool_init",
         "stem_pool_init",
         "root_pool_init",

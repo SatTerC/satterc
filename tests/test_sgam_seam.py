@@ -1,4 +1,4 @@
-"""Tests for the SGAM ``apply_ufunc`` pixel seam (``satterc.dag.sgam._sgam``).
+"""Tests for the SGAM ``apply_ufunc`` pixel seam (``satterc.models.sgam._sgam``).
 
 These cover the inner block-level parallelisation seam that replaced the explicit
 ``for i in range(len(plant_type))`` loop:
@@ -19,7 +19,7 @@ import pandas as pd
 import pytest
 import xarray as xr
 
-from satterc.dag.sgam import (
+from satterc.models.sgam import (
     _SGAM_OUTPUT_NAMES,
     _build_pft_params_dataset,
     _pft_int_to_enum,
@@ -218,8 +218,7 @@ class TestCachingIntact:
     """The cached sgam node matches the uncached one (seam is internal to the node)."""
 
     def test_cached_run_matches_uncached(self, tmp_path):
-        from satterc import CacheSpec
-        from satterc.dag.driver import build_driver
+        from conduit import CacheSpec, build_driver
 
         def _mda(base: np.ndarray) -> xr.DataArray:
             return xr.DataArray(
@@ -250,7 +249,7 @@ class TestCachingIntact:
         spec = CacheSpec(path=str(tmp_path / "cache"))
 
         def run(cache):
-            dr = build_driver(["models.sgam"], {}, cache=cache)
+            dr = build_driver(["satterc.models.sgam"], {}, cache=cache)
             return dr.execute(["leaf_pool_weekly"], inputs=inputs)  # type: ignore[reportArgumentType]
 
         uncached = run(None)
