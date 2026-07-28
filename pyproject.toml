@@ -14,15 +14,9 @@ license = "MIT"
 license-files = ["LICENSE"]
 requires-python = ">=3.13"
 dependencies = [
-    # conduit is the framework: config, DAG, contracts, I/O, execution and the
-    # run/graph/gridded CLI commands. `geo` is not optional here — satterc's
-    # pipelines are gridded — and it brings hamilton, xarray, zarr, netcdf4,
-    # dask, pyarrow, tomli-w and xarray-annotated with it.
     "conduit[geo]",
-    # Directly imported by the model modules and the synthetic-data generator.
     "numpy>=2.4.2",
     "xarray>=2026.2.0",
-    # satterc's own CLI commands (setup, data-gen, version).
     "typer>=0.24.1",
 ]
 

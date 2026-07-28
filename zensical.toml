@@ -17,7 +17,6 @@ nav = [
   { "Getting Started" = [
       "getting_started/installation.md",
       "getting_started/quickstart.md",
-      "getting_started/contributing.md",
   ]},
   { "Models" = [
       "models/index.md",
