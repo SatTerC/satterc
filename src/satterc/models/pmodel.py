@@ -11,23 +11,26 @@ from typing import Annotated, TypedDict, cast
 import numpy as np
 import pyrealm.pmodel
 import xarray as xr
+from conduit import declare_units
+from conduit.transforms import resample
 from hamilton.function_modifiers import extract_fields
 from numpy.typing import NDArray
 from xarray import DataArray
+from xarray_annotated.temporal import declare_freq
 
-from ._utils import declare_units
+from ._time import DAILY, WEEKLY
 
 
 class PModelOut(TypedDict):
     """Outputs of the `pmodel` node, at weekly resolution."""
 
-    gpp_weekly: Annotated[DataArray, "g m-2 d-1"]
+    gpp_weekly: Annotated[DataArray, "g m-2 d-1", WEEKLY]
     """Gross primary productivity: the carbon fixed by photosynthesis, expressed
     as a rate (grams of carbon per square metre per day)."""
-    lue_weekly: Annotated[DataArray, "g MJ-1"]
+    lue_weekly: Annotated[DataArray, "g MJ-1", WEEKLY]
     """Light use efficiency: carbon fixed per unit absorbed PAR (grams of carbon
     per megajoule)."""
-    iwue_weekly: Annotated[DataArray, "Pa"]
+    iwue_weekly: Annotated[DataArray, "Pa", WEEKLY]
     """Intrinsic water use efficiency (pascals)."""
 
 
@@ -136,16 +139,17 @@ def _pmodel(
 
 @extract_fields()
 @declare_units
+@declare_freq
 def pmodel(
-    temperature_weekly: Annotated[DataArray, "degC"],
-    vpd_weekly: Annotated[DataArray, "Pa"],
-    co2_weekly: Annotated[DataArray, "ppm"],
-    pressure_weekly: Annotated[DataArray, "Pa"],
-    fapar_weekly: Annotated[DataArray, "1"],
-    ppfd_weekly: Annotated[DataArray, "umol m-2 s-1"],
-    mean_growth_temperature_weekly: Annotated[DataArray, "degC"],
-    aridity_index_weekly: Annotated[DataArray, "1"],
-    soil_moisture_weekly: Annotated[DataArray, "mm"],
+    temperature_weekly: Annotated[DataArray, "degC", WEEKLY],
+    vpd_weekly: Annotated[DataArray, "Pa", WEEKLY],
+    co2_weekly: Annotated[DataArray, "ppm", WEEKLY],
+    pressure_weekly: Annotated[DataArray, "Pa", WEEKLY],
+    fapar_weekly: Annotated[DataArray, "1", WEEKLY],
+    ppfd_weekly: Annotated[DataArray, "umol m-2 s-1", WEEKLY],
+    mean_growth_temperature_weekly: Annotated[DataArray, "degC", WEEKLY],
+    aridity_index_weekly: Annotated[DataArray, "1", WEEKLY],
+    soil_moisture_weekly: Annotated[DataArray, "mm", WEEKLY],
     *,
     method_optchi: str = "prentice14",
     method_jmaxlim: str = "wang17",
@@ -215,9 +219,11 @@ def pmodel(
     )
 
 
+@declare_units
+@declare_freq
 def mean_growth_temperature_weekly(
-    temperature_daily: xr.DataArray,
-) -> xr.DataArray:
+    temperature_daily: Annotated[DataArray, "degC", DAILY],
+) -> Annotated[DataArray, "degC", WEEKLY]:
     """Calculate the mean temperature on growing degree days where temp > 0°C."""
     # NOTE: this may well be incorrect!! - see https://en.wikipedia.org/wiki/Growing_degree-day
     # Perhaps this depends on growing_season_limit?
@@ -228,4 +234,4 @@ def mean_growth_temperature_weekly(
     # Compute weekly mean, masking non-growing degree days
     # TODO: if the whole week is < 0, this will include NaN.
     # Need to check pmodel can deal with this!
-    return temperature_daily.where(gdd_mask).resample(time="7D").mean()
+    return resample(temperature_daily.where(gdd_mask), freq="7D", aggfunc="mean")

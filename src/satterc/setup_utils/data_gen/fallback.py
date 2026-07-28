@@ -1,6 +1,8 @@
 """Fallback synthetic data generators for variables without explicit logic."""
 
+import hashlib
 import logging
+import sys
 import types
 
 import numpy as np
@@ -102,14 +104,32 @@ def build_fallback_module(
 ) -> types.ModuleType:
     """Build a dynamic Hamilton-compatible module containing fallback generators.
 
-    Hamilton resolves nodes by function __name__, so each fallback function is
+    Hamilton resolves nodes by function ``__name__``, so each fallback function is
     renamed to match the expected node name before being attached to the module.
+
+    Both the ``__module__`` reassignment and the `sys.modules` registration are
+    load-bearing. Hamilton collects a module's nodes with `inspect.getmodule`,
+    which resolves a function's ``__module__`` *through* `sys.modules`; an
+    unregistered synthetic module resolves back to this file instead, and every
+    fallback is silently skipped — surfacing much later as "Unknown nodes
+    requested". The module name is keyed on its contents so that repeated calls
+    in one process reuse an entry rather than accumulating them.
     """
-    mod = types.ModuleType("satterc.setup_utils.data_gen._fallbacks")
-    for var in unknown_daily:
-        fn = _make_daily_fallback(var)
-        setattr(mod, fn.__name__, fn)
-    for var in unknown_static:
-        fn = _make_static_fallback(var)
-        setattr(mod, fn.__name__, fn)
+    key = hashlib.sha256(
+        repr((sorted(unknown_daily), sorted(unknown_static))).encode()
+    ).hexdigest()[:12]
+    name = f"satterc.setup_utils.data_gen._fallbacks_{key}"
+
+    mod = types.ModuleType(name)
+    factories = [
+        (_make_daily_fallback, unknown_daily),
+        (_make_static_fallback, unknown_static),
+    ]
+    for make, names in factories:
+        for var in names:
+            fn = make(var)
+            fn.__module__ = name
+            setattr(mod, fn.__name__, fn)
+
+    sys.modules[name] = mod
     return mod

@@ -5,14 +5,15 @@ from typing import Annotated, TypedDict, cast
 import numpy as np
 import pandas as pd
 import xarray as xr
+from conduit import declare_units
 from hamilton.function_modifiers import extract_fields
 from numpy.typing import NDArray
-from pandas import DatetimeIndex
 from rothc_py import RothC, RothCParams, percent_modern_c
 from rothc_py.containers import InputData
 from xarray import DataArray
+from xarray_annotated.temporal import declare_freq
 
-from ._utils import declare_units
+from ._time import MONTHLY, time_index
 
 
 class RothCOut(TypedDict):
@@ -23,18 +24,18 @@ class RothCOut(TypedDict):
     total, and the last is the month's respiration flux.
     """
 
-    decomposable_plant_material_monthly: Annotated[DataArray, "t ha-1"]
+    decomposable_plant_material_monthly: Annotated[DataArray, "t ha-1", MONTHLY]
     """Decomposable plant material (DPM) pool (tonnes of carbon per hectare)."""
-    resistant_plant_material_monthly: Annotated[DataArray, "t ha-1"]
+    resistant_plant_material_monthly: Annotated[DataArray, "t ha-1", MONTHLY]
     """Resistant plant material (RPM) pool (tonnes of carbon per hectare)."""
-    microbial_biomass_monthly: Annotated[DataArray, "t ha-1"]
+    microbial_biomass_monthly: Annotated[DataArray, "t ha-1", MONTHLY]
     """Microbial biomass (BIO) pool (tonnes of carbon per hectare)."""
-    humified_organic_matter_monthly: Annotated[DataArray, "t ha-1"]
+    humified_organic_matter_monthly: Annotated[DataArray, "t ha-1", MONTHLY]
     """Humified organic matter (HUM) pool (tonnes of carbon per hectare)."""
-    soil_organic_carbon_monthly: Annotated[DataArray, "t ha-1"]
+    soil_organic_carbon_monthly: Annotated[DataArray, "t ha-1", MONTHLY]
     """Total soil organic carbon: the sum of the DPM, RPM, BIO, HUM and inert
     organic matter pools (tonnes of carbon per hectare)."""
-    heterotrophic_respiration_monthly: Annotated[DataArray, "t ha-1"]
+    heterotrophic_respiration_monthly: Annotated[DataArray, "t ha-1", MONTHLY]
     """Carbon released as CO2 by microbial decomposition during the month
     (tonnes of carbon per hectare)."""
 
@@ -215,18 +216,18 @@ def _rothc(
 
 @extract_fields()
 @declare_units
+@declare_freq
 def rothc(
-    temperature_monthly: Annotated[DataArray, "degC"],
-    precipitation_monthly: Annotated[DataArray, "mm"],
-    evaporation_monthly: Annotated[DataArray, "mm"],
-    plant_cover_monthly: DataArray,
-    dpm_rpm_ratio_monthly: DataArray,
-    soil_carbon_input_monthly: Annotated[DataArray, "t ha-1"],
-    farmyard_manure_input_monthly: Annotated[DataArray, "t ha-1"],
+    temperature_monthly: Annotated[DataArray, "degC", MONTHLY],
+    precipitation_monthly: Annotated[DataArray, "mm", MONTHLY],
+    evaporation_monthly: Annotated[DataArray, "mm", MONTHLY],
+    plant_cover_monthly: Annotated[DataArray, MONTHLY],
+    dpm_rpm_ratio_monthly: Annotated[DataArray, MONTHLY],
+    soil_carbon_input_monthly: Annotated[DataArray, "t ha-1", MONTHLY],
+    farmyard_manure_input_monthly: Annotated[DataArray, "t ha-1", MONTHLY],
     clay_content: Annotated[DataArray, "percent"],
     inert_organic_matter: Annotated[DataArray, "t ha-1"],
     soil_depth: Annotated[DataArray, "cm"],
-    dates_monthly: pd.Index,
     *,
     n_years_spinup: int = 1,
     dpm_rate: float = 10.0,
@@ -314,7 +315,7 @@ def rothc(
         clay_content=clay_content,
         soil_depth=soil_depth,
         inert_organic_matter=inert_organic_matter,
-        dates_monthly=dates_monthly,
+        dates_monthly=time_index(temperature_monthly, "temperature_monthly"),
         n_years_spinup=n_years_spinup,
         dpm_rate=dpm_rate,
         rpm_rate=rpm_rate,
@@ -328,13 +329,19 @@ def rothc(
 
 # --- Bridge nodes, needed for RothC --- #
 # Ideally refactored in future to be more flexible, configurable via config.toml etc.
+#
+# Each of these produces a monthly series out of per-pixel static data, so it needs
+# a monthly calendar to build that series against. conduit supplies no ``dates_*``
+# node, and the time axis lives on the data, so each takes ``temperature_monthly``
+# purely for its time coordinate.
 
 
+@declare_freq
 def plant_cover_monthly(
     plant_type: DataArray,
     latitude: DataArray,
-    dates_monthly: DatetimeIndex,
-) -> DataArray:
+    temperature_monthly: Annotated[DataArray, MONTHLY],
+) -> Annotated[DataArray, MONTHLY]:
     """Return monthly plant cover as a boolean mask, accounting for crop seasonality.
 
     Tree (0), grass (1), and shrub (2) are always considered to cover the soil.
@@ -349,14 +356,16 @@ def plant_cover_monthly(
         Dims: ["pixel"].
     latitude
         Latitude for each pixel. Dims: ["pixel"].
-    dates_monthly
-        Monthly datetime index.
+    temperature_monthly
+        Read only for its monthly time coordinate, which sets the returned
+        series' calendar.
 
     Returns
     -------
     DataArray
         Boolean plant cover with shape (time, pixel).
     """
+    dates_monthly = time_index(temperature_monthly, "temperature_monthly")
     n_months = len(dates_monthly)
     n_pixels = len(plant_type)
     months = np.array([d.month for d in dates_monthly])
@@ -383,15 +392,16 @@ def plant_cover_monthly(
     )
 
 
+@declare_freq
 def dpm_rpm_ratio_monthly(
     plant_type: DataArray,
-    dates_monthly: DatetimeIndex,
+    temperature_monthly: Annotated[DataArray, MONTHLY],
     *,
     dpm_rpm_ratio_tree: float = 0.25,
     dpm_rpm_ratio_grass: float = 1.44,
     dpm_rpm_ratio_shrub: float = 0.67,
     dpm_rpm_ratio_crop: float = 1.44,
-) -> DataArray:
+) -> Annotated[DataArray, MONTHLY]:
     """Return the DPM/RPM ratio for RothC based on plant type.
 
     Default ratios follow the RothC documentation:
@@ -401,7 +411,8 @@ def dpm_rpm_ratio_monthly(
       - Crop (3) → 1.44 (crop)
 
     Each ratio can be overridden via config, e.g.:
-        [models.rothc]
+        [rothc]
+        _import_path = "satterc.models.rothc"
         dpm_rpm_ratio_grass = 0.67
 
     Parameters
@@ -409,8 +420,9 @@ def dpm_rpm_ratio_monthly(
     plant_type
         Plant functional type as integer (0=tree, 1=grass, 2=shrub, 3=crop).
         Dims: ["pixel"].
-    dates_monthly
-        Monthly datetime index.
+    temperature_monthly
+        Read only for its monthly time coordinate, which sets the returned
+        series' calendar.
     dpm_rpm_ratio_tree
         DPM/RPM ratio for tree/woodland.
     dpm_rpm_ratio_grass
@@ -431,6 +443,7 @@ def dpm_rpm_ratio_monthly(
         2: dpm_rpm_ratio_shrub,
         3: dpm_rpm_ratio_crop,
     }
+    dates_monthly = time_index(temperature_monthly, "temperature_monthly")
     values = np.array([ratio_map[int(t)] for t in plant_type.values])
     return xr.DataArray(
         data=np.tile(values, (len(dates_monthly), 1)),
@@ -440,10 +453,11 @@ def dpm_rpm_ratio_monthly(
 
 
 @declare_units
+@declare_freq
 def farmyard_manure_input_monthly(
     plant_type: DataArray,
-    dates_monthly: DatetimeIndex,
-) -> Annotated[DataArray, "t ha-1"]:
+    temperature_monthly: Annotated[DataArray, MONTHLY],
+) -> Annotated[DataArray, "t ha-1", MONTHLY]:
     """Return a zero-filled monthly farmyard manure carbon input.
 
     In a future version, this could be driven by a grazing/manure C flux
@@ -455,8 +469,9 @@ def farmyard_manure_input_monthly(
     plant_type
         Plant functional type as integer (0=tree, 1=grass, 2=shrub, 3=crop).
         Used only for its shape and coordinates. Dims: ["pixel"].
-    dates_monthly
-        Monthly datetime index.
+    temperature_monthly
+        Read only for its monthly time coordinate, which sets the returned
+        series' calendar.
 
     Returns
     -------
@@ -464,6 +479,7 @@ def farmyard_manure_input_monthly(
         Monthly farmyard manure carbon input, all zeros, with shape
         (time, pixel) (tonnes of carbon per hectare).
     """
+    dates_monthly = time_index(temperature_monthly, "temperature_monthly")
     # Built from ``plant_type`` only for its shape/coords; drop its inherited
     # attrs so the zeros are stamped with this node's declared unit (``t ha-1``)
     # rather than ``plant_type``'s "dimensionless".

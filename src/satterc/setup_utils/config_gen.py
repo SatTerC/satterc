@@ -10,12 +10,22 @@ from types import ModuleType
 from typing import Any
 
 import xarray as xr
+from conduit.config import Config
 from hamilton import driver
 from hamilton.settings import ENABLE_POWER_USER_MODE
+from xarray_annotated import unwrap_annotated
 
-from .. import dag as dag_modules
-from ..config import Config
-from ..units import unwrap_annotated
+from .. import models as model_modules
+
+#: The pandas offsets behind satterc's node-name suffixes, for the ``freq`` key
+#: that conduit's ``[[resample]]`` requires. conduit infers nothing from the
+#: ``from``/``to`` labels — they are node-name suffixes and nothing more — so
+#: the mapping from a suffix pair to an offset is satterc's convention to make.
+RESAMPLE_FREQ_MAP: dict[tuple[str, str], str] = {
+    ("daily", "weekly"): "7D",
+    ("daily", "monthly"): "1ME",
+    ("weekly", "monthly"): "1ME",
+}
 
 
 def _analyze_model_module(
@@ -69,6 +79,12 @@ def _strip_suffix(name: str) -> tuple[str, str | None]:
     name : str
         Variable name (e.g., 'temperature_daily').
 
+    These four suffixes are a satterc naming convention, not framework
+    behaviour: conduit treats an input section's label as inert and infers no
+    frequency from it. They are what this generator uses to decide which file a
+    variable belongs in, and they match the `Freq` contracts the model modules
+    declare (see `satterc.models._time`).
+
     Returns
     -------
     tuple
@@ -91,7 +107,7 @@ def get_model_params(model_name: str) -> dict[str, Any]:
     """Extract keyword-only parameters with defaults from the main model function."""
     builtin_models = get_builtin_models()
     module_path = (
-        f"satterc.dag.{model_name}" if model_name in builtin_models else model_name
+        f"satterc.models.{model_name}" if model_name in builtin_models else model_name
     )
 
     try:
@@ -126,7 +142,7 @@ def _infer_required_data(model_names: list[str]) -> dict[str, list[str]]:
     all_model_outputs: list[str] = []
 
     for model_name in model_names:
-        module = getattr(dag_modules, model_name)
+        module = getattr(model_modules, model_name)
         data_inputs, _, data_outputs = _analyze_model_module(module, base_config)
 
         # Store full input names (with suffix) for categorization
@@ -230,14 +246,26 @@ def generate_config(
 
     config_data: dict[str, Any] = {}
 
-    config_data["models"] = {}
+    # One flat section per model, in conduit's external-module form. There is no
+    # short-name registry to lean on: conduit resolves every non-built-in section
+    # by its dotted `_import_path`.
     for model in builtin_models:
-        params = get_model_params(model)
-        config_data["models"][model] = params
+        config_data[model] = {
+            "_import_path": f"satterc.models.{model}",
+            **get_model_params(model),
+        }
 
+    # conduit names each input node `{var}{suffix}`, with the suffix defaulting to
+    # `_<section label>`. That is exactly satterc's convention for the temporal
+    # sections, but static variables are consumed under bare names
+    # (`elevation`, not `elevation_static`), so that section opts out of a suffix.
     freq_keys = ("daily", "weekly", "monthly", "static")
     config_data["inputs"] = {
-        freq: {"path": paths[f"inputs_{freq}"], "vars": required_data[f"inputs_{freq}"]}
+        freq: {
+            "path": paths[f"inputs_{freq}"],
+            "vars": required_data[f"inputs_{freq}"],
+            **({"suffix": ""} if freq == "static" else {}),
+        }
         for freq in freq_keys
         if required_data[f"inputs_{freq}"]
     }
@@ -255,8 +283,9 @@ def generate_config(
             resample_list.append(
                 {
                     "vars": vars_,
-                    "from_freq": from_freq,
-                    "to_freq": to_freq,
+                    "from": from_freq,
+                    "to": to_freq,
+                    "freq": RESAMPLE_FREQ_MAP[(from_freq, to_freq)],
                     # aggfunc omitted → defaults to "mean" at parse time
                     # TODO: support per-variable aggfunc (e.g. auto-classify
                     # precipitation as sum)
@@ -276,7 +305,12 @@ def generate_config(
     }
 
     for mod_path in custom_modules:
-        pkg, mod = mod_path.split(".", 1)
-        config_data.setdefault(pkg, {})[mod] = get_model_params(mod_path)
+        # The section label is free-form; only `_import_path` is semantic. Use the
+        # module's own last component so the config reads naturally.
+        label = mod_path.rsplit(".", 1)[-1]
+        config_data[label] = {
+            "_import_path": mod_path,
+            **get_model_params(mod_path),
+        }
 
     return Config(config_data)

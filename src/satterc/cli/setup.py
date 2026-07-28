@@ -4,8 +4,8 @@ import re
 from pathlib import Path
 
 import typer
+from conduit.config import Config
 
-from ..config import Config
 from ..setup_utils import (
     BuiltinModels,
     generate_config,

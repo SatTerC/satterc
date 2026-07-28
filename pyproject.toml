@@ -4,8 +4,8 @@ build-backend = "uv_build"
 
 [project]
 name = "satterc"
-version = "0.5.0"
-description = "Add your description here"
+version = "0.6.0"
+description = "Carbon-cycle model modules for conduit pipelines: SPLASH, P-model, SGAM and RothC."
 authors = [
     { name = "jmarshrossney", email = "17361029+jmarshrossney@users.noreply.github.com" }
 ]
@@ -14,24 +14,20 @@ license = "MIT"
 license-files = ["LICENSE"]
 requires-python = ">=3.13"
 dependencies = [
-    "apache-hamilton>=1.90.0",
-    "cf-xarray>=0.11.3",
-    "dask>=2025.1.0",
-    "netcdf4>=1.7.4",
+    # conduit is the framework: config, DAG, contracts, I/O, execution and the
+    # run/graph/gridded CLI commands. `geo` is not optional here — satterc's
+    # pipelines are gridded — and it brings hamilton, xarray, zarr, netcdf4,
+    # dask, pyarrow, tomli-w and xarray-annotated with it.
+    "conduit[geo]",
+    # Directly imported by the model modules and the synthetic-data generator.
     "numpy>=2.4.2",
-    "pint>=0.25.3",
-    "pint-xarray>=0.6.1",
-    "pyarrow>=10.0",
-    "pyproj>=3.7.2",
-    "rioxarray>=0.22.0",
-    "tomli-w>=1.2.0",
-    "typer>=0.24.1",
     "xarray>=2026.2.0",
-    "zarr>=3.2.1",
+    # satterc's own CLI commands (setup, data-gen, version).
+    "typer>=0.24.1",
 ]
 
 [project.optional-dependencies]
-viz = ["apache-hamilton[visualization]>=1.90.0"]
+viz = ["conduit[viz]"]
 models = ["pyrealm>=2.0.0", "rothc-py", "sgam"]
 all = ["satterc[viz,models]"]
 
@@ -76,6 +72,7 @@ exclude-newer = "1 week"
 [tool.uv.sources]
 rothc-py = { git = "https://github.com/SatTerC/rothc_py.git" }
 sgam = { git = "https://github.com/SatTerC/sgam.git" }
+conduit = { git = "https://github.com/NERC-CEH/conduit", rev = "develop" }
 
 [tool.pyright]
 venvPath = "."

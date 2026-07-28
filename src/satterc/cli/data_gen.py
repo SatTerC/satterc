@@ -5,9 +5,9 @@ from pathlib import Path
 from typing import Annotated
 
 import typer
+from conduit import ParsedConfig, load_config
 from typer import Abort
 
-from ..config import ParsedConfig, load_config
 from ..setup_utils.data_gen import generate_synthetic_data
 
 app = typer.Typer(help="Generate synthetic input data for testing.")

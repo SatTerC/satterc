@@ -12,23 +12,25 @@ import numpy as np
 import pyrealm.core.calendar
 import pyrealm.splash.splash
 import xarray as xr
+from conduit import declare_units
 from hamilton.function_modifiers import extract_fields
 from numpy.typing import NDArray
 from pandas import DatetimeIndex
 from xarray import DataArray
+from xarray_annotated.temporal import declare_freq
 
-from ._utils import declare_units
+from ._time import DAILY, time_index
 
 
 class SplashOut(TypedDict):
     """Outputs of the `splash` node, at daily resolution."""
 
-    actual_evapotranspiration_daily: Annotated[DataArray, "mm d-1"]
+    actual_evapotranspiration_daily: Annotated[DataArray, "mm d-1", DAILY]
     """Actual evapotranspiration: the daily water loss to the atmosphere
     (millimetres per day)."""
-    soil_moisture_daily: Annotated[DataArray, "mm"]
+    soil_moisture_daily: Annotated[DataArray, "mm", DAILY]
     """Soil moisture content at the end of the day (millimetres)."""
-    runoff_daily: Annotated[DataArray, "mm"]
+    runoff_daily: Annotated[DataArray, "mm", DAILY]
     """Runoff: the soil-moisture overflow amount above capacity for the day
     (millimetres, an amount rather than a rate)."""
 
@@ -148,11 +150,11 @@ def _splash(
 
 @extract_fields()
 @declare_units
+@declare_freq
 def splash(
-    dates_daily: DatetimeIndex,
-    sunshine_fraction_daily: Annotated[DataArray, "1"],
-    temperature_daily: Annotated[DataArray, "degC"],
-    precipitation_daily: Annotated[DataArray, "mm d-1"],
+    sunshine_fraction_daily: Annotated[DataArray, "1", DAILY],
+    temperature_daily: Annotated[DataArray, "degC", DAILY],
+    precipitation_daily: Annotated[DataArray, "mm d-1", DAILY],
     elevation: Annotated[DataArray, "m"],
     latitude: DataArray,
     max_soil_moisture: Annotated[DataArray, "mm"],
@@ -164,10 +166,11 @@ def splash(
 
     This function is intended to act as a node in a Hamilton DAG.
 
+    The daily calendar SPLASH needs is read off ``temperature_daily``'s time
+    coordinate.
+
     Parameters
     ----------
-    dates_daily
-        Daily datetime index.
     sunshine_fraction_daily
         Fraction of daylight hours that are sunny (dimensionless, 0-1).
     temperature_daily
@@ -208,5 +211,5 @@ def splash(
         max_soil_moisture=max_soil_moisture,
         soil_moisture_init_max_iter=soil_moisture_init_max_iter,
         soil_moisture_init_max_diff=soil_moisture_init_max_diff,
-        dates_daily=dates_daily,
+        dates_daily=time_index(temperature_daily, "temperature_daily"),
     )
