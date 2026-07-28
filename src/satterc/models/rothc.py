@@ -63,7 +63,7 @@ _ROTHC_OUTPUT_NAMES: tuple[str, ...] = (
 def _rothc_1px(
     temperature: NDArray[np.float64],
     precipitation: NDArray[np.float64],
-    evaporation: NDArray[np.float64],
+    potential_evapotranspiration: NDArray[np.float64],
     plant_cover: NDArray[np.bool_],
     dpm_rpm_ratio: NDArray[np.float64],
     soil_carbon_input: NDArray[np.float64],
@@ -104,10 +104,14 @@ def _rothc_1px(
         zero_threshold=zero_threshold,
     )
     model = RothC(params)
+    # rothc_py's ``t_evap`` slot is nominally open-pan evaporation, which it scales
+    # by ``evap_factor`` to get evapotranspiration. We supply potential
+    # evapotranspiration directly (SPLASH computes it via Priestley-Taylor), so
+    # ``evap_factor`` defaults to 1.0 here and no conversion is applied.
     data: InputData = {
         "t_tmp": temperature.tolist(),
         "t_rain": precipitation.tolist(),
-        "t_evap": evaporation.tolist(),
+        "t_evap": potential_evapotranspiration.tolist(),
         "t_PC": plant_cover.astype(int).tolist(),
         "t_DPM_RPM": dpm_rpm_ratio.tolist(),
         "t_C_Inp": soil_carbon_input.tolist(),
@@ -132,7 +136,7 @@ def _rothc_1px(
 def _rothc(
     temperature_monthly: DataArray,
     precipitation_monthly: DataArray,
-    evaporation_monthly: DataArray,
+    potential_evapotranspiration_monthly: DataArray,
     plant_cover_monthly: DataArray,
     dpm_rpm_ratio_monthly: DataArray,
     soil_carbon_input_monthly: DataArray,
@@ -147,7 +151,7 @@ def _rothc(
     rpm_rate: float = 0.3,
     bio_rate: float = 0.66,
     hum_rate: float = 0.02,
-    evap_factor: float = 0.75,
+    evap_factor: float = 1.0,
     equilibrium_threshold: float = 1e-6,
     zero_threshold: float = 1e-8,
 ) -> RothCOut:
@@ -176,7 +180,7 @@ def _rothc(
         _rothc_1px,
         temperature_monthly,
         precipitation_monthly,
-        evaporation_monthly,
+        potential_evapotranspiration_monthly,
         plant_cover_monthly,
         dpm_rpm_ratio_monthly,
         soil_carbon_input_monthly,
@@ -220,7 +224,7 @@ def _rothc(
 def rothc(
     temperature_monthly: Annotated[DataArray, "degC", MONTHLY],
     precipitation_monthly: Annotated[DataArray, "mm", MONTHLY],
-    evaporation_monthly: Annotated[DataArray, "mm", MONTHLY],
+    potential_evapotranspiration_monthly: Annotated[DataArray, "mm", MONTHLY],
     plant_cover_monthly: Annotated[DataArray, MONTHLY],
     dpm_rpm_ratio_monthly: Annotated[DataArray, MONTHLY],
     soil_carbon_input_monthly: Annotated[DataArray, "t ha-1", MONTHLY],
@@ -234,7 +238,7 @@ def rothc(
     rpm_rate: float = 0.3,
     bio_rate: float = 0.66,
     hum_rate: float = 0.02,
-    evap_factor: float = 0.75,
+    evap_factor: float = 1.0,
     equilibrium_threshold: float = 1e-6,
     zero_threshold: float = 1e-8,
 ) -> RothCOut:
@@ -249,8 +253,8 @@ def rothc(
         Monthly mean air temperature (degrees Celsius).
     precipitation_monthly
         Monthly total precipitation (millimetres).
-    evaporation_monthly
-        Monthly total open-pan evaporation (millimetres).
+    potential_evapotranspiration_monthly
+        Monthly total potential evapotranspiration (millimetres).
     plant_cover_monthly
         Monthly plant cover as boolean (True = soil covered by vegetation).
     dpm_rpm_ratio_monthly
@@ -277,8 +281,12 @@ def rothc(
     hum_rate
         Decomposition rate constant for Humified Organic Matter (per year).
     evap_factor
-        Factor to convert open-pan evaporation to evapotranspiration
-        (dimensionless).
+        Factor applied to `potential_evapotranspiration_monthly` before RothC's
+        water balance (dimensionless). RothC's own driver is open-pan
+        evaporation, and rothc_py's 0.75 converts that to evapotranspiration;
+        satterc supplies evapotranspiration already, so the default here is 1.0
+        (no conversion). Only change it if you are feeding open-pan evaporation
+        into this node instead.
     equilibrium_threshold
         Spin-up convergence criterion: maximum annual change in total organic
         carbon (tonnes of carbon per hectare).
@@ -307,7 +315,7 @@ def rothc(
     return _rothc(
         temperature_monthly=temperature_monthly,
         precipitation_monthly=precipitation_monthly,
-        evaporation_monthly=evaporation_monthly,
+        potential_evapotranspiration_monthly=potential_evapotranspiration_monthly,
         plant_cover_monthly=plant_cover_monthly,
         dpm_rpm_ratio_monthly=dpm_rpm_ratio_monthly,
         soil_carbon_input_monthly=soil_carbon_input_monthly,

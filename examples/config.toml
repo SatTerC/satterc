@@ -30,7 +30,11 @@ dpm_rate = 10.0
 rpm_rate = 0.3
 bio_rate = 0.66
 hum_rate = 0.02
-evap_factor = 0.75
+# RothC's own evaporation driver is open-pan, which it multiplies by evap_factor
+# to get evapotranspiration. We supply potential evapotranspiration directly (see
+# the potential_evapotranspiration_monthly node below), so there is nothing to
+# convert: 1.0 passes it through unscaled.
+evap_factor = 1.0
 equilibrium_threshold = 1e-06
 zero_threshold = 1e-08
 
@@ -121,14 +125,19 @@ expression = 'leaf_pool_weekly / pft_params["leaf_carbon_area"]'
 units = "m2 m-2"  # leaf carbon per ground area / leaf carbon per leaf area
 freq = "7D"
 
-# SPLASH AET is a daily rate (mm d-1); RothC wants a monthly total (mm).
+# PET, not AET: RothC's water balance is rainfall minus evaporative *demand*, and
+# it derives its own moisture deficit from that. Feeding it AET -- the water the
+# soil actually gave up, which is already suppressed by the very dryness RothC is
+# trying to compute -- double-counts the limitation and holds the soil too wet.
+#
+# SPLASH PET is a daily rate (mm d-1); RothC wants a monthly total (mm).
 # Summing the daily rate over the month integrates it (daily Δt = 1 day, so
 # Σ mm d-1 is numerically the monthly mm total); units = "mm" relabels the
 # rate as the resulting total.
 [[node]]
-name = "evaporation_monthly"
-inputs = ["actual_evapotranspiration_daily"]
-expression = "actual_evapotranspiration_daily.resample(time='1ME').sum()"
+name = "potential_evapotranspiration_monthly"
+inputs = ["potential_evapotranspiration_daily"]
+expression = "potential_evapotranspiration_daily.resample(time='1ME').sum()"
 units = "mm"
 freq = "1ME"
 

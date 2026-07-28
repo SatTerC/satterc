@@ -379,7 +379,9 @@ class TestRothcExecution:
         return _rothc(
             temperature_monthly=_da(np.full((n_months, n_pixels), 10.0)),
             precipitation_monthly=_da(np.full((n_months, n_pixels), 50.0)),
-            evaporation_monthly=_da(np.full((n_months, n_pixels), 30.0)),
+            potential_evapotranspiration_monthly=_da(
+                np.full((n_months, n_pixels), 30.0)
+            ),
             plant_cover_monthly=_da(np.ones((n_months, n_pixels), dtype=bool)),
             dpm_rpm_ratio_monthly=_da(np.full((n_months, n_pixels), 1.44)),
             soil_carbon_input_monthly=_da(np.full((n_months, n_pixels), 0.2)),
@@ -501,7 +503,7 @@ class TestRothcDriverExecution:
             inputs={
                 "temperature_monthly": _mda(10.0),
                 "precipitation_monthly": _mda(50.0),
-                "evaporation_monthly": _mda(30.0),
+                "potential_evapotranspiration_monthly": _mda(30.0),
                 "soil_carbon_input_monthly": _mda(0.2),
                 "clay_content": _sda(30.0),
                 "soil_depth": _sda(25.0),

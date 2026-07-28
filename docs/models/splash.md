@@ -83,11 +83,12 @@ And the following static `DataArray` inputs:
 
 ### Outputs
 
-SPLASH returns three daily `DataArray` outputs:
+SPLASH returns four daily `DataArray` outputs:
 
 | Variable | Units | Description |
 |----------|-------|-------------|
 | `actual_evapotranspiration_daily` | mm·d⁻¹ | Actual evapotranspiration |
+| `potential_evapotranspiration_daily` | mm·d⁻¹ | Potential evapotranspiration (Priestley-Taylor energy-limited demand) |
 | `soil_moisture_daily` | mm | Soil moisture content |
 | `runoff_daily` | mm | Surface water runoff |
 

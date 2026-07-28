@@ -62,6 +62,16 @@ n_years_spinup = 1
 | Parameter | Default | Description |
 |-----------|---------|-------------|
 | `n_years_spinup` | 1 | Number of years of climate data to use for model spin-up |
+| `evap_factor` | 1.0 | Factor applied to `potential_evapotranspiration_monthly` before the water balance |
+
+RothC's own evaporation driver is open-pan evaporation, which the underlying
+RothC_Py scales by 0.75 to get evapotranspiration. SatTerC instead supplies
+potential evapotranspiration directly — SPLASH computes it (Priestley-Taylor) on
+its way to AET — so there is nothing to convert and `evap_factor` defaults to
+1.0. Note that PET, not AET, is the right driver: RothC's water balance is
+rainfall minus evaporative *demand*, and AET is already suppressed by the soil
+dryness RothC is itself computing, so feeding AET in double-counts the water
+limitation and holds the soil systematically too wet.
 
 ### Required inputs
 
@@ -71,7 +81,7 @@ RothC requires the following monthly `DataArray` inputs:
 |----------|-------|-------------|
 | `temperature_monthly` | °C | Monthly mean air temperature |
 | `precipitation_monthly` | mm | Monthly precipitation |
-| `evaporation_monthly` | mm | Monthly open pan evaporation |
+| `potential_evapotranspiration_monthly` | mm | Monthly total potential evapotranspiration |
 | `plant_cover_monthly` | dimensionless (0–1) | Monthly plant cover (boolean: covered or bare) |
 | `dpm_rpm_ratio_monthly` | dimensionless | Ratio of decomposable to resistant plant material |
 | `soil_carbon_input_monthly` | tC·ha⁻¹ | Carbon input from litter for the month |

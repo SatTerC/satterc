@@ -68,7 +68,7 @@ def rothc_inputs() -> dict:
     return dict(
         temperature_monthly=_temporal(_vary(10.0, 4.0)),
         precipitation_monthly=_temporal(np.abs(_vary(50.0, 20.0))),
-        evaporation_monthly=_temporal(np.abs(_vary(30.0, 10.0))),
+        potential_evapotranspiration_monthly=_temporal(np.abs(_vary(30.0, 10.0))),
         plant_cover_monthly=_temporal(np.ones((N_MONTHS, N_PIXELS), dtype=bool)),
         dpm_rpm_ratio_monthly=_temporal(np.full((N_MONTHS, N_PIXELS), 1.44)),
         soil_carbon_input_monthly=_temporal(np.abs(_vary(0.2, 0.1))),
@@ -102,7 +102,7 @@ def _reference_loop(inputs: dict) -> dict[str, np.ndarray]:
         data = {
             "t_tmp": col("temperature_monthly", i),
             "t_rain": col("precipitation_monthly", i),
-            "t_evap": col("evaporation_monthly", i),
+            "t_evap": col("potential_evapotranspiration_monthly", i),
             "t_PC": inputs["plant_cover_monthly"].values[:, i].astype(int).tolist(),
             "t_DPM_RPM": col("dpm_rpm_ratio_monthly", i),
             "t_C_Inp": col("soil_carbon_input_monthly", i),
@@ -196,7 +196,7 @@ class TestCachingIntact:
         inputs = {
             "temperature_monthly": _mda(10.0),
             "precipitation_monthly": _mda(50.0),
-            "evaporation_monthly": _mda(30.0),
+            "potential_evapotranspiration_monthly": _mda(30.0),
             "soil_carbon_input_monthly": _mda(0.2),
             "clay_content": _sda(CLAY),
             "soil_depth": _sda(DEPTH),

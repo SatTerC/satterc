@@ -164,14 +164,17 @@ def _(Config, tomllib):
     expression = 'leaf_pool_weekly / pft_params["leaf_carbon_area"]'
     units = "m2 m-2"  # leaf carbon per ground area / leaf carbon per leaf area
 
-    # SPLASH AET is a daily rate (mm d-1); RothC wants a monthly total (mm).
+    # PET, not AET: RothC's water balance is rainfall minus evaporative *demand*.
+    # AET is already suppressed by the dryness RothC is trying to compute, so
+    # feeding it in double-counts the limitation and holds the soil too wet.
+    # SPLASH PET is a daily rate (mm d-1); RothC wants a monthly total (mm).
     # Summing the daily rate over the month integrates it (daily Δt = 1 day, so
     # Σ mm d-1 is numerically the monthly mm total); units = "mm" relabels the
     # rate as the resulting total.
     [[node]]
-    name = "evaporation_monthly"
-    inputs = ["actual_evapotranspiration_daily"]
-    expression = "actual_evapotranspiration_daily.resample(time='1ME').sum()"
+    name = "potential_evapotranspiration_monthly"
+    inputs = ["potential_evapotranspiration_daily"]
+    expression = "potential_evapotranspiration_daily.resample(time='1ME').sum()"
     units = "mm"
 
     # Precipitation is likewise a daily rate (mm d-1); aggregate to a monthly
