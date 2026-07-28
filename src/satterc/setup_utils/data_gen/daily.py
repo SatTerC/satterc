@@ -46,7 +46,7 @@ precipitation = Var(
     "precipitation",
     lambda g: np.where(
         g.uniform(0.0, 1.0) < 0.6,
-        np.random.exponential(np.abs(2.5 + (54.0 - g.lat) * 0.3 + g.cycle(1.0)) + 0.1),
+        g.rng.exponential(np.abs(2.5 + (54.0 - g.lat) * 0.3 + g.cycle(1.0)) + 0.1),
         0.0,
     ),
     bounds=(0.0, None),
@@ -95,7 +95,7 @@ co2 = Var(
         412.0
         + 5.0 * g.day / max(g.n_days - 1, 1)
         + g.cycle(3.0)
-        + np.random.normal(0.0, 1.0, (g.n_days, 1))
+        + g.rng.normal(0.0, 1.0, (g.n_days, 1))
     ),
 )
 """A rising trend with a seasonal wobble, spatially uniform.
@@ -151,7 +151,7 @@ the same one.
 wind_speed = Var(
     "m s-1",
     "wind speed",
-    lambda g: np.random.weibull(2.0, g.shape) * g.cycle(1.5, phase=np.pi, baseline=4.0),
+    lambda g: g.rng.weibull(2.0, g.shape) * g.cycle(1.5, phase=np.pi, baseline=4.0),
     bounds=(0.0, None),
 )
 """Weibull (shape 2, typical for mid-latitudes), windier in winter."""

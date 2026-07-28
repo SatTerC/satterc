@@ -16,6 +16,7 @@ and a constant can return a scalar.
 """
 
 import logging
+import zlib
 from collections.abc import Callable
 from dataclasses import dataclass
 from types import ModuleType
@@ -137,9 +138,12 @@ class _Ctx:
     the same expression serve a daily and a static variable.
     """
 
-    def __init__(self, resolver: "Resolver") -> None:
+    def __init__(self, resolver: "Resolver", rng: np.random.Generator) -> None:
         self._resolver = resolver
         self.grid = resolver.grid
+        self.rng = rng
+        """This variable's own random stream. Use it for any draw the helpers
+        below do not cover, so that the variable stays independent of the rest."""
 
     @property
     def shape(self) -> tuple[int, ...]:
@@ -168,14 +172,14 @@ class _Ctx:
         return self._resolver.static(name).values
 
     def uniform(self, low: float, high: float) -> NDArray[np.float64]:
-        return np.random.uniform(low, high, self.shape)
+        return self.rng.uniform(low, high, self.shape)
 
     def normal(self, loc: float, scale: float) -> NDArray[np.float64]:
-        return np.random.normal(loc, scale, self.shape)
+        return self.rng.normal(loc, scale, self.shape)
 
     def integers(self, low: int, high: int) -> NDArray[np.float64]:
         """Integers drawn uniformly from ``[low, high)``, as floats."""
-        return np.random.randint(low, high, self.shape).astype(float)
+        return self.rng.integers(low, high, self.shape).astype(float)
 
 
 class StaticCtx(_Ctx):
@@ -192,7 +196,7 @@ class StaticCtx(_Ctx):
         Smoothing over a fraction of the grid gives neighbouring pixels similar
         values, so fields like elevation vary smoothly rather than per-pixel.
         """
-        noise = np.random.normal(0.0, scale, (self.grid.n_lat, self.grid.n_lon))
+        noise = self.rng.normal(0.0, scale, (self.grid.n_lat, self.grid.n_lon))
         radius = max(1, min(self.grid.n_lat, self.grid.n_lon) // 3)
         return smooth2d(noise, radius).ravel()
 
@@ -248,9 +252,9 @@ class DailyCtx(_Ctx):
         n_days, n_pixels = self.shape
         innovation_std = sigma * np.sqrt(1.0 - phi**2)
         noise = np.empty((n_days, n_pixels))
-        noise[0] = np.random.normal(0.0, sigma, n_pixels)
+        noise[0] = self.rng.normal(0.0, sigma, n_pixels)
         for t in range(1, n_days):
-            noise[t] = phi * noise[t - 1] + np.random.normal(
+            noise[t] = phi * noise[t - 1] + self.rng.normal(
                 0.0, innovation_std, n_pixels
             )
         return noise
@@ -271,8 +275,10 @@ class Resolver:
         daily_vars: dict[str, Var],
         static_vars: dict[str, Var],
         fallback: Callable[[str], Var],
+        seed: int = 42,
     ) -> None:
         self.grid = grid
+        self.seed = seed
         self._tables = {"daily": daily_vars, "static": static_vars}
         self._fallback = fallback
         self._cache: dict[tuple[str, str], xr.DataArray] = {}
@@ -298,13 +304,25 @@ class Resolver:
         self._resolving.add(key)
         try:
             var = self._tables[kind].get(name) or self._fallback(name)
-            ctx = DailyCtx(self) if kind == "daily" else StaticCtx(self)
+            rng = self._rng_for(kind, name)
+            ctx = DailyCtx(self, rng) if kind == "daily" else StaticCtx(self, rng)
             result = self._build(name, var, ctx)
         finally:
             self._resolving.discard(key)
 
         self._cache[key] = result
         return result
+
+    def _rng_for(self, kind: str, name: str) -> np.random.Generator:
+        """Build a stream of this variable's own, from the seed and its name.
+
+        Deriving from the name rather than drawing from one shared stream means a
+        variable's values do not depend on which *other* variables were asked
+        for, or in what order. Two configs requesting different sets agree on the
+        ones they share, and one input file can be regenerated without disturbing
+        the rest. `zlib.crc32` because `hash` is salted per process.
+        """
+        return np.random.default_rng([self.seed, zlib.crc32(f"{kind}:{name}".encode())])
 
     def _build(self, name: str, var: Var, ctx: _Ctx) -> xr.DataArray:
         values = np.broadcast_to(np.asarray(var.gen(ctx), dtype=float), ctx.shape)

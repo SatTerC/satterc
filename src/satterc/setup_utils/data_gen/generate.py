@@ -16,7 +16,6 @@ import json
 from os import PathLike
 from pathlib import Path
 
-import numpy as np
 import xarray as xr
 from conduit import IOSpec, ParsedConfig
 from conduit.formats import dataset_to_frame, format_for, write_frame, write_in_group
@@ -103,12 +102,10 @@ def generate_synthetic_data(
     n_days : int
         Number of days to generate.
     seed : int
-        Random seed for reproducibility. Note that the values depend on the
-        variables requested and the order they are generated in, so two configs
-        asking for different variables will not agree on the ones they share.
+        Random seed for reproducibility. Each variable draws from its own stream,
+        derived from this seed and the variable's name, so its values do not
+        depend on what else the config asked for.
     """
-    np.random.seed(seed)
-
     n_lat, n_lon = grid
 
     daily_spec = config.input_specs.get("daily")
@@ -126,6 +123,7 @@ def generate_synthetic_data(
         daily_vars=DAILY_VARS,
         static_vars=STATIC_VARS,
         fallback=fallback_var,
+        seed=seed,
     )
 
     def _at(var: str, freq: str | None) -> xr.DataArray:

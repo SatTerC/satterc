@@ -32,19 +32,14 @@ def _documented_names(module) -> set[str]:
     }
 
 
-def make_resolver(daily_vars=None, static_vars=None) -> Resolver:
+def make_resolver(daily_vars=None, static_vars=None, seed=0) -> Resolver:
     return Resolver(
         grid=Grid(n_lat=N_LAT, n_lon=N_LON, n_days=N_DAYS),
         daily_vars=DAILY_VARS if daily_vars is None else daily_vars,
         static_vars=STATIC_VARS if static_vars is None else static_vars,
         fallback=fallback_var,
+        seed=seed,
     )
-
-
-@pytest.fixture(autouse=True)
-def _seeded():
-    """Several assertions here are statistical; pin the global draw sequence."""
-    np.random.seed(0)
 
 
 @pytest.fixture
@@ -138,18 +133,45 @@ class TestDependencies:
 
 class TestSeed:
     def test_same_seed_gives_same_values(self):
-        np.random.seed(7)
-        first = make_resolver().daily("temperature").values
-        np.random.seed(7)
-        second = make_resolver().daily("temperature").values
+        first = make_resolver(seed=7).daily("temperature").values
+        second = make_resolver(seed=7).daily("temperature").values
         np.testing.assert_array_equal(first, second)
 
     def test_different_seed_gives_different_values(self):
-        np.random.seed(7)
-        first = make_resolver().daily("temperature").values
-        np.random.seed(8)
-        second = make_resolver().daily("temperature").values
+        first = make_resolver(seed=7).daily("temperature").values
+        second = make_resolver(seed=8).daily("temperature").values
         assert not np.array_equal(first, second)
+
+    def test_unaffected_by_global_random_state(self):
+        """Generation must not depend on whatever else touched np.random."""
+        np.random.seed(1)
+        first = make_resolver(seed=7).daily("temperature").values
+        np.random.seed(2)
+        np.random.random(1000)
+        second = make_resolver(seed=7).daily("temperature").values
+        np.testing.assert_array_equal(first, second)
+
+    def test_variable_is_independent_of_what_else_was_requested(self):
+        """The point of per-variable streams: no coupling through draw order."""
+        alone = make_resolver(seed=7).daily("temperature").values
+
+        resolver = make_resolver(seed=7)
+        resolver.daily("precipitation")
+        resolver.static("clay_content")
+        after_others = resolver.daily("temperature").values
+
+        np.testing.assert_array_equal(alone, after_others)
+
+    def test_different_variables_do_not_share_a_stream(self):
+        """Names must seed distinctly, or two variables would be identical."""
+        table = {
+            "first": Var("1", "", lambda g: g.normal(0.0, 1.0)),
+            "second": Var("1", "", lambda g: g.normal(0.0, 1.0)),
+        }
+        resolver = make_resolver(static_vars=table)
+        assert not np.array_equal(
+            resolver.static("first").values, resolver.static("second").values
+        )
 
 
 class TestTables:
