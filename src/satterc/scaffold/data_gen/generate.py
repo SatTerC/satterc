@@ -1,11 +1,11 @@
 """Generate synthetic input data for a satterc config.
 
 Everything is generated at daily resolution — from the tables in
-`satterc.setup_utils.data_gen.daily` / `.static` where the variable has an entry,
+`satterc.scaffold.data_gen.daily` / `.static` where the variable has an entry,
 and from a name-heuristic fallback otherwise — then aggregated to the coarser
 files with `conduit.transforms.resample`.
 
-Generation is driven by `satterc.setup_utils.data_gen.spec.Resolver`, which
+Generation is driven by `satterc.scaffold.data_gen.spec.Resolver`, which
 memoises each variable and resolves dependencies between them on demand. It is
 deliberately not a Hamilton DAG: the pipeline's own graph is conduit's business,
 whereas this is a handful of generators in one process, and a plain resolver

@@ -21,7 +21,7 @@ checkout, if present) rather than guessing at its API.
 - Plain config files in `examples/` (`config.toml`, `graphviz.toml`) are **not** loaded by any code or tooling — they are user-facing references only, so nothing will catch a mistake in them. Check with `satterc run --dry-run`.
 - Documentation uses **zensical** (markdown, mkdocstrings-material-like), **not** Sphinx/rst.
 - Synthetic data is table-driven: a variable is one `Var` row (units, long name,
-  one generator lambda) in `setup_utils/data_gen/daily.py` or `static.py`. Adding
+  one generator lambda) in `scaffold/data_gen/daily.py` or `static.py`. Adding
   a model's inputs means adding rows, not writing generator functions. A variable
   with no row still generates — `fallback.py` infers plausible noise from the
   name — so only add a row where the *structure* matters: the model responds to

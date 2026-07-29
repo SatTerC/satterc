@@ -1,10 +1,10 @@
-"""Tests for satterc.setup_utils.data_gen.fallback."""
+"""Tests for satterc.scaffold.data_gen.fallback."""
 
 import numpy as np
 import pytest
 
-from satterc.setup_utils.data_gen.fallback import fallback_var, infer_kind
-from satterc.setup_utils.data_gen.spec import Grid, Resolver
+from satterc.scaffold.data_gen.fallback import fallback_var, infer_kind
+from satterc.scaffold.data_gen.spec import Grid, Resolver
 
 N_DAYS = 10
 N_LAT, N_LON = 2, 3

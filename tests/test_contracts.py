@@ -18,7 +18,7 @@ from conduit import ParsedConfig, build_driver, get_final_vars, load_config, loa
 from conduit.specs import AnnotationPolicySpec
 from conftest import NODES_BROKEN_ON_PY314
 
-from satterc.setup_utils.data_gen import generate_synthetic_data
+from satterc.scaffold.data_gen import generate_synthetic_data
 
 EXAMPLE_CONFIG = Path(__file__).parent.parent / "examples" / "config.toml"
 

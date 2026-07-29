@@ -1,9 +1,9 @@
 """Table of static (time-invariant) synthetic variables.
 
-Each entry is a `satterc.setup_utils.data_gen.spec.Var` bound to a module-level
+Each entry is a `satterc.scaffold.data_gen.spec.Var` bound to a module-level
 name: units, a long name, and one lambda producing values from the `StaticCtx` it
 is handed. Adding an input for a new model means adding an entry here — see the
-module docstring of `satterc.setup_utils.data_gen.spec` for what the context
+module docstring of `satterc.scaffold.data_gen.spec` for what the context
 offers. The entry's docstring is what explains *why* it is generated that way.
 
 Several entries derive from `elevation` rather than drawing independently, so

@@ -70,7 +70,7 @@ def _():
     from conduit import build_driver, get_final_vars, get_outputs, load_inputs
     from conduit.config import Config
 
-    from satterc.setup_utils.data_gen import generate_synthetic_data
+    from satterc.scaffold.data_gen import generate_synthetic_data
 
     return (
         Config,

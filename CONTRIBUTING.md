@@ -87,7 +87,7 @@ Built-in models live in `src/satterc/pipeline/models/`. To add a new model:
 
 4. **Use the `@xarray_io()` decorator** — for the inner computation function that works with raw numpy arrays, this decorator handles conversion to/from xarray.
 
-5. **Register the model** — add it to the `BuiltinModels` enum in `src/satterc/setup_utils/__init__.py`.
+5. **Register the model** — add it to the `BuiltinModels` enum in `src/satterc/scaffold/__init__.py`.
 
 6. **Add documentation** — create a page in `docs/Models/` and add it to the navigation in `zensical.toml`.
 

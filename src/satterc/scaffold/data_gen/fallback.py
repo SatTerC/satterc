@@ -1,6 +1,6 @@
 """Synthesise a `Var` for a variable that has no table entry.
 
-The tables in `satterc.setup_utils.data_gen.daily` / `.static` only need to cover
+The tables in `satterc.scaffold.data_gen.daily` / `.static` only need to cover
 variables whose *structure* matters — those a model responds to seasonally, or
 that other variables derive from. Everything else can be noise of roughly the
 right character, which is what this module infers from the variable's name.

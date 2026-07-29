@@ -4,7 +4,7 @@ A synthetic variable is one `Var` in a table: units, a long name, and a single
 generator lambda. Everything mechanical — grid geometry, array shapes,
 coordinates, clipping to physical bounds, dtype, and resolving one variable's
 dependency on another — lives here, so supporting a new model's inputs means
-adding rows to the tables in `satterc.setup_utils.data_gen.daily` /
+adding rows to the tables in `satterc.scaffold.data_gen.daily` /
 `.static` rather than writing a generator function per variable.
 
 The generator is called with a context (`DailyCtx` or `StaticCtx`) that carries

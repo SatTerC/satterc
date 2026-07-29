@@ -9,8 +9,8 @@ import typer
 from conduit import ParsedConfig, load_config
 from typer import Abort
 
-from ..setup_utils.data_gen import generate_synthetic_data
-from ..setup_utils.data_gen.spec import (
+from ..scaffold.data_gen import generate_synthetic_data
+from ..scaffold.data_gen.spec import (
     DEFAULT_LAT_RANGE,
     DEFAULT_LON_RANGE,
     DEFAULT_START_DATE,

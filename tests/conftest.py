@@ -6,7 +6,7 @@ import xarray as xr
 from conduit import build_driver, load_config, load_inputs
 from conduit.specs import AnnotationPolicySpec
 
-from satterc.setup_utils.data_gen import generate_synthetic_data
+from satterc.scaffold.data_gen import generate_synthetic_data
 
 # The fixtures build DAGs and run models over deliberately small, synthetic
 # arrays. Contract validation is conduit's job and is exercised by conduit's own

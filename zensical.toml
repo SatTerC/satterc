@@ -32,6 +32,7 @@ nav = [
       "examples/full_pipeline.md",
   ]},
   { "API Reference" = [
+      "api/satterc.frequencies.md",
       "api/satterc.cli/index.md",
       "api/satterc.cli/setup.md",
       "api/satterc.cli/data_gen.md",
@@ -40,12 +41,12 @@ nav = [
       "api/satterc.models/pmodel.md",
       "api/satterc.models/sgam.md",
       "api/satterc.models/rothc.md",
-      "api/satterc.setup_utils/config_gen.md",
-      "api/satterc.setup_utils/data_gen/spec.md",
-      "api/satterc.setup_utils/data_gen/daily.md",
-      "api/satterc.setup_utils/data_gen/static.md",
-      "api/satterc.setup_utils/data_gen/fallback.md",
-      "api/satterc.setup_utils/data_gen/generate.md",
+      "api/satterc.scaffold/config_gen.md",
+      "api/satterc.scaffold/data_gen/spec.md",
+      "api/satterc.scaffold/data_gen/daily.md",
+      "api/satterc.scaffold/data_gen/static.md",
+      "api/satterc.scaffold/data_gen/fallback.md",
+      "api/satterc.scaffold/data_gen/generate.md",
   ]},
 ]
 

@@ -49,7 +49,7 @@ def _():
     from conduit.config import Config
     from scipy.optimize import OptimizeResult, minimize
 
-    from satterc.setup_utils.data_gen import generate_synthetic_data
+    from satterc.scaffold.data_gen import generate_synthetic_data
 
     return (
         Config,

@@ -1,4 +1,4 @@
-"""Tests for satterc.setup_utils.data_gen.spec — the table-driven machinery."""
+"""Tests for satterc.scaffold.data_gen.spec — the table-driven machinery."""
 
 import ast
 import inspect
@@ -7,17 +7,17 @@ from itertools import pairwise
 import numpy as np
 import pytest
 
-from satterc.setup_utils.data_gen import daily, static
-from satterc.setup_utils.data_gen.daily import DAILY_VARS
-from satterc.setup_utils.data_gen.fallback import fallback_var
-from satterc.setup_utils.data_gen.spec import (
+from satterc.scaffold.data_gen import daily, static
+from satterc.scaffold.data_gen.daily import DAILY_VARS
+from satterc.scaffold.data_gen.fallback import fallback_var
+from satterc.scaffold.data_gen.spec import (
     Grid,
     Resolver,
     StaticCtx,
     Var,
     collect_vars,
 )
-from satterc.setup_utils.data_gen.static import STATIC_VARS
+from satterc.scaffold.data_gen.static import STATIC_VARS
 
 N_DAYS = 40
 N_LAT, N_LON = 2, 3

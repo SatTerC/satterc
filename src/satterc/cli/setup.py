@@ -6,13 +6,13 @@ from pathlib import Path
 import typer
 from conduit.config import Config
 
-from ..setup_utils import (
+from ..scaffold import (
     BuiltinModels,
     generate_config,
     get_builtin_models,
     get_model_params,
 )
-from ..setup_utils.data_gen import generate_synthetic_data
+from ..scaffold.data_gen import generate_synthetic_data
 
 app = typer.Typer(help="Generate a configuration file for SatTerC.")
 

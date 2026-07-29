@@ -93,7 +93,7 @@ def _strip_suffix(name: str) -> tuple[str, str | None]:
 
 def get_builtin_models() -> list[str]:
     """Get list of builtin models."""
-    from ..setup_utils import BuiltinModels
+    from ..scaffold import BuiltinModels
 
     return [m.value for m in BuiltinModels]
 
