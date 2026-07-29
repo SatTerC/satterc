@@ -1,6 +1,7 @@
 """CLI for generating configuration files."""
 
 import re
+from importlib import import_module
 from pathlib import Path
 
 import typer
@@ -169,6 +170,25 @@ def _select_builtin_models() -> list[str]:
     return selected
 
 
+def _import_error(module_path: str) -> str | None:
+    """Return why ``module_path`` cannot be imported, or ``None`` if it can.
+
+    A path that does not import is almost always a typo, and used to be accepted
+    in silence: `get_model_params` swallows the ImportError and returns ``{}``,
+    so a mistyped module was reported as "no configurable parameters found" and
+    only failed much later, when the pipeline ran. Importing here is also what
+    makes that message trustworthy when it does appear.
+
+    Adding one anyway stays possible — a module may be installed between writing
+    the config and running it — so this reports rather than decides.
+    """
+    try:
+        import_module(module_path)
+    except Exception as err:
+        return f"{type(err).__name__}: {err}"
+    return None
+
+
 def _select_custom_modules() -> list[str]:
     """Interactive selection loop for custom module paths.
 
@@ -197,6 +217,12 @@ def _select_custom_modules() -> list[str]:
             selected.remove(choice)
             typer.echo(f"  Removed: {choice}")
             continue
+
+        error = _import_error(choice)
+        if error is not None:
+            typer.echo(f"  Cannot import {choice!r}: {error}")
+            if not typer.confirm("  Add it anyway?", default=False):
+                continue
 
         try:
             params = get_model_params(choice)

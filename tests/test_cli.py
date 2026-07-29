@@ -15,7 +15,12 @@ from satterc.cli.data_gen import (
     _parse_start_date,
     _validate_output_paths,
 )
-from satterc.cli.setup import _display_models, _parse_selections, _toggle_selections
+from satterc.cli.setup import (
+    _display_models,
+    _import_error,
+    _parse_selections,
+    _toggle_selections,
+)
 
 runner = CliRunner()
 
@@ -413,6 +418,46 @@ class TestModelSelectionFlag:
         assert result.exit_code != 0
         assert "nosuch" in result.output
         assert "splash" in result.output  # names the alternatives
+
+
+class TestCustomModuleImportCheck:
+    """A mistyped module path used to be accepted in silence.
+
+    `get_model_params` swallows the ImportError and returns {}, so a typo was
+    reported as "no configurable parameters found" and only failed later, when
+    the pipeline ran.
+    """
+
+    def test_importable_module_is_added_without_a_prompt(self):
+        assert _import_error("satterc.models.rothc") is None
+
+    def test_unimportable_module_reports_why(self):
+        error = _import_error("nosuch.module")
+        assert error is not None
+        assert "ModuleNotFoundError" in error
+
+    def test_declining_leaves_the_typo_out(self, tmp_path):
+        out = tmp_path / "config.toml"
+        # builtin splash; then a typo'd custom module, declined; defaults; no data
+        result = runner.invoke(
+            app,
+            ["setup", "-o", str(out)],
+            input="1\n0\nnosuch.module\nn\n\ny\n\nn\n",
+        )
+        assert result.exit_code == 0, result.output
+        assert "Cannot import 'nosuch.module'" in result.output
+        assert "nosuch.module" not in out.read_text()
+
+    def test_accepting_anyway_still_adds_it(self, tmp_path):
+        """The escape hatch: a module may be installed before the config is run."""
+        out = tmp_path / "config.toml"
+        result = runner.invoke(
+            app,
+            ["setup", "-o", str(out)],
+            input="1\n0\nnosuch.module\ny\n\ny\n\nn\n",
+        )
+        assert result.exit_code == 0, result.output
+        assert '_import_path = "nosuch.module"' in out.read_text()
 
 
 class TestSetupCommandNonInteractive:
