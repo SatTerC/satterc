@@ -357,6 +357,64 @@ class TestSetupHelpers:
 # ---------------------------------------------------------------------------
 
 
+class TestModelSelectionFlag:
+    """`--models` must accept every form a user would reasonably try.
+
+    It was a single-valued option, so `-m splash -m pmodel` silently kept only
+    the last — quietly generating a one-model config from a four-model command
+    line, with no warning and exit 0.
+    """
+
+    FOUR = ("splash", "pmodel", "sgam", "rothc")
+
+    def _models_in(self, path) -> list[str]:
+        with open(path, "rb") as f:
+            data = tomllib.load(f)
+        return [
+            k for k, v in data.items() if isinstance(v, dict) and "_import_path" in v
+        ]
+
+    @pytest.mark.parametrize(
+        "flags",
+        [
+            pytest.param(
+                ["-m", "splash", "-m", "pmodel", "-m", "sgam", "-m", "rothc"],
+                id="repeated-flag",
+            ),
+            pytest.param(["-m", "splash,pmodel,sgam,rothc"], id="comma-separated"),
+            pytest.param(["-m", "splash pmodel sgam rothc"], id="space-separated"),
+            pytest.param(["-m", "splash,pmodel", "-m", "sgam,rothc"], id="mixed"),
+        ],
+    )
+    def test_equivalent_forms_all_select_four_models(self, tmp_path, flags):
+        out = tmp_path / "config.toml"
+        result = runner.invoke(app, ["setup", "-d", "-o", str(out), *flags])
+        assert result.exit_code == 0, result.output
+        assert sorted(self._models_in(out)) == sorted(self.FOUR)
+
+    def test_order_is_preserved_and_repeats_collapse(self, tmp_path):
+        out = tmp_path / "config.toml"
+        result = runner.invoke(
+            app, ["setup", "-d", "-o", str(out), "-m", "rothc,splash,rothc"]
+        )
+        assert result.exit_code == 0, result.output
+        assert self._models_in(out) == ["rothc", "splash"]
+
+    def test_empty_selection_is_rejected(self, tmp_path):
+        """It used to write a config with no models at all, and exit 0."""
+        out = tmp_path / "config.toml"
+        result = runner.invoke(app, ["setup", "-d", "-o", str(out), "-m", ""])
+        assert result.exit_code != 0
+        assert not out.exists()
+
+    def test_unknown_model_lists_the_valid_ones(self, tmp_path):
+        out = tmp_path / "config.toml"
+        result = runner.invoke(app, ["setup", "-d", "-o", str(out), "-m", "nosuch"])
+        assert result.exit_code != 0
+        assert "nosuch" in result.output
+        assert "splash" in result.output  # names the alternatives
+
+
 class TestSetupCommandNonInteractive:
     def test_defaults_creates_toml(self, tmp_path):
         out = tmp_path / "config.toml"

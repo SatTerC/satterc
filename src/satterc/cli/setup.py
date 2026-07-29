@@ -92,6 +92,35 @@ def _toggle_selections(
     return current
 
 
+def _resolve_models(models: list[str]) -> list[str]:
+    """Validate ``--models`` occurrences into an ordered, deduplicated list.
+
+    Each occurrence may itself hold several names, so ``-m splash -m pmodel`` and
+    ``-m splash,pmodel`` mean the same thing. The option is repeatable because a
+    single-valued one silently keeps only the last occurrence, which quietly
+    generated a one-model config from a four-model command line.
+    """
+    names = [name for occurrence in models for name in _parse_selections(occurrence)]
+
+    if not names:
+        raise typer.BadParameter(
+            "No models given. Pass at least one (e.g. '-m splash,pmodel'), or "
+            "omit --models to choose interactively."
+        )
+
+    resolved: list[str] = []
+    for name in names:
+        try:
+            value = BuiltinModels(name).value
+        except ValueError as err:
+            raise typer.BadParameter(
+                f"Unknown model {name!r}. Available: {', '.join(get_builtin_models())}."
+            ) from err
+        if value not in resolved:  # order preserved; a repeat is not an error
+            resolved.append(value)
+    return resolved
+
+
 def _select_builtin_models() -> list[str]:
     """Interactive selection loop for built-in models.
 
@@ -187,13 +216,14 @@ def _select_custom_modules() -> list[str]:
 
 @app.command()
 def setup(
-    models: str | None = typer.Option(
+    models: list[str] | None = typer.Option(
         None,
         "-m",
         "--models",
         help=(
-            "Built-in models (e.g., -m splash pmodel). "
-            "If not provided, runs interactive selector."
+            "Built-in models to include. Repeat the flag or separate names with "
+            "commas: '-m splash -m pmodel' and '-m splash,pmodel' are equivalent. "
+            "Omit to choose interactively."
         ),
     ),
     output: Path = typer.Option(
@@ -227,13 +257,7 @@ def setup(
         overwrite_ok = True
 
     if models is not None:
-        model_names = _parse_selections(models)
-        builtin_models = []
-        for name in model_names:
-            try:
-                builtin_models.append(BuiltinModels(name).value)
-            except ValueError as err:
-                raise typer.BadParameter(f"Invalid model: {name}") from err
+        builtin_models = _resolve_models(models)
     else:
         typer.echo("SatTerC Configuration Generator")
         typer.echo("=" * 35)
