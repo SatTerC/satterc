@@ -32,7 +32,7 @@ nav = [
       "examples/full_pipeline.md",
   ]},
   { "API Reference" = [
-      "api/satterc.frequencies.md",
+      "api/satterc.temporal.md",
       "api/satterc.cli/index.md",
       "api/satterc.cli/setup.md",
       "api/satterc.cli/data_gen.md",

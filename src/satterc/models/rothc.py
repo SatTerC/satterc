@@ -13,7 +13,7 @@ from rothc_py.containers import InputData
 from xarray import DataArray
 from xarray_annotated.temporal import declare_freq
 
-from ..frequencies import MONTHLY, time_index
+from ..temporal import MONTHLY, time_index
 
 
 class RothCOut(TypedDict):

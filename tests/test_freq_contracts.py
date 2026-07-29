@@ -19,7 +19,7 @@ import xarray as xr
 from conduit import build_driver
 from xarray_annotated.temporal import FreqError, check_freq, policy
 
-from satterc import frequencies as _time
+from satterc import temporal as _time
 from satterc.models import pmodel, rothc, sgam, splash
 
 MODULES = {

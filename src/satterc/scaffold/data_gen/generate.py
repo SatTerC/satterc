@@ -22,7 +22,7 @@ from conduit.formats import dataset_to_frame, format_for, write_frame, write_in_
 from conduit.gridded.io import unstack_if_gridded
 from conduit.transforms import resample
 
-from ...frequencies import offset
+from ...temporal import offset
 from .daily import DAILY_VARS
 from .fallback import fallback_var
 from .spec import (

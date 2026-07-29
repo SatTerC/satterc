@@ -12,7 +12,7 @@ from sgam import Disturbances, Sgam
 from sgam.pft import PftParams, PlantFunctionalType, get_default_pft_params
 from xarray_annotated.temporal import declare_freq
 
-from ..frequencies import DAILY, WEEKLY, time_index
+from ..temporal import DAILY, WEEKLY, time_index
 
 # SGAM output node names, in the order they are returned by `_sgam_1px` and mapped
 # onto the DAG node names below.

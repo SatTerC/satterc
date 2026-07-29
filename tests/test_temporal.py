@@ -1,6 +1,6 @@
 """One spelling of each temporal resolution, shared by everything that needs it.
 
-`satterc.frequencies` exists because the models, the config generator and the
+`satterc.temporal` exists because the models, the config generator and the
 synthetic data generator all have to agree on what "weekly" means. They used to
 carry three separate spellings of ``"7D"`` and ``"1ME"``, kept in step by a
 comment. These tests pin the agreement so it cannot drift back apart silently —
@@ -12,8 +12,9 @@ import typing
 import pytest
 from xarray_annotated.temporal import Freq
 
-from satterc import frequencies
-from satterc.frequencies import (
+from satterc import temporal
+from satterc.models import pmodel, rothc, sgam, splash
+from satterc.temporal import (
     BY_LABEL,
     DAILY,
     MONTHLY,
@@ -21,7 +22,6 @@ from satterc.frequencies import (
     offset,
     resample_offset,
 )
-from satterc.models import pmodel, rothc, sgam, splash
 
 
 class TestOffsets:
@@ -114,11 +114,11 @@ class TestOneSourceOfTruth:
         """
         from pathlib import Path
 
-        package = Path(frequencies.__file__).parent
+        package = Path(temporal.__file__).parent
         offenders = [
             path.relative_to(package)
             for path in package.rglob("*.py")
-            if path.name != "frequencies.py"
+            if path.name != "temporal.py"
             and any(lit in path.read_text() for lit in ('"7D"', '"1ME"'))
         ]
-        assert offenders == [], f"offset literals outside frequencies.py: {offenders}"
+        assert offenders == [], f"offset literals outside temporal.py: {offenders}"

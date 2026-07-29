@@ -29,7 +29,7 @@ SatTerC convention, not framework behaviour: conduit treats a config section's
 label as inert and infers no frequency from it. What actually carries the
 frequency is a contract declared on each model's signature:
 
-| Suffix | Declared offset | `satterc.frequencies` |
+| Suffix | Declared offset | `satterc.temporal` |
 |--------|-----------------|------------------------|
 | `_daily` | `D` | `DAILY` |
 | `_weekly` | `7D` (unanchored — any weekday) | `WEEKLY` |

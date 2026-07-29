@@ -16,7 +16,7 @@ from hamilton.settings import ENABLE_POWER_USER_MODE
 from xarray_annotated import unwrap_annotated
 
 from .. import models as model_modules
-from ..frequencies import resample_offset
+from ..temporal import resample_offset
 
 
 #: The pandas offsets behind satterc's node-name suffixes, for the ``freq`` key
@@ -78,7 +78,7 @@ def _strip_suffix(name: str) -> tuple[str, str | None]:
     behaviour: conduit treats an input section's label as inert and infers no
     frequency from it. They are what this generator uses to decide which file a
     variable belongs in, and they match the `Freq` contracts the model modules
-    declare (see `satterc.frequencies`).
+    declare (see `satterc.temporal`).
 
     Returns
     -------

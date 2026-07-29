@@ -17,7 +17,7 @@ from numpy.typing import NDArray
 from xarray import DataArray
 from xarray_annotated.temporal import declare_freq
 
-from ..frequencies import DAILY, WEEKLY
+from ..temporal import DAILY, WEEKLY
 
 
 class PModelOut(TypedDict):
