@@ -1,4 +1,4 @@
-"""The temporal resolutions a satterc pipeline speaks in.
+"""The time axis: the resolutions a pipeline speaks in, and how to read one.
 
 conduit deliberately infers nothing from a node's name: an input's frequency is
 validated only where a consumer *declares* it. These are satterc's declarations —
@@ -13,12 +13,19 @@ them. Those three were previously three separate spellings of ``"7D"`` and
 ``"1ME"``, kept in step by a comment; changing the weekly convention meant
 finding all three, and missing one surfaced as a contract mismatch at runtime.
 
+`time_index` sits here rather than with the models because it is the other half
+of the same subject — the models declare a `Freq` contract, and this is how they
+get the axis that contract describes.
+
 The offsets are unanchored on purpose. ``Freq("7D")`` constrains the *spacing*
 only, so a weekly series is accepted whichever weekday it starts on; pinning the
 phase (``"W-SUN"``) would reject a perfectly good pipeline whose resample happens
 to land on a Wednesday.
 """
 
+import pandas as pd
+import xarray as xr
+from conduit.io import sole_time_dim
 from xarray_annotated.temporal import Freq
 
 #: Daily: one sample per day.
@@ -73,3 +80,28 @@ def resample_offset(from_label: str, to_label: str) -> str:
             f"so the target must be coarser than the source."
         )
     return offset(to_label)
+
+
+def time_index(da: xr.DataArray, what: str) -> pd.DatetimeIndex:
+    """Return ``da``'s time coordinate as a `pandas.DatetimeIndex`.
+
+    The models that wrap a sequential algorithm (SPLASH, SGAM, RothC) need the
+    calendar as well as the values, and conduit no longer supplies it as a
+    separate ``dates_*`` node. The time dimension is detected from the data
+    rather than assumed to be called ``time``, via `conduit.io.sole_time_dim`.
+
+    Parameters
+    ----------
+    da
+        A time-bearing array; only its time coordinate is read.
+    what
+        Human-readable name of ``da``, used in the error raised when it carries
+        no time dimension, or more than one.
+
+    Returns
+    -------
+    pandas.DatetimeIndex
+        The time coordinate.
+    """
+    dim = sole_time_dim(da, what)
+    return pd.DatetimeIndex(da.coords[dim].values)

@@ -78,7 +78,7 @@ def _strip_suffix(name: str) -> tuple[str, str | None]:
     behaviour: conduit treats an input section's label as inert and infers no
     frequency from it. They are what this generator uses to decide which file a
     variable belongs in, and they match the `Freq` contracts the model modules
-    declare (see `satterc.models._time`).
+    declare (see `satterc.frequencies`).
 
     Returns
     -------

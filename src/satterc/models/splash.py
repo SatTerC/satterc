@@ -19,7 +19,7 @@ from pandas import DatetimeIndex
 from xarray import DataArray
 from xarray_annotated.temporal import declare_freq
 
-from ._time import DAILY, time_index
+from ..frequencies import DAILY, time_index
 
 
 class SplashOut(TypedDict):
