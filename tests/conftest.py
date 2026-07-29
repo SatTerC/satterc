@@ -1,4 +1,3 @@
-import sys
 from pathlib import Path
 
 import pytest
@@ -15,45 +14,6 @@ from satterc.scaffold.data_gen import generate_synthetic_data
 AnnotationPolicySpec(enabled=False).apply()
 
 TEST_CONFIG_PATH = Path(__file__).parent / "test_config.toml"
-
-
-#: Every conduit `[[node]]` fails to build on Python 3.14.
-#:
-#: conduit generates a node's function body by `exec` with no return annotation,
-#: then injects the declared contract with `fn.__annotations__["return"] = ...`
-#: (conduit/dag/node.py). xarray-annotated's `declare_units` / `declare_freq` /
-#: `declare_schema` then wrap it with `functools.wraps`. On 3.13 that copies the
-#: mutated `__annotations__` dict; on 3.14, PEP 749 swapped `__annotations__` for
-#: `__annotate__` in `functools.WRAPPER_ASSIGNMENTS`, so the wrapper inherits the
-#: *original compiled* annotate function and the injected return hint is dropped.
-#: Hamilton then rejects the node with "Missing type hint for return value".
-#:
-#: Nothing in satterc can work around this — conduit builds the node module. The
-#: mark is `strict`, so it fails loudly once upstream is fixed and can be removed.
-#: Tracked at https://github.com/NERC-CEH/conduit/issues/8
-def nodes_broken_on_py314(raises: type[BaseException] | None = ValueError):
-    """Build the 3.14 xfail mark, for a test that fails in a particular way.
-
-    `raises` narrows it to the error conduit actually raises, so an unrelated
-    failure on 3.14 is still reported. Pass ``None`` where the failure reaches
-    the test through something that swallows it — a CLI runner turns the
-    ValueError into a non-zero exit code, so the test sees an AssertionError, or
-    a FileNotFoundError from the output that was never written.
-    """
-    return pytest.mark.xfail(
-        sys.version_info >= (3, 14),
-        reason=(
-            "conduit [[node]] lowering loses its injected return annotation on "
-            "Python 3.14: functools.wraps copies __annotate__ rather than "
-            "__annotations__ (PEP 749). Upstream: "
-            "https://github.com/NERC-CEH/conduit/issues/8"
-        ),
-        raises=raises,
-        strict=True,
-    )
-
-
-NODES_BROKEN_ON_PY314 = nodes_broken_on_py314()
 
 GRID = (2, 2)
 N_DAYS = 365

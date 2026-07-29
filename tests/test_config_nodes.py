@@ -19,7 +19,6 @@ from pathlib import Path
 
 import pytest
 from conduit import build_driver, load_config
-from conftest import NODES_BROKEN_ON_PY314
 
 CONFIG = """
 [inputs.daily]
@@ -78,13 +77,8 @@ class TestNodeSpecParsing:
         assert spec.units == "1"
 
 
-@NODES_BROKEN_ON_PY314
 class TestNodeLowering:
-    """Building the graph is what breaks on 3.14, so only these carry the mark.
-
-    The parsing tests above must NOT be marked: they pass on 3.14, and a strict
-    xfail would then fail them as an unexpected pass.
-    """
+    """Building the graph, as distinct from parsing the config that describes it."""
 
     def test_driver_builds(self, node_config):
         """The regression guard: this is what fails when lowering breaks."""
@@ -105,7 +99,10 @@ class TestNodeLowering:
         conduit injects the return annotation after building the function body,
         and the `declare_*` decorators then wrap it. Reading the hint back through
         `get_type_hints` is what catches the injection being lost in between —
-        the Python 3.14 failure mode.
+        which is exactly what PEP 749 caused on Python 3.14, by swapping
+        `__annotations__` for `__annotate__` in `functools.WRAPPER_ASSIGNMENTS`
+        so that `functools.wraps` no longer carried the injected hint across.
+        Fixed upstream in xarray-annotated 0.4.1; this is the regression guard.
         """
         driver = build_driver(
             node_config.modules,

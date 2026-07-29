@@ -14,7 +14,6 @@ it coarsens as a mean) shows up here and nowhere else.
 import numpy as np
 import pytest
 import xarray as xr
-from conftest import nodes_broken_on_py314
 from typer.testing import CliRunner
 
 from satterc.cli import app
@@ -53,10 +52,6 @@ def quickstart(tmp_path_factory):
     return workdir
 
 
-# The CLI runner converts conduit's ValueError into a non-zero exit code, so
-# these see an AssertionError (or a FileNotFoundError from the output that was
-# never written) rather than the original.
-@nodes_broken_on_py314(raises=None)
 class TestQuickstart:
     def test_dry_run_passes(self, quickstart):
         """Catches an unbound input or a contract mismatch without computing."""
