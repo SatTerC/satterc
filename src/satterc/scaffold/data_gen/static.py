@@ -107,6 +107,32 @@ organic_carbon_stocks = Var(
 )
 """Upland mineral soils carry less SOC than lowland peats."""
 
+aridity_index = Var(
+    "1",
+    "climatological aridity index",
+    lambda g: g.uniform(0.7, 1.8),
+    bounds=(0.05, None),
+)
+"""Potential evapotranspiration over precipitation, so above 1 is water-limited.
+
+Note the orientation: pyrealm wants PET/P, so a *higher* value is a *drier* site.
+A pipeline running SPLASH derives this from its PET; this entry covers a config
+that runs the P-model without it.
+"""
+
+inert_organic_matter = Var(
+    "t ha-1",
+    "inert organic matter",
+    lambda g: 0.049 * g.static("organic_carbon_stocks") ** 1.139,
+    bounds=(0.1, None),
+)
+"""RothC's inert pool, from Falloon's regression on total soil organic carbon.
+
+Derived from `organic_carbon_stocks` rather than drawn independently, so the two
+stay consistent — the same relation the example config uses when it computes this
+as a node.
+"""
+
 root_pool_init = Var(
     "t ha-1",
     "initial root carbon pool",

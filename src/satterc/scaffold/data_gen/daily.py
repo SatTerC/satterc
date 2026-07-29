@@ -168,6 +168,34 @@ wind_speed = Var(
 )
 """Weibull (shape 2, typical for mid-latitudes), windier in winter."""
 
+volumetric_water_content = Var(
+    "m3 m-3",
+    "volumetric soil water content",
+    lambda g: g.cycle(0.12, phase=np.pi, baseline=0.25) + g.ar1(sigma=0.03),
+    bounds=(0.02, 0.45),
+)
+"""Wetter in winter, drier in late summer, with day-to-day persistence.
+
+A pipeline that runs SPLASH derives this from its soil moisture rather than
+loading it (see the `volumetric_water_content` node in the example config). This
+entry is for a config that runs the P-model or SGAM without SPLASH, where it has
+to come from a file. The bounds keep it inside pyrealm's ``(0, 0.8)`` range for
+`theta` and above the PFT wilting points SGAM compares it against.
+"""
+
+soil_carbon_input = Var(
+    "t ha-1",
+    "carbon input to the soil",
+    lambda g: g.cycle(0.25, phase=-np.pi / 3, baseline=0.45) + g.uniform(-0.05, 0.05),
+    bounds=(0.0, None),
+)
+"""Litterfall carbon reaching the soil, peaking after the growing season.
+
+Derived from SGAM's litter pool when SGAM is in the pipeline; this entry covers
+running RothC on its own. Non-negative because RothC takes the logarithm of its
+pools.
+"""
+
 dummy_variable = Var(
     "1",
     "dummy variable",
