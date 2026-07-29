@@ -16,18 +16,13 @@ from hamilton.settings import ENABLE_POWER_USER_MODE
 from xarray_annotated import unwrap_annotated
 
 from .. import models as model_modules
+from ..frequencies import resample_offset
+
 
 #: The pandas offsets behind satterc's node-name suffixes, for the ``freq`` key
 #: that conduit's ``[[resample]]`` requires. conduit infers nothing from the
 #: ``from``/``to`` labels — they are node-name suffixes and nothing more — so
 #: the mapping from a suffix pair to an offset is satterc's convention to make.
-RESAMPLE_FREQ_MAP: dict[tuple[str, str], str] = {
-    ("daily", "weekly"): "7D",
-    ("daily", "monthly"): "1ME",
-    ("weekly", "monthly"): "1ME",
-}
-
-
 def _analyze_model_module(
     module: ModuleType, config: dict[str, Any]
 ) -> tuple[list[str], list[str], list[str]]:
@@ -285,7 +280,7 @@ def generate_config(
                     "vars": vars_,
                     "from": from_freq,
                     "to": to_freq,
-                    "freq": RESAMPLE_FREQ_MAP[(from_freq, to_freq)],
+                    "freq": resample_offset(from_freq, to_freq),
                     # aggfunc omitted → defaults to "mean" at parse time
                     # TODO: support per-variable aggfunc (e.g. auto-classify
                     # precipitation as sum)

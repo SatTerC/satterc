@@ -1,29 +1,17 @@
-"""Frequency conventions and time-axis extraction for the model wrappers.
+"""Time-axis extraction for the model wrappers.
 
-conduit deliberately infers nothing from a node's name: an input's frequency is
-validated only where a consumer *declares* it. These are satterc's declarations
-— the pandas offsets behind its ``_daily`` / ``_weekly`` / ``_monthly`` node-name
-suffixes — collected here so the four model modules agree on them.
-
-The offsets are unanchored on purpose. ``Freq("7D")`` constrains the *spacing*
-only, so a weekly series is accepted whichever weekday it starts on; pinning the
-phase (``"W-SUN"``) would reject a perfectly good pipeline whose resample happens
-to land on a Wednesday.
+The `Freq` contracts themselves live in `satterc.frequencies`, because the
+scaffolding subpackages need them too; they are re-exported here so a model
+module has one import for everything time-related.
 """
 
 import pandas as pd
 import xarray as xr
 from conduit.io import sole_time_dim
-from xarray_annotated.temporal import Freq
 
-#: Daily: one sample per day.
-DAILY = Freq("D")
+from ..frequencies import DAILY, MONTHLY, WEEKLY
 
-#: Weekly: seven-day spacing, any weekday.
-WEEKLY = Freq("7D")
-
-#: Monthly: one sample per calendar month, month-end convention.
-MONTHLY = Freq("1ME")
+__all__ = ["DAILY", "MONTHLY", "WEEKLY", "time_index"]
 
 
 def time_index(da: xr.DataArray, what: str) -> pd.DatetimeIndex:

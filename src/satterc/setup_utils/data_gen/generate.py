@@ -22,6 +22,7 @@ from conduit.formats import dataset_to_frame, format_for, write_frame, write_in_
 from conduit.gridded.io import unstack_if_gridded
 from conduit.transforms import resample
 
+from ...frequencies import offset
 from .daily import DAILY_VARS
 from .fallback import fallback_var
 from .spec import (
@@ -32,12 +33,6 @@ from .spec import (
     Resolver,
 )
 from .static import STATIC_VARS
-
-#: Target offsets for the coarser input files. Mirrors
-#: `satterc.setup_utils.config_gen.RESAMPLE_FREQ_MAP` and the `Freq` contracts the
-#: model modules declare, so generated data satisfies them.
-_WEEKLY_FREQ = "7D"
-_MONTHLY_FREQ = "1ME"
 
 
 def _spec_vars(label: str, spec: "IOSpec | None") -> list[str]:
@@ -157,8 +152,8 @@ def generate_synthetic_data(
 
     sections = [
         (daily_vars, daily_spec, None),
-        (weekly_vars, weekly_spec, _WEEKLY_FREQ),
-        (monthly_vars, monthly_spec, _MONTHLY_FREQ),
+        (weekly_vars, weekly_spec, offset("weekly")),
+        (monthly_vars, monthly_spec, offset("monthly")),
     ]
     for names, spec, freq in sections:
         if names and spec:
