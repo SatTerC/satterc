@@ -29,12 +29,14 @@ TEST_CONFIG_PATH = Path(__file__).parent / "test_config.toml"
 #:
 #: Nothing in satterc can work around this — conduit builds the node module. The
 #: mark is `strict`, so it fails loudly once upstream is fixed and can be removed.
+#: Tracked at https://github.com/NERC-CEH/conduit/issues/8
 NODES_BROKEN_ON_PY314 = pytest.mark.xfail(
     sys.version_info >= (3, 14),
     reason=(
         "conduit [[node]] lowering loses its injected return annotation on "
         "Python 3.14: functools.wraps copies __annotate__ rather than "
-        "__annotations__ (PEP 749). Upstream bug; see the conduit issue."
+        "__annotations__ (PEP 749). Upstream: "
+        "https://github.com/NERC-CEH/conduit/issues/8"
     ),
     raises=ValueError,
     strict=True,
