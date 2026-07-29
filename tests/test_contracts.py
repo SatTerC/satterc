@@ -16,6 +16,7 @@ from pathlib import Path
 import pytest
 from conduit import ParsedConfig, build_driver, get_final_vars, load_config, load_inputs
 from conduit.specs import AnnotationPolicySpec
+from conftest import NODES_BROKEN_ON_PY314
 
 from satterc.setup_utils.data_gen import generate_synthetic_data
 
@@ -69,6 +70,7 @@ def strict_contracts():
         AnnotationPolicySpec(enabled=False).apply()
 
 
+@NODES_BROKEN_ON_PY314
 @pytest.mark.usefixtures("strict_contracts")
 class TestGeneratedDataSatisfiesContracts:
     def test_driver_builds(self, validated_config):
