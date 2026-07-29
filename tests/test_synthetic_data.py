@@ -36,7 +36,7 @@ class TestSyntheticDataGeneration:
         assert set(daily_ds.data_vars) == expected_vars
 
     def test_weekly_variables(self, weekly_ds):
-        """Test weekly dataset contains expected variables."""
+        """Test weekly dataset contains exactly the variables the config asks for."""
         expected_vars = {
             "co2",
             "fapar",
@@ -44,16 +44,11 @@ class TestSyntheticDataGeneration:
             "pressure",
             "vpd",
         }
-        assert expected_vars.issubset(set(weekly_ds.data_vars))
+        assert set(weekly_ds.data_vars) == expected_vars
 
     def test_monthly_variables(self, monthly_ds):
-        """Test monthly dataset contains expected variables."""
-        expected_vars = {
-            "dummy_variable",
-            "temperature",
-            "precipitation",
-        }
-        assert expected_vars.issubset(set(monthly_ds.data_vars))
+        """Each section holds only its own variables, not every temporal one."""
+        assert set(monthly_ds.data_vars) == {"dummy_variable"}
 
     def test_static_variables(self, static_ds):
         """Test static dataset contains expected variables."""
@@ -102,8 +97,8 @@ class TestSyntheticDataValues:
         assert np.nanmin(gpp) >= 0
 
     def test_plant_type_valid(self, static_ds):
-        """Test plant type values are valid (1=grassland, 2=C3 crop, 3=woodland)."""
-        assert np.all(np.isin(static_ds.plant_type.values, [1, 2, 3]))
+        """Plant types are the models' encoding: 0=tree, 1=grass, 2=shrub, 3=crop."""
+        assert np.all(np.isin(static_ds.plant_type.values, [0, 1, 2, 3]))
 
     def test_elevation_reasonable(self, static_ds):
         """Test elevation is in reasonable range."""

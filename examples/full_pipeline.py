@@ -3,11 +3,13 @@
 # dependencies = [
 #     "marimo",
 #     "matplotlib==3.10.9",
-#     "satterc==0.4.1",
+#     "satterc==0.6.0",
+#     "conduit",
 # ]
 #
 # [tool.uv.sources]
 # satterc = { path = ".." }
+# conduit = { git = "https://github.com/NERC-CEH/conduit", rev = "develop" }
 # ///
 
 import marimo
@@ -34,10 +36,10 @@ def _():
 
     import marimo as mo  # required for Markdown etc.
     import matplotlib.pyplot as plt
+    from conduit import build_driver, get_final_vars, get_outputs, load_inputs
+    from conduit.config import Config
 
-    from satterc import build_driver, get_final_vars, get_outputs, load_inputs
-    from satterc.config import Config
-    from satterc.setup_utils.data_gen import generate_synthetic_data
+    from satterc.scaffold.data_gen import generate_synthetic_data
 
     return (
         Config,
@@ -61,12 +63,13 @@ def _(mo):
 
     The pipeline configuration is defined in a [TOML](https://toml.io/en/) file.
 
-    `satterc` provides a loader / parser for pipeline configurations, which takes a path to a config file and returns a `ParsedConfig` with four attributes:
+    `conduit` provides a loader / parser for pipeline configurations, which takes a path to a config file and returns a `ParsedConfig`. The attributes we use here are:
 
     1. `modules`: a list of Python modules containing the nodes (functions) which will be used to construct the pipeline.
     2. `driver_config`: a dictionary of additional config options that is applied to the driver at _build time_ (not run time).
-    3. `input_specs`: a mapping from frequency to `IOSpec` (path, vars) — consumed by `load_inputs()`.
-    4. `output_specs`: a mapping from frequency to `IOSpec` — consumed by `get_outputs()` and `save_outputs()`.
+    3. `node_specs`: the parsed `[[node]]` and `[[resample]]` entries, from which conduit generates a module of nodes.
+    4. `input_specs`: a mapping from section label to `IOSpec` (path, vars) — consumed by `load_inputs()`.
+    5. `output_specs`: a mapping from section label to `IOSpec` — consumed by `get_outputs()` and `save_outputs()`.
     """)
     return
 
@@ -75,19 +78,22 @@ def _(mo):
 def _(Config, tomllib):
     _config_toml = """
 
-    [models.splash]
+    [splash]
+    _import_path = "satterc.models.splash"
 
-    [models.pmodel]
+    [pmodel]
+    _import_path = "satterc.models.pmodel"
     method_kphio = "sandoval"
     method_optchi = "lavergne20_c3"
 
-    [models.sgam]
+    [sgam]
+    _import_path = "satterc.models.sgam"
 
-    [models.rothc]
+    [rothc]
+    _import_path = "satterc.models.rothc"
     n_years_spinup = 1
     equilibrium_threshold = 0.0001
 
-    [grid]
 
     [inputs.daily]
     path = "daily.nc"
@@ -117,6 +123,7 @@ def _(Config, tomllib):
 
     [inputs.static]
     path = "static.nc"
+    suffix = ""
     vars = [
       "elevation",
       "plant_type",
@@ -129,11 +136,27 @@ def _(Config, tomllib):
       "stem_pool_init",
     ]
 
+    # pyrealm's `aridity_index` is climatological and oriented PET/P: both terms
+    # accumulate over the whole record, giving one value per pixel rather than a
+    # time series. SPLASH computes PET on its way to AET and exposes it.
     [[node]]
-    name = "aridity_index_daily"
-    inputs = ["precipitation_daily", "actual_evapotranspiration_daily"]
-    expression = "precipitation_daily / actual_evapotranspiration_daily"
-    units = "1"  # ratio of two mm d-1 fluxes -> dimensionless
+    name = "aridity_index"
+    inputs = ["potential_evapotranspiration_daily", "precipitation_daily"]
+    expression = "potential_evapotranspiration_daily.sum('time') / precipitation_daily.sum('time')"
+    units = "1"  # ratio of two mm totals -> dimensionless
+
+    # Both the P-model (as pyrealm's `theta`) and SGAM (against the PFT's
+    # `wilting_point`/`field_capacity`) want volumetric water content (m3 m-3).
+    # SPLASH reports a depth of water in mm held in a bucket of capacity
+    # `max_soil_moisture`, so dividing gives relative saturation (0-1) and
+    # multiplying by a representative mineral-soil porosity (0.45) turns that
+    # into a volume fraction.
+    [[node]]
+    name = "volumetric_water_content_weekly"
+    inputs = ["soil_moisture_weekly", "max_soil_moisture"]
+    expression = "soil_moisture_weekly / max_soil_moisture * 0.45"
+    units = "m3 m-3"
+    freq = "7D"
 
     [[node]]
     name = "leaf_area_index_weekly"
@@ -141,14 +164,17 @@ def _(Config, tomllib):
     expression = 'leaf_pool_weekly / pft_params["leaf_carbon_area"]'
     units = "m2 m-2"  # leaf carbon per ground area / leaf carbon per leaf area
 
-    # SPLASH AET is a daily rate (mm d-1); RothC wants a monthly total (mm).
+    # PET, not AET: RothC's water balance is rainfall minus evaporative *demand*.
+    # AET is already suppressed by the dryness RothC is trying to compute, so
+    # feeding it in double-counts the limitation and holds the soil too wet.
+    # SPLASH PET is a daily rate (mm d-1); RothC wants a monthly total (mm).
     # Summing the daily rate over the month integrates it (daily Δt = 1 day, so
     # Σ mm d-1 is numerically the monthly mm total); units = "mm" relabels the
     # rate as the resulting total.
     [[node]]
-    name = "evaporation_monthly"
-    inputs = ["actual_evapotranspiration_daily"]
-    expression = "actual_evapotranspiration_daily.resample(time='1ME').sum()"
+    name = "potential_evapotranspiration_monthly"
+    inputs = ["potential_evapotranspiration_daily"]
+    expression = "potential_evapotranspiration_daily.resample(time='1ME').sum()"
     units = "mm"
 
     # Precipitation is likewise a daily rate (mm d-1); aggregate to a monthly
@@ -184,22 +210,24 @@ def _(Config, tomllib):
       "temperature",
       "precipitation",
       "soil_moisture",
-      "aridity_index",
     ]
-    from_freq = "daily"
-    to_freq = "weekly"
+    from = "daily"
+    to = "weekly"
+    freq = "7D"
 
     [[resample]]
     vars = [
       "temperature",
     ]
-    from_freq = "daily"
-    to_freq = "monthly"
+    from = "daily"
+    to = "monthly"
+    freq = "1ME"
 
     [[resample]]
     vars = ["disturbances"]
-    from_freq = "daily"
-    to_freq = "weekly"
+    from = "daily"
+    to = "weekly"
+    freq = "7D"
     aggfunc = "max"
 
     [outputs.daily]
@@ -264,7 +292,8 @@ def _(mo):
 
     Building the pipeline really means building the 'driver'.
 
-    `satterc` provides a function `build_driver` which takes a list of modules and a driver configuration, and returns a built driver.
+    `conduit` provides a function `build_driver` which takes a list of modules, a driver configuration and the parsed node specs, and returns a built driver.
+    Building is also when conduit checks the whole graph's declared contracts — units, dimensions and temporal frequency — so a mis-wired pipeline fails here rather than part-way through a long run.
     Notice that we do not pass `targets` during build stage; we are only required to supply `targets` when actually executing the pipeline.
 
     Once we have constructed the driver, we can inspect it in various ways, including visualising the DAG.
@@ -279,6 +308,7 @@ def _(build_driver, parsed_config):
     dr = build_driver(
         modules=parsed_config.modules,
         config=parsed_config.driver_config,
+        node_specs=parsed_config.node_specs,
     )
 
     # This produces a visualisation of the entire DAG, which is too large..

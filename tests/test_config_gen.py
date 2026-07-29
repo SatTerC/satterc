@@ -1,7 +1,7 @@
-"""Tests for setup_utils/config_gen.py."""
+"""Tests for scaffold/config_gen.py."""
 
-from satterc.setup_utils import generate_config, get_model_params
-from satterc.setup_utils.config_gen import _infer_required_data, _strip_suffix
+from satterc.scaffold import generate_config, get_model_params
+from satterc.scaffold.config_gen import _infer_required_data, _strip_suffix
 
 PATH_DEFAULTS = {
     "inputs_daily": "inputs/daily.nc",
@@ -27,51 +27,44 @@ class TestGetModelParams:
         # Passing the full dotted path to a known module must find the same
         # _parameters() function as passing the short name.
         params_short = get_model_params("rothc")
-        params_full = get_model_params("satterc.dag.rothc")
+        params_full = get_model_params("satterc.models.rothc")
         assert params_full == params_short
 
-    def test_module_without_parameters_func_returns_empty(self):
-        # resample has no keyword-only parameters with defaults
-        assert get_model_params("satterc.dag.resample") == {}
-
     def test_module_without_matching_function_returns_empty(self):
-        # satterc.dag.node has no function named "node" → hits the return {} fallback
-        assert get_model_params("satterc.dag.node") == {}
+        # satterc.models has no function named "models" → hits the return {} fallback
+        assert get_model_params("satterc.models") == {}
 
 
 class TestGenerateConfigCustomModules:
+    """Custom modules become flat sections addressed by `_import_path`."""
+
     def test_custom_module_with_params_written_to_config(self):
         config = generate_config(
             builtin_models=[],
-            custom_modules=["satterc.dag.rothc"],
+            custom_modules=["satterc.models.rothc"],
             paths=PATH_DEFAULTS,
         )
-        # The nested dict for the custom module must contain the rothc params
-        data = config._data
-        assert "satterc" in data
-        assert "dag.rothc" in data["satterc"]
-        params = data["satterc"]["dag.rothc"]
-        assert "n_years_spinup" in params
+        section = config._data["rothc"]
+        assert section["_import_path"] == "satterc.models.rothc"
+        assert "n_years_spinup" in section
 
-    def test_custom_module_without_params_written_as_empty_section(self):
+    def test_custom_module_without_params_written_as_import_path_only(self):
         config = generate_config(
             builtin_models=[],
-            custom_modules=["satterc.dag.resample"],
+            custom_modules=["satterc.models"],
             paths=PATH_DEFAULTS,
         )
-        data = config._data
-        assert "satterc" in data
-        assert "dag.resample" in data["satterc"]
-        assert data["satterc"]["dag.resample"] == {}
+        assert config._data["models"] == {"_import_path": "satterc.models"}
 
     def test_custom_module_params_appear_in_toml_output(self):
         config = generate_config(
             builtin_models=[],
-            custom_modules=["satterc.dag.rothc"],
+            custom_modules=["satterc.models.rothc"],
             paths=PATH_DEFAULTS,
         )
         toml_str = str(config)
-        assert '[satterc."dag.rothc"]' in toml_str
+        assert "[rothc]" in toml_str
+        assert '_import_path = "satterc.models.rothc"' in toml_str
         assert "n_years_spinup" in toml_str
 
 
@@ -143,10 +136,9 @@ class TestGenerateConfigBuiltinModels:
             custom_modules=[],
             paths=PATH_DEFAULTS,
         )
-        data = config._data
-        assert "models" in data
-        assert "rothc" in data["models"]
-        assert "n_years_spinup" in data["models"]["rothc"]
+        section = config._data["rothc"]
+        assert section["_import_path"] == "satterc.models.rothc"
+        assert "n_years_spinup" in section
 
     def test_pmodel_generates_model_section(self):
         config = generate_config(
@@ -154,9 +146,28 @@ class TestGenerateConfigBuiltinModels:
             custom_modules=[],
             paths=PATH_DEFAULTS,
         )
-        data = config._data
-        assert "models" in data
-        assert "pmodel" in data["models"]
+        assert config._data["pmodel"]["_import_path"] == "satterc.models.pmodel"
+
+    def test_static_input_section_opts_out_of_suffix(self):
+        # Static variables are consumed under bare names, so the generated
+        # section must override conduit's default `_<label>` node-name suffix.
+        config = generate_config(
+            builtin_models=["rothc"],
+            custom_modules=[],
+            paths=PATH_DEFAULTS,
+        )
+        assert config._data["inputs"]["static"]["suffix"] == ""
+
+    def test_resample_entries_carry_an_explicit_freq(self):
+        config = generate_config(
+            builtin_models=["splash", "pmodel"],
+            custom_modules=[],
+            paths=PATH_DEFAULTS,
+        )
+        for entry in config._data.get("resample", []):
+            assert entry["freq"], entry
+            assert "from" in entry
+            assert "to" in entry
 
     def test_combined_models_share_resample_vars(self):
         # splash provides daily soil_moisture; pmodel needs weekly soil_moisture

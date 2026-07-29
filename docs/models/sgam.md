@@ -83,7 +83,7 @@ Each pool loses biomass at a fixed first-order rate each week. Losses from leaf,
 
 ### Disturbances
 
-Disturbance events are detected from daily time series by checking simultaneous declines in GPP and LAI during the growing season. The response differs by PFT:
+Disturbance events are detected from daily time series by checking simultaneous declines in GPP and LAI during the growing season (days warmer than `growing_season_limit`, 10 °C by default). Detection is per-PFT: the decline must exceed that PFT's `disturbance_threshold` (tree 0.3, shrub 0.25, grass 0.2, crop 0.1), so crops flag events that leave a tree pixel untouched. The response also differs by PFT:
 
 - **Crops** – complete removal of above-ground biomass (harvest); root carbon transfers to litter
 - **Other PFTs** – partial defoliation proportional to severity (fire, grazing, pests)
@@ -123,7 +123,8 @@ Any violation beyond a relative tolerance of $10^{-6}$ indicates a numerical err
 SGAM is configured in your TOML config file:
 
 ```toml
-[models.sgam]
+[sgam]
+_import_path = "satterc.models.sgam"
 use_dynamic_allocation = true
 strict_mass_balance = false
 ```
@@ -141,7 +142,7 @@ SGAM requires the following weekly `DataArray` inputs:
 |----------|-------|-------------|
 | `temperature_weekly` | °C | Weekly mean air temperature |
 | `gpp_weekly` | gC m⁻² day⁻¹ | Gross primary productivity |
-| `soil_moisture_weekly` | mm | Soil moisture content |
+| `volumetric_water_content_weekly` | m³ m⁻³ | Volumetric soil water content (*not* SPLASH's mm soil moisture — see the `volumetric_water_content_weekly` node in `examples/config.toml`) |
 | `vpd_weekly` | Pa | Vapour pressure deficit |
 | `lue_weekly` | gC MJ⁻¹ | Light use efficiency |
 | `iwue_weekly` | Pa | Intrinsic water use efficiency |
@@ -169,10 +170,11 @@ Optional static inputs:
 SGAM includes helper nodes to detect disturbances from daily data:
 
 ```toml
-[models.sgam]
+[sgam]
+_import_path = "satterc.models.sgam"
 ```
 
-The `disturbances_daily` node computes daily disturbance events from temperature, GPP, and LAI, then `disturbances_weekly` aggregates to weekly maximum severity.
+The `disturbances_daily` node computes daily disturbance events from temperature, GPP, LAI and the per-pixel `pft_params` (for `disturbance_threshold`), then `disturbances_weekly` aggregates to weekly maximum severity.
 
 ### Outputs
 
@@ -240,7 +242,7 @@ $$\text{LAI} = \frac{\text{leaf\_pool}}{\text{leaf\_carbon\_area}}$$
 
 ### Python API
 
-See the [API documentation](../api/satterc.dag/sgam.md) for full function signatures and parameter details.
+See the [API documentation](../api/satterc.models/sgam.md) for full function signatures and parameter details.
 
 ## References
 

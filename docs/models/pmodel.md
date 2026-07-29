@@ -94,7 +94,8 @@ The implementation supports several methodological choices:
 The P-model is configured in your TOML config file:
 
 ```toml
-[models.pmodel]
+[pmodel]
+_import_path = "satterc.models.pmodel"
 method_kphio = "sandoval"
 method_optchi = "lavergne20_c3"
 ```
@@ -113,7 +114,7 @@ The P-model requires the following weekly `DataArray` inputs:
 | `pressure_weekly` | Pa | Atmospheric pressure |
 | `fapar_weekly` | dimensionless (0–1) | Fraction of absorbed PAR |
 | `ppfd_weekly` | μmol m⁻² s⁻¹ | Photosynthetic photon flux density |
-| `soil_moisture_weekly` | mm | Soil moisture content |
+| `volumetric_water_content_weekly` | m³ m⁻³ | Volumetric soil water content (pyrealm's `theta`; *not* SPLASH's mm soil moisture — see the `volumetric_water_content_weekly` node in `examples/config.toml`) |
 | `mean_growth_temperature_weekly` | °C | Mean temperature on growing days (T > 0°C) |
 | `aridity_index_weekly` | dimensionless | Aridity index |
 
@@ -131,7 +132,7 @@ The P-model returns three weekly `DataArray` outputs:
 
 ### Python API
 
-See the [API documentation](../api/satterc.dag/pmodel.md) for full function signatures and parameter details.
+See the [API documentation](../api/satterc.models/pmodel.md) for full function signatures and parameter details.
 
 ## References
 

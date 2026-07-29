@@ -1,4 +1,4 @@
-"""Tests for the RothC ``apply_ufunc`` pixel seam (``satterc.dag.rothc._rothc``).
+"""Tests for the RothC ``apply_ufunc`` pixel seam (``satterc.models.rothc._rothc``).
 
 These cover the inner block-level parallelisation seam that replaced the explicit
 ``for i in range(n_pixels)`` loop:
@@ -20,7 +20,7 @@ import pytest
 import xarray as xr
 from rothc_py import RothC, RothCParams, percent_modern_c
 
-from satterc.dag.rothc import (
+from satterc.models.rothc import (
     _ROTHC_OUTPUT_KEYS,
     _ROTHC_OUTPUT_NAMES,
     _rothc,
@@ -68,7 +68,7 @@ def rothc_inputs() -> dict:
     return dict(
         temperature_monthly=_temporal(_vary(10.0, 4.0)),
         precipitation_monthly=_temporal(np.abs(_vary(50.0, 20.0))),
-        evaporation_monthly=_temporal(np.abs(_vary(30.0, 10.0))),
+        potential_evapotranspiration_monthly=_temporal(np.abs(_vary(30.0, 10.0))),
         plant_cover_monthly=_temporal(np.ones((N_MONTHS, N_PIXELS), dtype=bool)),
         dpm_rpm_ratio_monthly=_temporal(np.full((N_MONTHS, N_PIXELS), 1.44)),
         soil_carbon_input_monthly=_temporal(np.abs(_vary(0.2, 0.1))),
@@ -102,7 +102,7 @@ def _reference_loop(inputs: dict) -> dict[str, np.ndarray]:
         data = {
             "t_tmp": col("temperature_monthly", i),
             "t_rain": col("precipitation_monthly", i),
-            "t_evap": col("evaporation_monthly", i),
+            "t_evap": col("potential_evapotranspiration_monthly", i),
             "t_PC": inputs["plant_cover_monthly"].values[:, i].astype(int).tolist(),
             "t_DPM_RPM": col("dpm_rpm_ratio_monthly", i),
             "t_C_Inp": col("soil_carbon_input_monthly", i),
@@ -181,8 +181,7 @@ class TestCachingIntact:
     """The cached rothc node matches the uncached one (seam is internal to the node)."""
 
     def test_cached_run_matches_uncached(self, tmp_path):
-        from satterc import CacheSpec
-        from satterc.dag.driver import build_driver
+        from conduit import CacheSpec, build_driver
 
         def _mda(v: float) -> xr.DataArray:
             return xr.DataArray(
@@ -197,7 +196,7 @@ class TestCachingIntact:
         inputs = {
             "temperature_monthly": _mda(10.0),
             "precipitation_monthly": _mda(50.0),
-            "evaporation_monthly": _mda(30.0),
+            "potential_evapotranspiration_monthly": _mda(30.0),
             "soil_carbon_input_monthly": _mda(0.2),
             "clay_content": _sda(CLAY),
             "soil_depth": _sda(DEPTH),
@@ -209,7 +208,9 @@ class TestCachingIntact:
         spec = CacheSpec(path=str(tmp_path / "cache"))
 
         def run(cache):
-            dr = build_driver(["models.rothc"], {"n_years_spinup": 1}, cache=cache)
+            dr = build_driver(
+                ["satterc.models.rothc"], {"n_years_spinup": 1}, cache=cache
+            )
             return dr.execute(["soil_organic_carbon_monthly"], inputs=inputs)  # type: ignore[reportArgumentType]
 
         uncached = run(None)

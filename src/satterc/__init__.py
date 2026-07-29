@@ -1,46 +1,18 @@
-"""Satellite to Terrestrial Carbon."""
+"""Satellite to Terrestrial Carbon.
+
+satterc supplies the carbon-cycle model modules — SPLASH, the P-model, SGAM and
+RothC — for pipelines built with [conduit](https://github.com/NERC-CEH/conduit).
+conduit owns the framework: config parsing, the DAG, contract validation, I/O and
+execution, so import `build_driver`, `load_config` and friends from `conduit`.
+Import the models from `satterc.models`, or reference them from a config by
+``_import_path``.
+"""
 
 import warnings
 
 from ._version import __version__
-from .config import (
-    BlockingSpec,
-    CacheSpec,
-    IOSpec,
-    ParsedConfig,
-    ResampleSpec,
-    SubsetSpec,
-    load_config,
-)
-from .dag.driver import build_driver
-from .io import (
-    create_output_store,
-    get_final_vars,
-    get_outputs,
-    load_inputs,
-    merge_subset_outputs,
-    save_outputs,
-)
-from .units import UnitsWarning
 
-__all__ = [
-    "BlockingSpec",
-    "CacheSpec",
-    "IOSpec",
-    "ParsedConfig",
-    "ResampleSpec",
-    "SubsetSpec",
-    "UnitsWarning",
-    "__version__",
-    "build_driver",
-    "create_output_store",
-    "get_final_vars",
-    "get_outputs",
-    "load_config",
-    "load_inputs",
-    "merge_subset_outputs",
-    "save_outputs",
-]
+__all__ = ["__version__"]
 
 # Suppress known pyrealm warnings that are harmless but noisy:
 # 1. np.sqrt(where=...) without out= — pyrealm backfills NaN values immediately after,

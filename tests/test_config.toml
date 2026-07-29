@@ -1,11 +1,11 @@
-[models.pmodel]
+[pmodel]
+_import_path = "satterc.models.pmodel"
 method_kphio = "sandoval"
 method_optchi = "lavergne20_c3"
 
-[models.rothc]
+[rothc]
+_import_path = "satterc.models.rothc"
 n_years_spinup = 1
-
-[grid]
 
 [inputs.daily]
 path = "daily.nc"
@@ -33,8 +33,11 @@ vars = [
   "dummy_variable",
 ]
 
+# Static variables are consumed under bare names, so this section opts out of
+# conduit's default `_<label>` node-name suffix.
 [inputs.static]
 path = "static.nc"
+suffix = ""
 vars = [
   "elevation",
   "plant_type",
@@ -46,4 +49,3 @@ vars = [
   "leaf_pool_init",
   "stem_pool_init",
 ]
-

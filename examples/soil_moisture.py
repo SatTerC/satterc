@@ -4,13 +4,15 @@
 #     "marimo",
 #     "matplotlib==3.10.9",
 #     "numpy==2.4.4",
-#     "satterc==0.4.1",
+#     "satterc==0.6.0",
+#     "conduit",
 #     "scipy==1.17.1",
 #     "xarray==2026.4.0",
 # ]
 #
 # [tool.uv.sources]
 # satterc = { path = ".." }
+# conduit = { git = "https://github.com/NERC-CEH/conduit", rev = "develop" }
 # ///
 
 import marimo
@@ -43,11 +45,11 @@ def _():
     import matplotlib.pyplot as plt
     import numpy as np
     import xarray as xr
+    from conduit import build_driver, load_inputs
+    from conduit.config import Config
     from scipy.optimize import OptimizeResult, minimize
 
-    from satterc import build_driver, load_inputs
-    from satterc.config import Config
-    from satterc.setup_utils.data_gen import generate_synthetic_data
+    from satterc.scaffold.data_gen import generate_synthetic_data
 
     return (
         Config,
@@ -84,7 +86,8 @@ def _(Config, tomllib):
     from pprint import pprint
 
     _config_toml = """
-    [models.splash]
+    [splash]
+    _import_path = "satterc.models.splash"
 
     [inputs.daily]
     path = "daily.csv"
@@ -96,6 +99,7 @@ def _(Config, tomllib):
 
     [inputs.static]
     path = "static.json"
+    suffix = ""
     vars = [
       "elevation",
       "latitude",
@@ -127,6 +131,7 @@ def _(build_driver, parsed_config):
     dr = build_driver(
         modules=parsed_config.modules,
         config=parsed_config.driver_config,
+        node_specs=parsed_config.node_specs,
     )
     return (dr,)
 

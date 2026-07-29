@@ -27,10 +27,12 @@ SatTerC is currently only available from GitHub.
 
 This installs the `satterc` package and the `satterc` CLI command into your environment.
 
-The base install is intentionally lightweight — it includes the core engine
-(Hamilton, xarray, units checking, the config parser and the CLI) but **not** the
-built-in ecological models or the DAG visualization support. Install those via the
-extras below.
+This pulls in [conduit][conduit] — the framework that provides the config parser,
+the DAG, contract validation, I/O and the `run`, `graph` and `gridded` commands —
+along with its geospatial support, which SatTerC's gridded pipelines need.
+
+What the base install does **not** include is the ecological models themselves or
+the DAG visualization support. Install those via the extras below.
 
 ## Optional features (extras)
 
@@ -39,7 +41,7 @@ SatTerC groups its optional dependencies into installable extras:
 | Extra | Installs | Needed for |
 | --- | --- | --- |
 | `models` | `pyrealm`, `rothc-py`, `sgam` | the built-in P-model, SPLASH, SGAM and RothC models |
-| `viz` | `apache-hamilton[visualization]` | rendering the DAG with `satterc graph` |
+| `viz` | `conduit[viz]` | rendering the DAG with `satterc graph` |
 | `all` | everything above | convenience — installs every optional feature |
 
 Append the extra(s) in square brackets:
@@ -90,3 +92,8 @@ brew install graphviz
 ```sh
 satterc version
 ```
+
+This prints the installed SatTerC version and, beneath it, the version of the
+conduit framework it is running on.
+
+[conduit]: https://github.com/NERC-CEH/conduit

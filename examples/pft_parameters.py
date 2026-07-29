@@ -4,12 +4,14 @@
 #     "marimo",
 #     "matplotlib==3.10.9",
 #     "numpy==2.4.4",
-#     "satterc==0.4.1",
+#     "satterc==0.6.0",
+#     "conduit",
 #     "scipy==1.17.1",
 # ]
 #
 # [tool.uv.sources]
 # satterc = { path = ".." }
+# conduit = { git = "https://github.com/NERC-CEH/conduit", rev = "develop" }
 # ///
 
 import marimo
@@ -45,11 +47,11 @@ def _():
     import marimo as mo
     import matplotlib.pyplot as plt
     import numpy as np
+    from conduit import build_driver, load_inputs
+    from conduit.config import Config
     from scipy.optimize import minimize
 
-    from satterc import build_driver, load_inputs
-    from satterc.config import Config
-    from satterc.setup_utils.data_gen import generate_synthetic_data
+    from satterc.scaffold.data_gen import generate_synthetic_data
 
     return (
         Config,
@@ -81,13 +83,16 @@ def _(mo):
 @app.cell
 def _(Config, tomllib):
     _config_toml = """
-    [models.splash]
+    [splash]
+    _import_path = "satterc.models.splash"
 
-    [models.pmodel]
+    [pmodel]
+    _import_path = "satterc.models.pmodel"
     method_kphio = "sandoval"
     method_optchi = "lavergne20_c3"
 
-    [models.sgam]
+    [sgam]
+    _import_path = "satterc.models.sgam"
 
     [inputs.daily]
     path = "daily.nc"
@@ -111,6 +116,7 @@ def _(Config, tomllib):
 
     [inputs.static]
     path = "static.nc"
+    suffix = ""
     vars = [
       "elevation",
       "plant_type",
@@ -120,27 +126,44 @@ def _(Config, tomllib):
       "root_pool_init",
     ]
 
+    # pyrealm's `aridity_index` is climatological and oriented PET/P: both terms
+    # accumulate over the whole record, giving one value per pixel rather than a
+    # time series. SPLASH computes PET on its way to AET and exposes it.
     [[node]]
-    name = "aridity_index_daily"
-    inputs = ["precipitation_daily", "actual_evapotranspiration_daily"]
-    expression = "precipitation_daily / actual_evapotranspiration_daily"
+    name = "aridity_index"
+    inputs = ["potential_evapotranspiration_daily", "precipitation_daily"]
+    expression = "potential_evapotranspiration_daily.sum('time') / precipitation_daily.sum('time')"
+    units = "1"  # ratio of two mm totals -> dimensionless
+
+    # Both the P-model (as pyrealm's `theta`) and SGAM (against the PFT's
+    # `wilting_point`/`field_capacity`) want volumetric water content (m3 m-3).
+    # SPLASH reports a depth of water in mm held in a bucket of capacity
+    # `max_soil_moisture`, so dividing gives relative saturation (0-1) and
+    # multiplying by a representative mineral-soil porosity (0.45) turns that
+    # into a volume fraction.
+    [[node]]
+    name = "volumetric_water_content_weekly"
+    inputs = ["soil_moisture_weekly", "max_soil_moisture"]
+    expression = "soil_moisture_weekly / max_soil_moisture * 0.45"
+    units = "m3 m-3"
+    freq = "7D"
 
     [[resample]]
     vars = [
       "temperature",
       "soil_moisture",
-      "aridity_index",
     ]
-    from_freq = "daily"
-    to_freq = "weekly"
+    from = "daily"
+    to = "weekly"
+    freq = "7D"
 
     [[resample]]
     vars = ["disturbances"]
-    from_freq = "daily"
-    to_freq = "weekly"
+    from = "daily"
+    to = "weekly"
+    freq = "7D"
     aggfunc = "max"
 
-    [grid]
     """
 
     parsed_config = Config(tomllib.loads(_config_toml)).parse()
@@ -156,10 +179,14 @@ def _(Path, generate_synthetic_data, load_inputs, parsed_config, tempfile):
     parsed_config.input_specs["weekly"].path = str(_tmpdir / "weekly.nc")
     parsed_config.input_specs["static"].path = str(_tmpdir / "static.nc")
 
-    generate_synthetic_data(config=parsed_config, grid=(1, 1), n_days=730, seed=42)
+    # Two pixels, because the synthetic generator cycles plant type through
+    # `sgam.pft.PlantFunctionalType` order (0=tree, 1=grass, 2=shrub, 3=crop) by
+    # pixel index. Pixel 1 is therefore the grassland this notebook talks about.
+    generate_synthetic_data(config=parsed_config, grid=(1, 2), n_days=730, seed=42)
+    GRASS_PIXEL = 1
 
     inputs = load_inputs(parsed_config.input_specs)
-    return (inputs,)
+    return GRASS_PIXEL, inputs
 
 
 @app.cell
@@ -167,6 +194,7 @@ def _(build_driver, parsed_config):
     dr = build_driver(
         modules=parsed_config.modules,
         config=parsed_config.driver_config,
+        node_specs=parsed_config.node_specs,
     )
     return (dr,)
 
@@ -185,16 +213,15 @@ def _(mo):
 
 
 @app.cell
-def _(dr, inputs, np):
+def _(GRASS_PIXEL, dr, inputs, np):
     _SGAM_INPUTS = [
         "gpp_weekly",
         "lue_weekly",
         "iwue_weekly",
         "temperature_weekly",
-        "soil_moisture_weekly",
+        "volumetric_water_content_weekly",
         "vpd_weekly",
         "disturbances_weekly",
-        "dates_weekly",
         "leaf_pool_init",
         "stem_pool_init",
         "root_pool_init",
@@ -208,13 +235,13 @@ def _(dr, inputs, np):
     # each step only recomputes the sgam node, not the upstream SPLASH/P-model chain.
     upstream = {k: _all_outputs[k] for k in _SGAM_INPUTS if k != "leaf_pool_weekly"}
 
-    true_lue_max = float(_all_outputs["pft_params"]["lue_max"].values[0])
+    true_lue_max = float(_all_outputs["pft_params"]["lue_max"].values[GRASS_PIXEL])
     true_leaf_turnover = float(
-        _all_outputs["pft_params"]["leaf_turnover_rate"].values[0]
+        _all_outputs["pft_params"]["leaf_turnover_rate"].values[GRASS_PIXEL]
     )
 
     np.random.seed(42)
-    _true_leaf_pool = _all_outputs["leaf_pool_weekly"].values[:, 0]
+    _true_leaf_pool = _all_outputs["leaf_pool_weekly"].values[:, GRASS_PIXEL]
     synthetic_obs = _true_leaf_pool + np.random.normal(0, 2.0, _true_leaf_pool.shape)
     return synthetic_obs, true_leaf_turnover, true_lue_max, upstream
 
@@ -368,7 +395,7 @@ def _(mo):
 
 
 @app.cell
-def _(inputs, np):
+def _(GRASS_PIXEL, inputs, np):
     def objective_function(params, dr, observations, upstream):
         lue_max, leaf_turnover = params
         modified_pft = upstream["pft_params"].copy()
@@ -378,7 +405,7 @@ def _(inputs, np):
         outputs = dr.execute(
             final_vars=["leaf_pool_weekly"], inputs=inputs, overrides=overrides
         )
-        modelled = outputs["leaf_pool_weekly"].values[:, 0]
+        modelled = outputs["leaf_pool_weekly"].values[:, GRASS_PIXEL]
         return np.mean((modelled - observations) ** 2)
 
     return (objective_function,)

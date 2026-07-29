@@ -1,18 +1,19 @@
 """CLI for generating configuration files."""
 
 import re
+from importlib import import_module
 from pathlib import Path
 
 import typer
+from conduit.config import Config
 
-from ..config import Config
-from ..setup_utils import (
+from ..scaffold import (
     BuiltinModels,
     generate_config,
     get_builtin_models,
     get_model_params,
 )
-from ..setup_utils.data_gen import generate_synthetic_data
+from ..scaffold.data_gen import generate_synthetic_data
 
 app = typer.Typer(help="Generate a configuration file for SatTerC.")
 
@@ -92,6 +93,35 @@ def _toggle_selections(
     return current
 
 
+def _resolve_models(models: list[str]) -> list[str]:
+    """Validate ``--models`` occurrences into an ordered, deduplicated list.
+
+    Each occurrence may itself hold several names, so ``-m splash -m pmodel`` and
+    ``-m splash,pmodel`` mean the same thing. The option is repeatable because a
+    single-valued one silently keeps only the last occurrence, which quietly
+    generated a one-model config from a four-model command line.
+    """
+    names = [name for occurrence in models for name in _parse_selections(occurrence)]
+
+    if not names:
+        raise typer.BadParameter(
+            "No models given. Pass at least one (e.g. '-m splash,pmodel'), or "
+            "omit --models to choose interactively."
+        )
+
+    resolved: list[str] = []
+    for name in names:
+        try:
+            value = BuiltinModels(name).value
+        except ValueError as err:
+            raise typer.BadParameter(
+                f"Unknown model {name!r}. Available: {', '.join(get_builtin_models())}."
+            ) from err
+        if value not in resolved:  # order preserved; a repeat is not an error
+            resolved.append(value)
+    return resolved
+
+
 def _select_builtin_models() -> list[str]:
     """Interactive selection loop for built-in models.
 
@@ -140,6 +170,25 @@ def _select_builtin_models() -> list[str]:
     return selected
 
 
+def _import_error(module_path: str) -> str | None:
+    """Return why ``module_path`` cannot be imported, or ``None`` if it can.
+
+    A path that does not import is almost always a typo, and used to be accepted
+    in silence: `get_model_params` swallows the ImportError and returns ``{}``,
+    so a mistyped module was reported as "no configurable parameters found" and
+    only failed much later, when the pipeline ran. Importing here is also what
+    makes that message trustworthy when it does appear.
+
+    Adding one anyway stays possible — a module may be installed between writing
+    the config and running it — so this reports rather than decides.
+    """
+    try:
+        import_module(module_path)
+    except Exception as err:
+        return f"{type(err).__name__}: {err}"
+    return None
+
+
 def _select_custom_modules() -> list[str]:
     """Interactive selection loop for custom module paths.
 
@@ -169,6 +218,12 @@ def _select_custom_modules() -> list[str]:
             typer.echo(f"  Removed: {choice}")
             continue
 
+        error = _import_error(choice)
+        if error is not None:
+            typer.echo(f"  Cannot import {choice!r}: {error}")
+            if not typer.confirm("  Add it anyway?", default=False):
+                continue
+
         try:
             params = get_model_params(choice)
         except Exception:
@@ -187,13 +242,14 @@ def _select_custom_modules() -> list[str]:
 
 @app.command()
 def setup(
-    models: str | None = typer.Option(
+    models: list[str] | None = typer.Option(
         None,
         "-m",
         "--models",
         help=(
-            "Built-in models (e.g., -m splash pmodel). "
-            "If not provided, runs interactive selector."
+            "Built-in models to include. Repeat the flag or separate names with "
+            "commas: '-m splash -m pmodel' and '-m splash,pmodel' are equivalent. "
+            "Omit to choose interactively."
         ),
     ),
     output: Path = typer.Option(
@@ -227,13 +283,7 @@ def setup(
         overwrite_ok = True
 
     if models is not None:
-        model_names = _parse_selections(models)
-        builtin_models = []
-        for name in model_names:
-            try:
-                builtin_models.append(BuiltinModels(name).value)
-            except ValueError as err:
-                raise typer.BadParameter(f"Invalid model: {name}") from err
+        builtin_models = _resolve_models(models)
     else:
         typer.echo("SatTerC Configuration Generator")
         typer.echo("=" * 35)

@@ -1,4 +1,4 @@
-"""Tests for the SPLASH ``apply_ufunc`` block seam (``satterc.dag.splash._splash``).
+"""Tests for the SPLASH ``apply_ufunc`` block seam (``satterc.models.splash._splash``).
 
 Like the P-Model, SPLASH is a *whole-block* pyrealm model — it vectorises over the
 spatial axis internally and loops only over ``time`` (soil moisture carries state day to
@@ -27,7 +27,7 @@ import pyrealm.splash.splash
 import pytest
 import xarray as xr
 
-from satterc.dag.splash import _splash
+from satterc.models.splash import _splash
 
 N_DAYS = 366  # 2020 is a leap year; SPLASH needs a full year for spin-up
 N_PIXELS = 3
@@ -200,8 +200,7 @@ class TestCachingIntact:
     """The cached splash node matches the uncached one (seam is internal to the node)."""
 
     def test_cached_run_matches_uncached(self, tmp_path, splash_inputs):
-        from satterc import CacheSpec
-        from satterc.dag.driver import build_driver
+        from conduit import CacheSpec, build_driver
 
         inputs = {
             k: v
@@ -212,7 +211,7 @@ class TestCachingIntact:
 
         def run(cache):
             dr = build_driver(
-                ["models.splash"],
+                ["satterc.models.splash"],
                 {
                     "soil_moisture_init_max_iter": MAX_ITER,
                     "soil_moisture_init_max_diff": MAX_DIFF,

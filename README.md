@@ -1,5 +1,14 @@
 # `satterc`
 
+Carbon-cycle model modules — SPLASH, the P-model, SGAM and RothC — for
+[conduit](https://github.com/NERC-CEH/conduit) pipelines.
+
+conduit is the framework: it owns the TOML config, the DAG, contract validation
+(units, dimensions, temporal frequency), I/O and execution. `satterc` adds the
+science, plus scaffolding commands for getting started without real data. For
+anything about the config schema, the CLI or how the DAG works, see
+[conduit's documentation](https://github.com/NERC-CEH/conduit/tree/develop/docs).
+
 This is a work in progress - expect **very** sharp edges.
 
 For usage instructions see the [documentation](https://SatTerC.github.io/satterc) (this is also WIP!)
@@ -80,7 +89,7 @@ You can run the following commands anywhere in the repository:
 just test        # run the test suite (pytest)
 just lint        # format and lint code with ruff, check examples with marimo
 just docs        # build the docs (zensical)
-just export <x>  # export a notebook example to docs (e.g. just export 00-getting-started)
+just export <x>  # export a notebook example to docs (e.g. just export my_first_pipeline)
 just export-all  # export all example notebooks
 ```
 
@@ -93,6 +102,10 @@ You can explore the documentation using the `-h` or `--help` flags, e.g.
 satterc -h  # help for the base command
 satterc graph -h  # help for the 'graph' subcommand
 ```
+
+`run`, `graph` and `gridded` are conduit's commands, mounted into the `satterc`
+app so there is a single entry point; `setup`, `data-gen` and `version` are
+satterc's own.
 
 ### Generate a visualisation of the DAG
 
@@ -107,6 +120,7 @@ satterc graph config.toml --pdf  # or --png
 
 ```bash
 mkdir outputs
+satterc run config.toml --dry-run  # validate config, inputs and contracts first
 satterc run config.toml
 ```
 
