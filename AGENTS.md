@@ -10,7 +10,7 @@ compatibility shims.
 SatTerC is a thin domain package on top of [**conduit**](https://github.com/NERC-CEH/conduit), which owns the framework:
 config parsing, the DAG, contract validation, I/O, caching, blocking, subsetting,
 the gridded/Zarr layer, and the `run` / `graph` / `gridded` CLI commands.
-conduit's **`develop` branch is the source of truth** — read it (or the local
+conduit's **`main` branch is the source of truth** — read it (or the local
 checkout, if present) rather than guessing at its API.
 
 ## Gotchas
