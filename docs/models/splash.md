@@ -10,10 +10,10 @@ icon: lucide/droplet
 
 SPLASH (Simple Process-led Algorithms for Simulating Habitats) is a water balance model that estimates soil moisture, actual evapotranspiration (AET) and surface water runoff for sites.[^davis2017]
 
-The model takes an initial estimate of soil moisture and then uses time series of precipitation, temperature and cloud cover to estimate how the daily water balance changes with incoming precipitation, condensation and AET. Calculations of AET and condensation are affected by soil moisture, temperature and downwelling solar radiation at the site – this requires that the elevation and latitude of the site are known.
+The model takes an initial estimate of soil moisture, then uses time series of precipitation, temperature and cloud cover to track how the daily water balance changes with incoming precipitation, condensation and AET. Soil moisture, temperature and downwelling solar radiation at the site all feed into AET and condensation, which is why the site's elevation and latitude are required inputs.
 
-We wrap the existing [NumPy-based `pyrealm` implementation](https://github.com/ImperialCollegeLondon/pyrealm) of SPLASH. 
-See the [pyrealm SPLASH documentation](https://pyrealm.readthedocs.io/en/latest/users/splash.html) for further details and as the authoritative source for model theory.
+We wrap the [NumPy-based `pyrealm` implementation](https://github.com/ImperialCollegeLondon/pyrealm) of SPLASH.
+The [pyrealm SPLASH documentation](https://pyrealm.readthedocs.io/en/latest/users/splash.html) is the authoritative source for the model theory.
 
 ## Theory
 
@@ -41,13 +41,13 @@ The maximum soil moisture capacity defaults to 150 mm but can be set on a per-si
 
 ### Initial soil moisture estimation
 
-SPLASH estimates initial soil moisture by iterating over a full year of climate data until the difference between year-start and year-end soil moisture falls below a specified threshold. This ensures the model starts from a quasi-equilibrium state.
+SPLASH estimates initial soil moisture by iterating over a full year of climate data until the difference between year-start and year-end soil moisture falls below a threshold, so the run starts from a quasi-equilibrium state. Because that tolerance is evaluated over the whole block, results shift by ~1e-4 relative when the block size or subset changes.
 
 ## Usage
 
 ### Configuration
 
-SPLASH is configured in your TOML config file:
+SPLASH is configured in the TOML config file:
 
 ```toml
 [splash]

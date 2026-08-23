@@ -7,43 +7,43 @@ icon: lucide/house
 
 Carbon-cycle model modules for [conduit][conduit] pipelines.
 
+/// admonition | Pre-alpha: not ready for use
+    type: warning
+
+SatTerC is an unfinished research code with no users outside the core
+collaboration. Results are unvalidated, large parts are untested against
+anything real, and the models, config schema and CLI change without notice or
+deprecation.
+///
+
 ## What is SatTerC?
 
-SatTerC packages four terrestrial carbon models — SPLASH, the P-model, SGAM and
-RothC — as modules you can compose into a pipeline described by a TOML config
+SatTerC packages four terrestrial carbon models (SPLASH, the P-model, SGAM and
+RothC) as modules you can compose into a pipeline described by a TOML config
 file. Each is an ordinary Python module of plain functions whose names are DAG
 node names, with units and frequency contracts declared on their signatures.
 
-The framework underneath is **conduit**, which owns everything generic: parsing
-the config, building the DAG, validating contracts across the whole graph before
+The framework underneath is conduit, which owns everything generic: parsing the
+config, building the DAG, validating contracts across the whole graph before
 anything runs, loading and saving data, caching, blocking, and spatial
-subsetting. SatTerC adds the science, plus two conveniences — a config generator
-and a synthetic-data generator — for getting started without real data.
+subsetting. SatTerC adds the science, plus a config generator and a
+synthetic-data generator for getting started without real data.
 
-That split is worth keeping in mind while reading these docs: **for anything
-about the config schema, the CLI, data formats, or how the DAG works, go to
-[conduit's documentation][conduit-docs].** What is documented here is what
-SatTerC itself provides.
-
-Key features:
-
-- **Composable models** — SPLASH, P-Model, SGAM and RothC can be mixed and matched
-- **Declared contracts** — units, dimensions and temporal frequency are checked
-  across the whole graph before any compute
-- **Scaffolding** — `satterc setup` writes a starting config; `satterc data-gen`
-  fills it with synthetic data
-- **Extensible** — add your own models as Python modules
+Keep that split in mind while reading these docs. **For anything about the
+config schema, the CLI, data formats, or how the DAG works, go to [conduit's
+documentation][conduit-docs].** What is documented here is what SatTerC itself
+provides.
 
 ## Installation
 
-See the [Installation guide](getting_started/installation.md).
+See the [installation guide](getting_started/installation.md).
 
-## Quick Start
+## Quickstart
 
-Get a pipeline running in five minutes — see the
-[Quickstart guide](getting_started/quickstart.md).
+The [quickstart](getting_started/quickstart.md) runs a one-model pipeline on
+synthetic data, from an empty directory to a NetCDF file of results.
 
-## Learn More
+## Learn more
 
 ### Here
 
@@ -64,9 +64,7 @@ Get a pipeline running in five minutes — see the
 
 ### Funding
 
-SatTerC is supported by the following grants and institutions:
-
-<!-- Add your funding bodies here. Example:
+<!-- TODO: add funding bodies and grant numbers. Example:
 
 - **[Funding Body Name]** — Grant number XXXXXXX
 - **[Institution Name]** — Project title, grant period
@@ -75,17 +73,14 @@ SatTerC is supported by the following grants and institutions:
 
 ### Contributors
 
-The following people have contributed to the development of SatTerC:
-
-<!-- Add contributors here. Example:
+<!-- TODO: add contributors. Example:
 
 - **Joe Marsh Rossney** — Lead developer
-- **Name** — Role/contribution
 - **Name** — Role/contribution
 
 -->
 
-### Software Dependencies
+### Software dependencies
 
 SatTerC builds on the following open-source projects:
 

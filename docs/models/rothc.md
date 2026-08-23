@@ -8,7 +8,7 @@ icon: lucide/worm
 
 ## Overview
 
-RothC is a widely-used model for simulating the turnover of soil organic carbon (SOC) in non-waterlogged soils.[^jenkinson1990] It splits SOC into five distinct compartments – four active and one inert – and accounts for soil type (clay content), temperature, moisture, and plant cover to calculate decay rates.
+RothC simulates the turnover of soil organic carbon (SOC) in non-waterlogged soils.[^jenkinson1990] It splits SOC into five distinct compartments – four active and one inert – and accounts for soil type (clay content), temperature, moisture, and plant cover to calculate decay rates.
 
 The five pools are:
 
@@ -20,7 +20,7 @@ The five pools are:
 | HUM | Humified Organic Matter | Stable humus |
 | IOM | Inert Organic Matter | Chemically inert, does not decompose |
 
-We forked the Python implementation from [Rothamsted Research](https://github.com/Rothamsted-Models/RothC_Py/), repackaged it for pip installation, and achieved a ~20× speedup. Our fork is available at [github.com/SatTerC/RothC_Py](https://github.com/SatTerC/RothC_Py).
+We forked the Python implementation from [Rothamsted Research](https://github.com/Rothamsted-Models/RothC_Py/), repackaged it for pip installation and made it ~20× faster. Our fork is available at [github.com/SatTerC/RothC_Py](https://github.com/SatTerC/RothC_Py).
 
 ## Theory
 
@@ -40,7 +40,7 @@ The decomposition rates are scaled by:
 
 ### Spin-up
 
-RothC requires initial pool sizes to begin simulation. A spin-up phase runs the model over repeated climate cycles until the pools reach equilibrium, providing consistent initial conditions.
+RothC requires initial pool sizes to begin simulation. A spin-up phase runs the model over repeated climate cycles until the pools reach equilibrium, which fixes the initial conditions.
 
 For full model details, see:
 
@@ -51,7 +51,7 @@ For full model details, see:
 
 ### Configuration
 
-RothC is configured in your TOML config file:
+RothC is configured in the TOML config file:
 
 ```toml
 [rothc]
@@ -66,9 +66,9 @@ n_years_spinup = 1
 
 RothC's own evaporation driver is open-pan evaporation, which the underlying
 RothC_Py scales by 0.75 to get evapotranspiration. SatTerC instead supplies
-potential evapotranspiration directly — SPLASH computes it (Priestley-Taylor) on
-its way to AET — so there is nothing to convert and `evap_factor` defaults to
-1.0. Note that PET, not AET, is the right driver: RothC's water balance is
+potential evapotranspiration directly, since SPLASH computes it
+(Priestley-Taylor) on its way to AET. There is nothing to convert, so
+`evap_factor` defaults to 1.0. Note that PET, not AET, is the right driver: RothC's water balance is
 rainfall minus evaporative *demand*, and AET is already suppressed by the soil
 dryness RothC is itself computing, so feeding AET in double-counts the water
 limitation and holds the soil systematically too wet.

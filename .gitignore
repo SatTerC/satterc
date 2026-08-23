@@ -15,6 +15,7 @@ tmp/
 *.nc
 
 *.html
+!overrides/*.html
 __marimo__/
 
 .claude/

@@ -8,11 +8,11 @@ icon: lucide/layers
 
 ## Overview
 
-SGAM is a simplified plant growth and carbon allocation model that simulates how photosynthetically-fixed carbon is distributed among plant tissues. Given weekly environmental drivers — gross primary productivity (GPP), temperature, soil moisture, vapour pressure deficit (VPD), light use efficiency (LUE), and intrinsic water use efficiency (iWUE) — it tracks carbon in leaf, stem, root, litter, and removed-by-disturbance pools for four plant functional types: tree, grass, shrub, and crop.
+SGAM is a simplified plant growth and carbon allocation model that simulates how photosynthetically-fixed carbon is distributed among plant tissues. It takes weekly environmental drivers (gross primary productivity, temperature, soil moisture, vapour pressure deficit, light use efficiency and intrinsic water use efficiency) and tracks carbon in leaf, stem, root, litter and removed-by-disturbance pools, for four plant functional types: tree, grass, shrub and crop.
 
-The model accounts for dynamic allocation, autotrophic respiration, litterfall turnover, and disturbance or harvest events, enforcing strict mass balance at every timestep.
+Allocation varies with conditions, and the model also handles autotrophic respiration, litterfall turnover, and disturbance or harvest events. Mass balance is checked at every timestep.
 
-We developed SGAM ourselves as a standalone package. See the [SGAM documentation](https://satterc.github.io/sgam/science.html) for full details.
+We wrote SGAM ourselves as a standalone package. See the [SGAM documentation](https://satterc.github.io/sgam/science.html) for full details.
 
 ```mermaid
 flowchart TD
@@ -44,7 +44,7 @@ flowchart TD
 
 ## Theory
 
-### Carbon Use Efficiency
+### Carbon use efficiency
 
 The fraction of GPP retained as biomass — the Carbon Use Efficiency (CUE) — depends on LUE and iWUE, each normalised against PFT-specific maximums to produce dimensionless scores:
 
@@ -56,7 +56,7 @@ $$\text{CUE} = \text{CUE}_{\min} + \bar{s} \cdot (\text{CUE}_{\max} - \text{CUE}
 
 Net Primary Productivity is then $\text{NPP} = \text{GPP} \times \text{CUE}$, with the remainder lost as autotrophic respiration.
 
-### Drought Modifier
+### Drought modifier
 
 Water availability constrains allocation via a drought modifier $f_{\text{drought}} \in [0, 1]$, combining:
 
@@ -67,7 +67,7 @@ The combined modifier applies Liebig's Law of the Minimum:
 
 $$f_{\text{drought}} = \min(f_{\text{sm}},\; f_{\text{vpd}})$$
 
-### Dynamic Allocation
+### Dynamic allocation
 
 NPP is split among leaf, stem, and root by allocation fractions that are dynamically adjusted from P-specific base values by three modifiers:
 
@@ -77,7 +77,7 @@ NPP is split among leaf, stem, and root by allocation fractions that are dynamic
 
 The adjusted fractions are normalised to sum to 1, with minimum floors preventing biologically unrealistic values.
 
-### Turnover and Litter
+### Turnover and litter
 
 Each pool loses biomass at a fixed first-order rate each week. Losses from leaf, stem, and root accumulate in the litter pool. Mean residence times span from ~20 weeks for crop leaves to ~5000 weeks for tree wood.
 
@@ -88,9 +88,9 @@ Disturbance events are detected from daily time series by checking simultaneous 
 - **Crops** – complete removal of above-ground biomass (harvest); root carbon transfers to litter
 - **Other PFTs** – partial defoliation proportional to severity (fire, grazing, pests)
 
-### Plant Functional Type Parameters
+### Plant functional type parameters
 
-Default parameter sets encode distinct ecological strategies:
+SGAM ships one parameter set per PFT. The values below are its defaults; we have not calibrated them or traced each number to a source, so treat them as a starting point rather than as recommended values.
 
 | Parameter | Tree | Grass | Shrub | Crop |
 |-----------|------|-------|-------|------|
@@ -106,15 +106,15 @@ Default parameter sets encode distinct ecological strategies:
 | Wilting point (m³ m⁻³) | 0.12 | 0.08 | 0.05 | 0.15 |
 | Field capacity (m³ m⁻³) | 0.35 | 0.30 | 0.25 | 0.40 |
 
-Trees invest heavily in long-lived structural carbon; grasses prioritise rapid leaf and root turnover; shrubs are drought-tolerant with high water-use efficiency; crops are optimised for above-ground productivity.
+The pattern in those numbers is the intended one: trees hold carbon in long-lived structure, grasses turn leaves and roots over fast, shrubs tolerate drought at high water-use efficiency, crops put carbon above ground.
 
-### Mass Balance
+### Mass balance
 
 At each timestep carbon is conserved across all live pools:
 
 $$P_{\text{pool}}(t) = P_{\text{pool}}(t-1) + \text{NPP}_{\text{pool}}(t) - \Delta P_{\text{pool}}^{\text{turn}}(t) - \Delta P_{\text{pool}}^{\text{dist}}(t)$$
 
-Any violation beyond a relative tolerance of $10^{-6}$ indicates a numerical error.
+A violation beyond a relative tolerance of $10^{-6}$ means something is wrong; `strict_mass_balance` decides whether that raises or warns.
 
 ## Usage
 

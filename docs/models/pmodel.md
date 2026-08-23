@@ -12,7 +12,7 @@ The P-model is an optimality-based light use efficiency model for simulating eco
 Rather than assigning fixed trait values to plant functional types (PFTs), it predicts how plants continuously acclimate to their environment based on eco-evolutionary optimality theory – the idea that plants adapt to maximise resource use efficiency.[^prentice2014]
 For a broader overview of the model's challenges and future directions, see the University of Reading LEMONTREE blog.[^lemontree2025]
 
-The model rests on three foundational hypotheses:
+The model rests on three hypotheses:
 
 **Least-Cost Hypothesis** – Plants balance water loss during transpiration against carbon fixation capacity to minimise total cost. 
 This predicts how the ratio of leaf-internal to ambient CO₂ (χ) varies with environment: χ decreases in dry air (conserving water), increases in warm conditions (water transport becomes cheaper due to lower viscosity), and decreases at high altitude (lower O₂ makes photosynthesis cheaper). [^prentice2014]
@@ -22,10 +22,10 @@ This yields a simple proportionality between photosynthetic capacity (at growth 
 
 **Cost-Benefit Hypothesis** – Leaves balance the cost of maintaining maximum electron transport rate (Jmax) against the benefit of electron-transport-limited photosynthesis, predicting the Jmax:Vcmax ratio. [^wang2017]
 
-Together, these hypotheses allow the P-model to predict GPP across diverse ecosystems without biome-specific calibration, using only environmental drivers (light, temperature, CO₂, vapour pressure deficit, soil moisture) and fAPAR.
+Together the three hypotheses let the P-model predict GPP without biome-specific calibration, from environmental drivers (light, temperature, CO₂, vapour pressure deficit, soil moisture) and fAPAR alone.
 
-We wrap the existing [NumPy-based `pyrealm` implementation](https://github.com/ImperialCollegeLondon/pyrealm) of the P-model. 
-See the [pyrealm P-model documentation](https://pyrealm.readthedocs.io/en/latest/users/pmodel/module_overview.html) for further details.
+We wrap the [NumPy-based `pyrealm` implementation](https://github.com/ImperialCollegeLondon/pyrealm) of the P-model.
+The [pyrealm P-model documentation](https://pyrealm.readthedocs.io/en/latest/users/pmodel/module_overview.html) is the authoritative source for the model theory.
 
 ## Theory
 
@@ -50,7 +50,7 @@ Three quantities are treated as unknowns that plants optimise:
 - **$J_{\text{max}}$** – maximum electron transport capacity
 - **$\chi = c_i / c_a$** – the ratio of leaf-internal to ambient CO₂
 
-### Optimal $\chi$ (Least-Cost Hypothesis)
+### Optimal $\chi$ (least-cost hypothesis)
 
 The least-cost hypothesis yields an expression for optimal $\chi$ that depends on temperature, vapour pressure deficit $D$, atmospheric pressure $p$, and the relative viscosity of water $\eta^*$:
 
@@ -78,7 +78,7 @@ The implementation in `pyrealm` uses the soil moisture parameter $\theta$ (volum
 
 ### Method options
 
-The implementation supports several methodological choices:
+`pyrealm` offers several methodological choices, exposed as model parameters:
 
 | Parameter | Options | Description |
 |-----------|---------|-------------|
@@ -91,7 +91,7 @@ The implementation supports several methodological choices:
 
 ### Configuration
 
-The P-model is configured in your TOML config file:
+The P-model is configured in the TOML config file:
 
 ```toml
 [pmodel]
@@ -150,8 +150,4 @@ See the [API documentation](../api/satterc.models/pmodel.md) for full function s
 [^lemontree2025]: Sanders, N. (ed.): The P model: challenges we face and plan to address, University of Reading LEMONTREE blog, https://research.reading.ac.uk/lemontree/the-p-model-challenges-we-face-and-plan-to-address/, 2025.
 
 [^wang2017]: Wang, H., Prentice, I. C., Keenan, T. F., Davis, T. W., Wright, I. J., Cornwell, W. K., Breon, F. M., Atkin, O. K., and Dong, N.: Towards a universal model for carbon dioxide uptake by plants, Nat. Plants, 3, 734–741, https://doi.org/10.1038/s41477-017-0006-x, 2017.
-
-[^bloomfield2023]: Bloomfield, K. J., et al.: Environmental responses of light use efficiency from the P-model and FLUXNET sites, Global Change Biology, 2023.
-
-[^mengoli2025]: Mengoli, G., et al.: Breakpoint model of water stress in the P-model, Global Change Biology, in press, 2025.
 

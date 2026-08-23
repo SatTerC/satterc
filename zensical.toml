@@ -63,6 +63,7 @@ extra_css = [
 
 [project.theme]
 language = "en"
+custom_dir = "overrides"
 features = [
     "announce.dismiss",
     "content.code.annotate",
@@ -108,6 +109,8 @@ toggle.name = "Switch to light mode"
 permalink = true
 [project.markdown_extensions.pymdownx.arithmatex]
 generic = true
+[project.markdown_extensions.pymdownx.blocks.admonition]
+[project.markdown_extensions.pymdownx.blocks.details]
 [project.markdown_extensions.pymdownx.betterem]
 [project.markdown_extensions.pymdownx.caret]
 [project.markdown_extensions.pymdownx.details]

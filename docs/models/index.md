@@ -3,11 +3,11 @@ title: Overview
 icon: lucide/package
 ---
 
-# Built-in Models
+# Built-in models
 
-SatTerC ships with four models that can be composed into pipelines. Each is an
-ordinary [conduit module][conduit-byom] — plain functions whose names are DAG
-node names — and is referenced from a config by its dotted `_import_path`:
+SatTerC ships four models that can be composed into pipelines. Each is an
+ordinary [conduit module][conduit-byom], a set of plain functions whose names are
+DAG node names, referenced from a config by its dotted `_import_path`:
 
 ```toml
 [splash]
@@ -15,24 +15,34 @@ _import_path = "satterc.models.splash"
 soil_moisture_init_max_iter = 10
 ```
 
-| Model | Description | Temporal Resolution |
+/// admonition | What the tests cover
+    type: warning
+
+The test suite checks the wiring: that each wrapper passes the right arrays to
+the underlying implementation, that units and frequencies match what is
+declared, and that a pipeline runs end to end on synthetic data. It does not
+check the science. No output on these pages has been compared against a
+reference run or against observations.
+///
+
+| Model | Description | Temporal resolution |
 |-------|-------------|---------------------|
 | [SPLASH](splash.md) | Semi-empirical water-balance model that computes actual evapotranspiration, soil moisture, and runoff from daily climate data | Daily |
-| [P-Model](pmodel.md) | Optimal photosynthesis model that computes gross primary production (GPP), light-use efficiency, and leaf area index from environmental drivers | Weekly |
-| [SGAM](sgam.md) | Simple Global Assimilation Model — a vegetation dynamics model that tracks carbon pools (leaf, stem, root, litter) over time | Weekly |
+| [P-model](pmodel.md) | Optimality-based photosynthesis model that computes gross primary production (GPP), light-use efficiency and intrinsic water-use efficiency from environmental drivers | Weekly |
+| [SGAM](sgam.md) | Simplified Growth and Allocation Model: tracks carbon pools (leaf, stem, root, litter) over time | Weekly |
 | [RothC](rothc.md) | Soil carbon decomposition model that simulates the turnover of organic matter in soil, producing soil organic carbon stocks | Monthly |
 
 ## Naming and declared frequencies
 
 The `_daily` / `_weekly` / `_monthly` / static suffixes on node names are a
-SatTerC convention, not framework behaviour: conduit treats a config section's
-label as inert and infers no frequency from it. What actually carries the
-frequency is a contract declared on each model's signature:
+SatTerC convention, not framework behaviour. conduit treats a config section's
+label as inert and infers no frequency from it. The frequency is carried by a
+contract declared on each model's signature:
 
 | Suffix | Declared offset | `satterc.temporal` |
 |--------|-----------------|------------------------|
 | `_daily` | `D` | `DAILY` |
-| `_weekly` | `7D` (unanchored — any weekday) | `WEEKLY` |
+| `_weekly` | `7D` (unanchored, any weekday) | `WEEKLY` |
 | `_monthly` | `1ME` (month end) | `MONTHLY` |
 
 Because those declarations are on the functions, conduit can check the whole
@@ -42,19 +52,19 @@ quiet nonsense. They are also what `satterc graph` uses to group and colour node
 by frequency.
 
 Each model reads the calendar it needs off one of its own time-bearing inputs.
-There is no `dates_daily` / `dates_weekly` / `dates_monthly` node to supply — the
+There is no `dates_daily` / `dates_weekly` / `dates_monthly` node to supply. The
 time axis lives on the data.
 
-## Typical Model Chains
+## Model chains
 
-Models are designed to be composed. Common configurations include:
+The chains we run:
 
 - **SPLASH alone** — water balance only (evapotranspiration, soil moisture, runoff)
-- **SPLASH → P-Model** — adds GPP and LAI estimation
-- **SPLASH → P-Model → SGAM** — full vegetation dynamics with carbon pools
-- **SPLASH → P-Model → SGAM → RothC** — complete terrestrial carbon cycle including soil carbon
+- **SPLASH → P-model** — adds GPP and light-use efficiency
+- **SPLASH → P-model → SGAM** — vegetation dynamics with carbon pools
+- **SPLASH → P-model → SGAM → RothC** — the above plus soil carbon
 
-Chaining models takes more than listing them: a downstream model generally wants
+Chaining models takes more than listing them. A downstream model usually wants
 its inputs at a different frequency, or in different units, from what the
 upstream one produces. `examples/config.toml` in the repository is a worked
 four-model pipeline showing the `[[resample]]` and `[[node]]` entries that

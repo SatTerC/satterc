@@ -1,28 +1,26 @@
 # `satterc`
 
-Carbon-cycle model modules — SPLASH, the P-model, SGAM and RothC — for
-[conduit](https://github.com/NERC-CEH/conduit) pipelines.
+> [!WARNING]
+> **Pre-alpha. Not ready for use.**
+> SatTerC is an unfinished research code with no users outside the core collaboration.
+> Results are unvalidated, large parts are untested against anything real, and the models, config schema and CLI change without notice or deprecation.
+> These docs are a skeleton to be filled in, so treat gaps as gaps rather than as things that work and went undocumented.
+> If you want to use this for something, get in touch first.
 
-conduit is the framework: it owns the TOML config, the DAG, contract validation
-(units, dimensions, temporal frequency), I/O and execution. `satterc` adds the
-science, plus scaffolding commands for getting started without real data. For
-anything about the config schema, the CLI or how the DAG works, see
-[conduit's documentation](https://github.com/NERC-CEH/conduit/tree/develop/docs).
+Carbon-cycle model modules (SPLASH, the P-model, SGAM and RothC) for [conduit](https://github.com/NERC-CEH/conduit) pipelines.
 
-This is a work in progress - expect **very** sharp edges.
-
-For usage instructions see the [documentation](https://SatTerC.github.io/satterc) (this is also WIP!)
+Usage instructions are in the [documentation](https://SatTerC.github.io/satterc), which is at the same stage as the code.
 
 ## Developer instructions
 
-This project uses **[uv](https://docs.astral.sh/uv/)** for dependency management and packaging.
+This project uses [uv](https://docs.astral.sh/uv/) for dependency management and packaging.
 
 ### Prerequisites
 
 * Python 3.13
 * `uv` installed (see [docs](https://docs.astral.sh/uv/getting-started/installation/))
 
-### Setup for Development
+### Setup for development
 
 1. **Clone the repository:**
 
@@ -58,7 +56,7 @@ This project uses [pre-commit](https://pre-commit.com/) to run linting and tests
 uv run pre-commit install
 ```
 
-After this, `just lint` and `just test` will run automatically before every `git commit`. If either fails, the commit is aborted — fix the issues and try again.
+After this, `just lint` and `just test` will run automatically before every `git commit`.
 
 To run hooks manually without committing:
 
@@ -68,7 +66,7 @@ uv run pre-commit run --all-files
 
 ### Building the docs
 
-Build the docs with 
+Build the docs with
 
 ```bash
 zensical build
@@ -81,7 +79,7 @@ See [zensical.org](https://zensical.org/) for more details.
 
 ### Useful short-cuts
 
-The awesome [`just`](https://github.com/casey/just) is a development dependency that will be installed when you run `uv sync`.
+[`just`](https://github.com/casey/just) is a development dependency, installed when you run `uv sync`.
 
 You can run the following commands anywhere in the repository:
 
@@ -95,7 +93,7 @@ just export-all  # export all example notebooks
 
 ## CLI use
 
-Installing `satterc` will installing the `satterc` command.
+Installing `satterc` installs the `satterc` command.
 You can explore the documentation using the `-h` or `--help` flags, e.g.
 
 ```bash
@@ -103,9 +101,8 @@ satterc -h  # help for the base command
 satterc graph -h  # help for the 'graph' subcommand
 ```
 
-`run`, `graph` and `gridded` are conduit's commands, mounted into the `satterc`
-app so there is a single entry point; `setup`, `data-gen` and `version` are
-satterc's own.
+`run`, `graph` and `gridded` are conduit's commands, mounted into the `satterc` app so there is a single entry point.
+`setup`, `data-gen` and `version` are satterc-specific.
 
 ### Generate a visualisation of the DAG
 
@@ -124,5 +121,4 @@ satterc run config.toml --dry-run  # validate config, inputs and contracts first
 satterc run config.toml
 ```
 
-This will produce three netcdf files in `outputs/`, for daily, weekly and monthly output data.
-
+This produces three netcdf files in `outputs/`, for daily, weekly and monthly output data.
