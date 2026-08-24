@@ -24,6 +24,12 @@ test:
 test-cov:
   pytest --cov=satterc --cov-report=term-missing --cov-fail-under=90
 
+# Re-record the pyrealm unit anchor in tests/data/pyrealm_golden.json.
+# Only after reviewing *why* pyrealm's output changed. If a unit convention
+# moved, correct the annotation rather than the recorded numbers.
+regen-pyrealm-golden:
+  uv run python scripts/regen_pyrealm_golden.py
+
 # Build the documentation using Zensical.
 docs:
   zensical build

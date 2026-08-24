@@ -175,6 +175,14 @@ def splash(
     temperature_daily: Annotated[DataArray, "degC", DAILY],
     precipitation_daily: Annotated[DataArray, "mm d-1", DAILY],
     elevation: Annotated[DataArray, "m"],
+    # Deliberately undeclared. pyrealm wants degrees, but conduit computes
+    # `latitude` from the input CRS (`conduit.gridded.io.compute_lat_lon`) and
+    # builds the array without a `units` attribute, so under strict validation
+    # (`on_missing="error"`, as tests/test_contracts.py runs) declaring a unit
+    # here fails every gridded pipeline. Stamping that attribute is generic
+    # geospatial behaviour and belongs in conduit. Once it lands, declare
+    # "degrees" here and add ("latitude", "lat") back to SPLASH_INPUT_UNITS in
+    # tests/test_pyrealm_units.py.
     latitude: DataArray,
     max_soil_moisture: Annotated[DataArray, "mm"],
     *,

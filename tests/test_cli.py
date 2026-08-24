@@ -150,9 +150,11 @@ class TestGraphCommand:
         # Declared units appear in node labels in place of the "DataArray" type.
         assert "t ha-1" in text  # e.g. rothc soil carbon pools
         gpp_line = next(
-            line for line in text.splitlines() if line.strip().startswith("gpp_weekly ")
+            line
+            for line in text.splitlines()
+            if line.strip().startswith("gpp_flux_weekly ")
         )
-        assert "<i>g m-2 d-1</i>" in gpp_line
+        assert "<i>ug m-2 s-1</i>" in gpp_line
         assert "DataArray" not in gpp_line
 
     def test_missing_config_fails(self, tmp_path):

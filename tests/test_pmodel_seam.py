@@ -80,7 +80,11 @@ def _reference_loop(inputs: dict) -> dict[str, np.ndarray]:
     def col(name: str, i: int) -> np.ndarray:
         return inputs[name].values[:, i]
 
-    per_pixel: dict[str, list] = {"gpp_weekly": [], "lue_weekly": [], "iwue_weekly": []}
+    per_pixel: dict[str, list] = {
+        "gpp_flux_weekly": [],
+        "lue_photon_weekly": [],
+        "iwue_weekly": [],
+    }
     for i in range(N_PIXELS):
         env = pyrealm.pmodel.PModelEnvironment(
             tc=col("temperature_weekly", i),
@@ -100,8 +104,8 @@ def _reference_loop(inputs: dict) -> dict[str, np.ndarray]:
             method_arrhenius=inputs["method_arrhenius"],
             method_jmaxlim=inputs["method_jmaxlim"],
         )
-        per_pixel["gpp_weekly"].append(np.nan_to_num(model.gpp, nan=0.0))
-        per_pixel["lue_weekly"].append(np.nan_to_num(model.lue, nan=0.0))
+        per_pixel["gpp_flux_weekly"].append(np.nan_to_num(model.gpp, nan=0.0))
+        per_pixel["lue_photon_weekly"].append(np.nan_to_num(model.lue, nan=0.0))
         per_pixel["iwue_weekly"].append(np.nan_to_num(model.iwue, nan=0.0))
 
     return {name: np.column_stack(cols) for name, cols in per_pixel.items()}
@@ -118,7 +122,9 @@ class TestRegression:
     def reference(self, pmodel_inputs) -> dict:
         return _reference_loop(pmodel_inputs)
 
-    @pytest.mark.parametrize("name", ["gpp_weekly", "lue_weekly", "iwue_weekly"])
+    @pytest.mark.parametrize(
+        "name", ["gpp_flux_weekly", "lue_photon_weekly", "iwue_weekly"]
+    )
     def test_matches_reference_loop(self, seam_result, reference, name):
         np.testing.assert_allclose(
             seam_result[name].transpose("time", "pixel").values, reference[name]
@@ -135,7 +141,7 @@ class TestRegression:
     def test_per_pixel_inputs_actually_differ(self, seam_result):
         # Distinct climate columns must produce distinct GPP columns; identical columns
         # would mean the block was collapsed or broadcast incorrectly.
-        gpp = seam_result["gpp_weekly"].transpose("time", "pixel").values
+        gpp = seam_result["gpp_flux_weekly"].transpose("time", "pixel").values
         assert not np.allclose(gpp[:, 0], gpp[:, 1])
         assert not np.allclose(gpp[:, 1], gpp[:, 2])
 
@@ -153,7 +159,7 @@ class TestStrategyCStaysOpen:
                 chunked_inputs[key] = val.chunk({"pixel": 1})
         chunked = _pmodel(**chunked_inputs)
 
-        for name in ["gpp_weekly", "lue_weekly", "iwue_weekly"]:
+        for name in ["gpp_flux_weekly", "lue_photon_weekly", "iwue_weekly"]:
             out = chunked[name].compute().transpose("time", "pixel").values
             np.testing.assert_allclose(
                 out, eager[name].transpose("time", "pixel").values
@@ -191,7 +197,7 @@ class TestCachingIntact:
         def run(cache):
             dr = build_driver(["satterc.models.pmodel"], {}, cache=cache)
             return dr.execute(  # type: ignore[reportArgumentType]
-                ["gpp_weekly"], inputs=inputs, overrides=overrides
+                ["gpp_flux_weekly"], inputs=inputs, overrides=overrides
             )
 
         uncached = run(None)
@@ -199,6 +205,6 @@ class TestCachingIntact:
         cached = run(spec)  # warm cache
 
         np.testing.assert_allclose(
-            cached["gpp_weekly"].values, uncached["gpp_weekly"].values
+            cached["gpp_flux_weekly"].values, uncached["gpp_flux_weekly"].values
         )
         assert (tmp_path / "cache").exists()

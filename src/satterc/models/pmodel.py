@@ -23,14 +23,26 @@ from ..temporal import DAILY, WEEKLY
 class PModelOut(TypedDict):
     """Outputs of the `pmodel` node, at weekly resolution."""
 
-    gpp_weekly: Annotated[DataArray, "g m-2 d-1", WEEKLY]
-    """Gross primary productivity: the carbon fixed by photosynthesis, expressed
-    as a rate (grams of carbon per square metre per day)."""
-    lue_weekly: Annotated[DataArray, "g MJ-1", WEEKLY]
-    """Light use efficiency: carbon fixed per unit absorbed PAR (grams of carbon
-    per megajoule)."""
-    iwue_weekly: Annotated[DataArray, "Pa", WEEKLY]
-    """Intrinsic water use efficiency (pascals)."""
+    gpp_flux_weekly: Annotated[DataArray, "ug m-2 s-1", WEEKLY]
+    """Carbon fixed by photosynthesis, as the instantaneous flux pyrealm reports
+    (micrograms of carbon per square metre per second).
+
+    Not a daily rate. A consumer wanting ``g m-2 d-1`` multiplies by 0.0864
+    (86400 s d-1 x 1e-6 g ug-1). The example config does that in its
+    ``gpp_weekly`` node."""
+    lue_photon_weekly: Annotated[DataArray, "g mol-1", WEEKLY]
+    """Light use efficiency, as carbon fixed per *mole of absorbed photons*
+    (grams of carbon per mole).
+
+    pyrealm defines LUE against PPFD, a photon flux, so the denominator counts
+    photons rather than energy. SGAM wants ``g MJ-1`` instead, and the two differ
+    by the energy content of PAR, roughly 4.57 mol MJ-1."""
+    iwue_weekly: Annotated[DataArray, "umol mol-1", WEEKLY]
+    """Intrinsic water use efficiency (micromoles of CO2 per mole of air).
+
+    pyrealm computes ``(5/8)(ca - ci) / P`` with the partial pressures in Pa and
+    ``P`` in megapascals, which lands in umol mol-1. That is a mixing ratio, not
+    the pressure the units once claimed."""
 
 
 def _pmodel_block(
@@ -54,8 +66,8 @@ def _pmodel_block(
     pyrealm's P-Model is vectorised over the spatial axis, so this kernel runs on the
     full array — or a single dask chunk — in one call; there is no per-pixel loop.
     Returns ``(gpp, lue, iwue)`` arrays matching the input shape, ordered as the fields
-    of `PModelOut`. This is the unit mapped over the block by `_pmodel` via
-    `xarray.apply_ufunc`.
+    of `PModelOut`, in pyrealm's own units. Nothing is rescaled here. This is the
+    unit mapped over the block by `_pmodel` via `xarray.apply_ufunc`.
     """
     # Environmental drivers computed upon instantiation of PModelEnvironment
     env = pyrealm.pmodel.PModelEnvironment(
@@ -134,7 +146,11 @@ def _pmodel(
     )
     return cast(
         PModelOut,
-        {"gpp_weekly": gpp, "lue_weekly": lue, "iwue_weekly": iwue},
+        {
+            "gpp_flux_weekly": gpp,
+            "lue_photon_weekly": lue,
+            "iwue_weekly": iwue,
+        },
     )
 
 
@@ -203,10 +219,11 @@ def pmodel(
     PModelOut
         Dictionary of weekly outputs:
 
-        - gpp_weekly: gross primary productivity (grams of carbon per square
-          metre per day)
-        - lue_weekly: light use efficiency (grams of carbon per megajoule)
-        - iwue_weekly: intrinsic water use efficiency (pascals)
+        - gpp_flux_weekly: gross primary productivity (micrograms of carbon per
+          square metre per second)
+        - lue_photon_weekly: light use efficiency (grams of carbon per mole of
+          absorbed photons)
+        - iwue_weekly: intrinsic water use efficiency (micromoles per mole)
 
         See `PModelOut` for per-output detail.
     """

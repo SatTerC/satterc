@@ -122,13 +122,20 @@ Helper functions are provided to derive `mean_growth_temperature_weekly` from da
 
 ### Outputs
 
-The P-model returns three weekly `DataArray` outputs:
+The P-model returns three weekly `DataArray` outputs, in `pyrealm`'s own units.
+The node is an honest wrapper and rescales nothing.
 
 | Variable | Units | Description |
 |----------|-------|-------------|
-| `gpp_weekly` | gC m⁻² day⁻¹ | Gross primary productivity |
-| `lue_weekly` | gC MJ⁻¹ PAR | Light use efficiency |
-| `iwue_weekly` | Pa | Intrinsic water use efficiency |
+| `gpp_flux_weekly` | µgC m⁻² s⁻¹ | Gross primary productivity, as an instantaneous flux |
+| `lue_photon_weekly` | gC mol⁻¹ | Light use efficiency, per mole of absorbed photons |
+| `iwue_weekly` | µmol mol⁻¹ | Intrinsic water use efficiency |
+
+None of these are the units SGAM consumes.
+`pyrealm` reports GPP as an instantaneous flux rather than a daily rate, and defines LUE against PPFD, a *photon* flux, so its denominator counts moles of photons rather than megajoules of energy.
+Explicit bridge nodes in the config do the conversion, which puts the factor where a reader can see it rather than inside a wrapper.
+`examples/config.toml` defines `gpp_weekly` and `lue_weekly` for that purpose.
+iWUE needs no bridge, because `pyrealm` and SGAM agree on µmol mol⁻¹.
 
 ### Python API
 

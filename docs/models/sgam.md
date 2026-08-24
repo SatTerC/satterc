@@ -145,7 +145,7 @@ SGAM requires the following weekly `DataArray` inputs:
 | `volumetric_water_content_weekly` | m³ m⁻³ | Volumetric soil water content (*not* SPLASH's mm soil moisture — see the `volumetric_water_content_weekly` node in `examples/config.toml`) |
 | `vpd_weekly` | Pa | Vapour pressure deficit |
 | `lue_weekly` | gC MJ⁻¹ | Light use efficiency |
-| `iwue_weekly` | Pa | Intrinsic water use efficiency |
+| `iwue_weekly` | µmol mol⁻¹ | Intrinsic water use efficiency |
 | `disturbances_weekly` | dimensionless (0–1) | Weekly disturbance severity |
 
 And the following static `DataArray` inputs:

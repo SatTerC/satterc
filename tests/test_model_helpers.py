@@ -340,18 +340,18 @@ class TestPmodelExecution:
         assert isinstance(pmodel_result, dict)
 
     def test_output_keys(self, pmodel_result):
-        assert "gpp_weekly" in pmodel_result
-        assert "lue_weekly" in pmodel_result
+        assert "gpp_flux_weekly" in pmodel_result
+        assert "lue_photon_weekly" in pmodel_result
         assert "iwue_weekly" in pmodel_result
 
     def test_gpp_is_dataarray(self, pmodel_result):
-        assert isinstance(pmodel_result["gpp_weekly"], xr.DataArray)
+        assert isinstance(pmodel_result["gpp_flux_weekly"], xr.DataArray)
 
     def test_gpp_non_negative(self, pmodel_result):
-        assert np.all(pmodel_result["gpp_weekly"].values >= 0)
+        assert np.all(pmodel_result["gpp_flux_weekly"].values >= 0)
 
     def test_output_shape(self, pmodel_result):
-        gpp = pmodel_result["gpp_weekly"]
+        gpp = pmodel_result["gpp_flux_weekly"]
         assert gpp.sizes["time"] == 52
         assert gpp.sizes["pixel"] == 1
 
@@ -450,7 +450,7 @@ class TestPmodelDriverExecution:
             },
         )
         result = dr.execute(
-            ["gpp_weekly", "lue_weekly", "iwue_weekly"],
+            ["gpp_flux_weekly", "lue_photon_weekly", "iwue_weekly"],
             inputs={
                 "temperature_weekly": _wda(15.0),
                 "temperature_daily": xr.DataArray(
@@ -467,7 +467,7 @@ class TestPmodelDriverExecution:
                 "volumetric_water_content_weekly": _wda(0.3),
             },
         )
-        gpp = result["gpp_weekly"]
+        gpp = result["gpp_flux_weekly"]
         assert isinstance(gpp, xr.DataArray)
         assert np.all(gpp.values >= 0)
 
