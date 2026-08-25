@@ -34,11 +34,11 @@ regen-pyrealm-golden:
 docs:
   zensical build
 
-# Export a single example notebook to docs/Examples/.
+# Export a single example notebook to docs/examples/.
 export example:
-  # Export to Markdown file
+  # Export to Markdown and keep the HTML notebook in the generated assets directory.
   marimo-md-export "examples/{{example}}.py" "docs/examples/{{example}}.md" \
-    --html-output docs/examples/{{example}}-notebook.html --overflow scroll
+    --keep-html --overflow scroll
 
 # Export all notebooks in examples/ to docs/Examples/.
 export-all:
