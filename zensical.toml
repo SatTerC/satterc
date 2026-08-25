@@ -3,7 +3,7 @@
 use_directory_urls = false
 
 site_name = "satterc"
-site_description = "A Python framework for data-driven terrestrial carbon modelling based on Directed Acyclic Graphs."
+site_description = "Composable models of the terrestrial carbon and water cycles, for conduit pipelines."
 site_author = "Joe Marsh Rossney"
 site_url = "https://satterc.github.io/satterc"
 

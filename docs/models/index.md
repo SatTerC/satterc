@@ -5,7 +5,7 @@ icon: lucide/package
 
 # Built-in models
 
-SatTerC ships four models that can be composed into pipelines. Each is an
+SatTerC ships four models so far, which can be composed into pipelines. Each is an
 ordinary [conduit module][conduit-byom], a set of plain functions whose names are
 DAG node names, referenced from a config by its dotted `_import_path`:
 
@@ -31,6 +31,21 @@ reference run or against observations.
 | [P-model](pmodel.md) | Optimality-based photosynthesis model that computes gross primary production (GPP), light-use efficiency and intrinsic water-use efficiency from environmental drivers | Weekly |
 | [SGAM](sgam.md) | Simplified Growth and Allocation Model: tracks carbon pools (leaf, stem, root, litter) over time | Weekly |
 | [RothC](rothc.md) | Soil carbon decomposition model that simulates the turnover of organic matter in soil, producing soil organic carbon stocks | Monthly |
+
+## What comes next
+
+These four cover a water balance, photosynthesis, vegetation growth and soil
+carbon, which is enough for a carbon pipeline and not much else. The models we
+want next are mostly the rest of [pyrealm][pyrealm]: subdaily and two-leaf
+P-model variants, C3/C4 competition, carbon isotopes, phenology, and the T-model
+for tree growth and canopy structure. Beyond that, the ecosystem carbon models of the
+DALEC and CARDAMOM family, which are satellite-driven and pool-based and so sit
+close to what SGAM and RothC already do, then a real hydrology in place of
+SPLASH's bucket.
+
+Adding a model means writing a conduit module and declaring its contracts, so
+the list is limited by the work rather than by anything in the design. If you
+want a particular model in here, say so on the issue tracker.
 
 ## Naming and declared frequencies
 
@@ -72,5 +87,6 @@ connect them.
 
 See conduit's [configuration reference][conduit-config] for every config section.
 
+[pyrealm]: https://github.com/ImperialCollegeLondon/pyrealm
 [conduit-byom]: https://github.com/NERC-CEH/conduit/blob/develop/docs/guides/bring-your-own-module.md
 [conduit-config]: https://github.com/NERC-CEH/conduit/blob/develop/docs/reference/configuration.md

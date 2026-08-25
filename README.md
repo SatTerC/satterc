@@ -4,10 +4,16 @@
 > **Pre-alpha. Not ready for use.**
 > SatTerC is an unfinished research code with no users outside the core collaboration.
 > Results are unvalidated, large parts are untested against anything real, and the models, config schema and CLI change without notice or deprecation.
+> So, probably, will the name.
 > These docs are a skeleton to be filled in, so treat gaps as gaps rather than as things that work and went undocumented.
 > If you want to use this for something, get in touch first.
 
-Carbon-cycle model modules (SPLASH, the P-model, SGAM and RothC) for [conduit](https://github.com/NERC-CEH/conduit) pipelines.
+Composable models of the terrestrial carbon and water cycles, for [conduit](https://github.com/NERC-CEH/conduit) pipelines.
+
+Four are implemented so far: SPLASH, the P-model, SGAM and RothC.
+They are a starting point rather than the intended scope.
+Most of what we want next is the rest of what [pyrealm](https://github.com/ImperialCollegeLondon/pyrealm) implements, then the satellite-driven ecosystem carbon models of the DALEC and CARDAMOM family, then a real hydrology in place of SPLASH's bucket.
+Further out, the version we are aiming at lets you assemble a land surface model of the kind CLM or JULES provides one process at a time, choosing the representation of each rather than taking a whole model as given.
 
 Usage instructions are in the [documentation](https://SatTerC.github.io/satterc), which is at the same stage as the code.
 
