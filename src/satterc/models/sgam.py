@@ -539,7 +539,7 @@ def sgam(
     volumetric_water_content_weekly: Annotated[xr.DataArray, "m3 m-3", WEEKLY],
     vpd_weekly: Annotated[xr.DataArray, "Pa", WEEKLY],
     lue_weekly: Annotated[xr.DataArray, "g MJ-1", WEEKLY],
-    iwue_weekly: Annotated[xr.DataArray, "Pa", WEEKLY],
+    iwue_weekly: Annotated[xr.DataArray, "umol mol-1", WEEKLY],
     disturbances_weekly: xr.DataArray,
     leaf_pool_init: Annotated[xr.DataArray, "g m-2"],
     stem_pool_init: Annotated[xr.DataArray, "g m-2"],
@@ -576,7 +576,7 @@ def sgam(
     lue_weekly : xr.DataArray
         Weekly mean light use efficiency (grams of carbon per megajoule).
     iwue_weekly : xr.DataArray
-        Weekly mean intrinsic water use efficiency (pascals).
+        Weekly mean intrinsic water use efficiency (micromoles per mole).
     disturbances_weekly : xr.DataArray
         Weekly disturbance severity: the maximum daily relative decline observed
         during the week, in [0, 1] (dimensionless).

@@ -158,6 +158,32 @@ def _(Config, tomllib):
     units = "m3 m-3"
     freq = "7D"
 
+    # satterc.models.pmodel is an honest wrapper. It reports GPP and LUE in
+    # pyrealm's own units, which are not the ones SGAM consumes. These two nodes
+    # are the bridge, kept here rather than inside the model node so that a
+    # reader can see the conversion factor.
+    #
+    # pyrealm's GPP is an instantaneous flux in ug C m-2 s-1. SGAM wants a daily
+    # rate in g C m-2 d-1, so 86400 s d-1 x 1e-6 g ug-1 = 0.0864.
+    [[node]]
+    name = "gpp_weekly"
+    inputs = ["gpp_flux_weekly"]
+    expression = "gpp_flux_weekly * 0.0864"
+    units = "g m-2 d-1"
+    freq = "7D"
+
+    # pyrealm defines LUE against PPFD, a *photon* flux, so its denominator is
+    # moles of photons. SGAM wants carbon per MJ of absorbed PAR, and 4.57 mol
+    # MJ-1 is the standard photon content of PAR over the 400-700 nm band.
+    [[node]]
+    name = "lue_weekly"
+    inputs = ["lue_photon_weekly"]
+    expression = "lue_photon_weekly * 4.57"
+    units = "g MJ-1"
+    freq = "7D"
+
+    # iWUE needs no bridge: pyrealm reports umol mol-1 and SGAM consumes it.
+
     [[node]]
     name = "leaf_area_index_weekly"
     inputs = ["leaf_pool_weekly", "pft_params"]

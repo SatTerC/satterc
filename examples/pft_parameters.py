@@ -148,6 +148,24 @@ def _(Config, tomllib):
     units = "m3 m-3"
     freq = "7D"
 
+    # satterc.models.pmodel reports GPP and LUE in pyrealm's own units, which are
+    # not the ones SGAM consumes. These two nodes are the explicit bridge.
+    # GPP goes ug C m-2 s-1 -> g C m-2 d-1 (86400 s d-1 x 1e-6 g ug-1 = 0.0864).
+    [[node]]
+    name = "gpp_weekly"
+    inputs = ["gpp_flux_weekly"]
+    expression = "gpp_flux_weekly * 0.0864"
+    units = "g m-2 d-1"
+    freq = "7D"
+
+    # For LUE, pyrealm's denominator is moles of photons and SGAM's is MJ of PAR.
+    [[node]]
+    name = "lue_weekly"
+    inputs = ["lue_photon_weekly"]
+    expression = "lue_photon_weekly * 4.57"
+    units = "g MJ-1"
+    freq = "7D"
+
     [[resample]]
     vars = [
       "temperature",

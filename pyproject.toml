@@ -4,7 +4,7 @@ build-backend = "uv_build"
 
 [project]
 name = "satterc"
-version = "0.6.0"
+version = "0.7.0"
 description = "Carbon-cycle model modules for conduit pipelines: SPLASH, P-model, SGAM and RothC."
 authors = [
     { name = "jmarshrossney", email = "17361029+jmarshrossney@users.noreply.github.com" }
@@ -22,7 +22,11 @@ dependencies = [
 
 [project.optional-dependencies]
 viz = ["conduit[viz]"]
-models = ["pyrealm>=2.0.0", "rothc-py", "sgam"]
+# pyrealm is capped below 3: `tests/test_pyrealm_units.py` anchors satterc's
+# unit annotations to numbers recorded against a reviewed pyrealm, and a major
+# release is where that review has to happen again. Within 2.x the anchor is
+# expected to hold, so a golden failure there is real news rather than noise.
+models = ["pyrealm>=2.0.0,<3", "rothc-py", "sgam"]
 all = ["satterc[viz,models]"]
 
 [project.scripts]

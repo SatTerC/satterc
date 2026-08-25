@@ -20,6 +20,7 @@ from xarray_annotated import unwrap_annotated
 from .. import models as model_modules
 from .. import temporal
 from ..temporal import resample_offset
+from .bridges import Bridge, bridge_for
 
 
 #: The pandas offsets behind satterc's node-name suffixes, for the ``freq`` key
@@ -222,6 +223,32 @@ def _accumulates(source_units: str | None, target_units: str | None) -> bool:
     return (source * registry.Unit("day")).dimensionality == target.dimensionality
 
 
+def _bridge_factor(
+    bridge: Bridge, source_units: str | None, target_units: str | None
+) -> float | None:
+    """Return the multiplier taking ``source_units`` to ``target_units``.
+
+    A bridge with an explicit ``factor`` uses it: those pairs are not
+    dimensionally the same quantity, so no registry can derive them. Otherwise
+    the two units are the same quantity written differently and pint knows the
+    number — asking it keeps a conversion factor from being restated (and
+    eventually mistyped) here.
+
+    ``None`` where the declared units are missing or pint cannot relate them,
+    which means the table has drifted from the models and the caller should not
+    silently emit a wrong node.
+    """
+    if bridge.factor is not None:
+        return bridge.factor
+    if not source_units or not target_units:
+        return None
+    try:
+        registry = pint.get_application_registry()
+        return float(registry.Quantity(1.0, source_units).to(target_units).magnitude)
+    except (pint.DimensionalityError, pint.UndefinedUnitError, TypeError, ValueError):
+        return None
+
+
 def _infer_required_data(model_names: list[str]) -> dict[str, Any]:
     """Infer required data using analyze_model_module.
 
@@ -269,6 +296,9 @@ def _infer_required_data(model_names: list[str]) -> dict[str, Any]:
     # Coarsenings that also restate the units, so must be nodes rather than
     # `[[resample]]` entries. See `_accumulates`.
     accumulations: list[dict[str, Any]] = []
+    # Units-restating nodes for producer/consumer pairs that disagree. Not a
+    # coarsening, so tracked apart from `accumulations`. See `scaffold.bridges`.
+    bridge_nodes: list[dict[str, Any]] = []
 
     def _record(base: str, source: str, target: str) -> None:
         """File one coarsening as either a resample or a units-restating node."""
@@ -294,6 +324,36 @@ def _infer_required_data(model_names: list[str]) -> dict[str, Any]:
         else:
             resamples.add((base, source, target))
 
+    def _record_bridge(
+        base: str, freq: str | None, produced_at: dict[str, set[str | None]]
+    ) -> bool:
+        """Emit the units-restating node for ``base``, if a bridge supplies it.
+
+        False when no bridge covers this name, when its source is not produced
+        at the frequency wanted, or when the factor cannot be established — in
+        every case the caller falls through to loading the variable from a file,
+        which is what it would have done before.
+        """
+        bridge = bridge_for(base)
+        if bridge is None or freq not in produced_at.get(bridge.source, set()):
+            return False
+        source_name = f"{bridge.source}{freq or ''}"
+        target_name = f"{base}{freq or ''}"
+        target_units = units.get(target_name)
+        factor = _bridge_factor(bridge, units.get(source_name), target_units)
+        if factor is None or target_units is None:
+            return False
+        bridge_nodes.append(
+            {
+                "name": target_name,
+                "inputs": [source_name],
+                "expression": f"{source_name} * {factor:.6g}",
+                "units": target_units,
+                "freq": temporal.offset(_label(freq)),
+            }
+        )
+        return True
+
     by_frequency: dict[str | None, set[str]] = {
         "_daily": daily,
         "_weekly": weekly,
@@ -314,6 +374,11 @@ def _infer_required_data(model_names: list[str]) -> dict[str, Any]:
         if source is not None:
             # Produced finer than wanted, so coarsen it rather than loading it.
             _record(base, _label(source), _label(freq))
+            continue
+
+        if _record_bridge(base, freq, produced_at):
+            # Produced at this frequency under another name, in another model's
+            # honest units. Convert it rather than loading a second copy.
             continue
         # Not produced at all, or only *coarser* than wanted. Resampling cannot
         # refine, so this has to come from a file even when a model does produce
@@ -364,6 +429,7 @@ def _infer_required_data(model_names: list[str]) -> dict[str, Any]:
         "inputs_weekly": sorted(inputs_weekly),
         "inputs_monthly": sorted(inputs_monthly),
         "inputs_static": sorted(static),
+        "bridges": bridge_nodes,
         "accumulations": accumulations,
         "resample_daily_to_weekly": resample_daily_to_weekly,
         "resample_daily_to_monthly": resample_daily_to_monthly,
@@ -447,8 +513,11 @@ def generate_config(
 
     # Nodes before resamples: a reader meets the derivations that change what a
     # variable *means* before the ones that only change its cadence.
-    if required_data["accumulations"]:
-        config_data["node"] = required_data["accumulations"]
+    # Bridges first: a units restatement is the shorter story, and the reader
+    # meets `gpp_weekly` before anything that consumes it.
+    nodes = required_data["bridges"] + required_data["accumulations"]
+    if nodes:
+        config_data["node"] = nodes
     if resample_list:
         config_data["resample"] = resample_list
 

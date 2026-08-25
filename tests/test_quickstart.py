@@ -11,6 +11,8 @@ the generator (a resample it fails to emit, a variable it leaves unbound, a rate
 it coarsens as a mean) shows up here and nowhere else.
 """
 
+import tomllib
+
 import numpy as np
 import pytest
 import xarray as xr
@@ -88,13 +90,48 @@ class TestGeneratedConfigShape:
     """What the generator must emit for the four-model pipeline to wire up."""
 
     def test_gpp_is_an_input_despite_being_a_model_output(self, quickstart):
-        """pmodel produces `gpp_weekly`; sgam's disturbances want `gpp_daily`.
+        """pmodel yields weekly GPP; sgam's disturbances want `gpp_daily`.
 
-        Resampling only coarsens, so the weekly output cannot supply the daily
+        Resampling only coarsens, so the weekly figure cannot supply the daily
         consumer and it has to be loaded from a file.
         """
         config = (quickstart / "config.toml").read_text()
         assert '"gpp",' in config.split("[inputs.weekly]")[0]
+
+    def test_sgam_productivity_comes_from_pmodel_not_from_a_file(self, quickstart):
+        """The generator has to emit the units bridges or this seam silently rots.
+
+        pmodel reports GPP and LUE in pyrealm's units, under pyrealm's names
+        (`gpp_flux`, `lue_photon`). Neither is what sgam consumes. Without a
+        bridge node the generator sees two unsatisfied inputs and quietly loads
+        them from a file — sgam then runs on synthetic noise, and every other
+        check in this file still passes, because the pipeline it produces is
+        perfectly well-formed. `lue` in particular matches no rule in the data
+        generator's name table, so the fallback would hand sgam gaussian noise
+        straddling zero, against a parameter whose PFT maxima are all positive.
+        """
+        config = tomllib.loads((quickstart / "config.toml").read_text())
+        loaded = {
+            var for section in config["inputs"].values() for var in section["vars"]
+        }
+        assert {"lue", "lue_photon", "gpp_flux"}.isdisjoint(loaded)
+
+        nodes = {node["name"]: node for node in config["node"]}
+        for target, source in (("gpp", "gpp_flux"), ("lue", "lue_photon")):
+            assert nodes[f"{target}_weekly"]["inputs"] == [f"{source}_weekly"]
+
+    def test_a_bridged_variable_is_not_also_resampled(self, quickstart):
+        """`gpp` is loaded daily *and* bridged weekly, so it can be derived twice.
+
+        If the generator emitted the daily-to-weekly resample as well, conduit
+        would have two definitions of `gpp_weekly`, and the file-loaded one is
+        the wrong answer.
+        """
+        config = tomllib.loads((quickstart / "config.toml").read_text())
+        node_names = {node["name"] for node in config["node"]}
+        for entry in config["resample"]:
+            for var in entry["vars"]:
+                assert f"{var}_{entry['to']}" not in node_names
 
     def test_model_outputs_are_resampled_for_coarser_consumers(self, quickstart):
         """sgam produces `disturbances_daily` and consumes `disturbances_weekly`."""
