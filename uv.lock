@@ -3,10 +3,10 @@ revision = 3
 requires-python = ">=3.13"
 resolution-markers = [
     "python_full_version >= '3.14' and platform_machine == 'ARM64' and sys_platform == 'win32'",
-    "python_full_version < '3.14' and platform_machine == 'ARM64' and sys_platform == 'win32'",
     "python_full_version >= '3.14' and platform_machine != 'ARM64' and sys_platform == 'win32'",
     "python_full_version >= '3.14' and sys_platform == 'emscripten'",
     "python_full_version >= '3.14' and sys_platform != 'emscripten' and sys_platform != 'win32'",
+    "python_full_version < '3.14' and platform_machine == 'ARM64' and sys_platform == 'win32'",
     "python_full_version < '3.14' and platform_machine != 'ARM64' and sys_platform == 'win32'",
     "python_full_version < '3.14' and sys_platform == 'emscripten'",
     "python_full_version < '3.14' and sys_platform != 'emscripten' and sys_platform != 'win32'",
@@ -114,7 +114,7 @@ name = "cffi"
 version = "2.1.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "pycparser", marker = "implementation_name != 'PyPy'" },
+    { name = "pycparser" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/57/5f/ff100cae70ebe9d8df1c01a00e510e45d9adb5c1fdda84791b199141de97/cffi-2.1.0.tar.gz", hash = "sha256:efc1cdd798b1aaf39b4610bba7aad28c9bea9b910f25c784ccf9ec1fa719d1f9", size = 531036, upload-time = "2026-07-06T21:34:30.382Z" }
 wheels = [
@@ -2025,7 +2025,7 @@ requires-dist = [
     { name = "conduit", extras = ["geo"], git = "https://github.com/NERC-CEH/conduit" },
     { name = "conduit", extras = ["viz"], marker = "extra == 'viz'", git = "https://github.com/NERC-CEH/conduit" },
     { name = "numpy", specifier = ">=2.4.2" },
-    { name = "pyrealm", marker = "extra == 'models'", specifier = ">=2.0.0" },
+    { name = "pyrealm", marker = "extra == 'models'", specifier = ">=2.0.0,<3" },
     { name = "rothc-py", marker = "extra == 'models'", git = "https://github.com/SatTerC/rothc_py.git" },
     { name = "satterc", extras = ["viz", "models"], marker = "extra == 'all'" },
     { name = "sgam", marker = "extra == 'models'", git = "https://github.com/SatTerC/sgam.git" },

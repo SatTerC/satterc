@@ -5,8 +5,9 @@ the wrapped models agree with pyrealm called directly. They cannot catch the
 failure this file exists for. Both sides call the same pyrealm, so if upstream
 changes what a number *means*, the two move together and the comparison still
 passes, while every `@declare_units` annotation downstream becomes confidently
-wrong. `pyrealm` is pinned only as ``>=2.0.0``, so such a change arrives with any
-``uv lock --upgrade``.
+wrong. `pyrealm` is pinned as ``>=2.0.0,<3``: the cap keeps a major release from
+arriving unreviewed on a plain ``uv lock --upgrade``, but a 2.x release is still
+free to change a convention, and nothing but this file would notice.
 
 This is not hypothetical. When these tests were written all three P-Model output
 annotations were wrong. GPP was labelled ``g m-2 d-1`` for what pyrealm reports
@@ -480,15 +481,28 @@ class TestSplashInvariants:
 
 
 class TestGoldenValues:
-    """Absolute magnitudes, pinned against a reviewed pyrealm version."""
+    """Absolute magnitudes, pinned against a reviewed pyrealm version.
+
+    A pyrealm upgrade does not excuse these. The whole point of the anchor is to
+    fire when pyrealm changes what its numbers mean, and a check that switches
+    itself off on the version bump would go quiet at exactly the moment it is
+    meant to speak. So none of this class skips: an upgrade that moves the
+    numbers turns the suite red, and somebody reads the diff.
+    """
 
     def test_recorded_pyrealm_version(self, golden):
-        """Not a failure. It warns that the anchor predates this pyrealm build."""
+        """Fails first, so the headline arrives before the numeric diffs.
+
+        This says nothing the individual failures below do not also say — it
+        just says it once, at the top, in terms of versions rather than in terms
+        of a mean that moved in the sixth decimal place.
+        """
         if golden["pyrealm_version"] != pyrealm.__version__:
-            pytest.skip(
+            pytest.fail(
                 f"Golden file was generated against pyrealm "
                 f"{golden['pyrealm_version']}, installed is "
-                f"{pyrealm.__version__}. Review the diff, then {REGENERATE_HINT}"
+                f"{pyrealm.__version__}. Any failures below are most likely this "
+                f"and not a bug in satterc. {REGENERATE_HINT}"
             )
 
     @pytest.mark.parametrize(
