@@ -4,7 +4,7 @@
 #     "marimo",
 #     "matplotlib==3.10.9",
 #     "numpy==2.4.4",
-#     "satterc==0.6.0",
+#     "satterc==0.7.0",
 #     "conduit",
 #     "scipy==1.17.1",
 # ]

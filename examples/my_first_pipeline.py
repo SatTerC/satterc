@@ -1,10 +1,11 @@
 # /// script
 # requires-python = ">=3.13"
 # dependencies = [
-#   "satterc==0.6.0",
+#   "satterc==0.7.0",
 #   "conduit",
 #   "marimo",
 #   "matplotlib==3.10.9",
+#   "xarray-annotated",
 # ]
 #
 # [tool.uv.sources]
@@ -69,8 +70,14 @@ def _():
     import matplotlib.pyplot as plt
     from conduit import build_driver, get_final_vars, get_outputs, load_inputs
     from conduit.config import Config
+    from xarray_annotated.units import set_policy
 
     from satterc.scaffold.data_gen import generate_synthetic_data
+
+    # CSV and JSON files have nowhere to record a unit, so the inputs below
+    # arrive unlabelled and conduit warns once per input that it cannot check
+    # them. See "A note on units" below.
+    set_policy(on_missing="ignore")
 
     return (
         Config,
@@ -157,6 +164,20 @@ def _(mo):
 
     > **If you have real data**, skip ahead to the *Using your own data* section at the bottom
     > of this notebook before running the pipeline.
+
+    ### A note on units
+
+    Every model input in SatTerC declares the units it expects, and conduit
+    checks the data against that declaration before the model sees it. The check
+    reads a `units` attribute on the array, which CSV and JSON have no way to
+    store: the generator labels `temperature` as `degC`, and the label is lost
+    the moment the column is written out.
+
+    conduit warns once per unlabelled input by default. The import cell above
+    turns those warnings off with `set_policy(on_missing="ignore")`, which
+    affects only the unlabelled case — a label that contradicts the declaration
+    is still an error. Write the inputs to NetCDF or Zarr instead and the labels
+    survive the round trip, so the check does its job with nothing to configure.
     """)
     return
 
