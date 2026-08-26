@@ -40,10 +40,9 @@ class SplashOut(TypedDict):
 
     SPLASH computes this on the way to actual evapotranspiration, by the
     Priestley-Taylor relation ``PET = (1 + k_w) * EET``, where equilibrium
-    evapotranspiration follows from daytime net radiation and ``k_w = 0.26``.
-    Exposing it costs no extra compute and saves a downstream consumer having to
-    find a separate PET product: it is the demand term in an aridity index, which
-    `satterc.models.pmodel` needs."""
+    evapotranspiration follows from daytime net radiation and ``k_w = 0.26``. It
+    is the demand term in an aridity index, which `satterc.models.pmodel`
+    needs."""
 
 
 def _splash_block(
@@ -190,8 +189,6 @@ def splash(
     soil_moisture_init_max_diff: float = 1.0,
 ) -> SplashOut:
     """Run the SPLASH water balance model.
-
-    This function is intended to act as a node in a Hamilton DAG.
 
     The daily calendar SPLASH needs is read off ``temperature_daily``'s time
     coordinate.

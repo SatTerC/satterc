@@ -41,8 +41,7 @@ class PModelOut(TypedDict):
     """Intrinsic water use efficiency (micromoles of CO2 per mole of air).
 
     pyrealm computes ``(5/8)(ca - ci) / P`` with the partial pressures in Pa and
-    ``P`` in megapascals, which lands in umol mol-1. That is a mixing ratio, not
-    the pressure the units once claimed."""
+    ``P`` in megapascals, so this is a mixing ratio rather than a pressure."""
 
 
 def _pmodel_block(
@@ -252,18 +251,14 @@ def mean_growth_temperature(
 
     pyrealm consumes this as an *acclimation* quantity: the ``sandoval`` quantum
     yield method uses it to set the temperature at which the highest kphio is
-    attained, and pairs it with `aridity_index`, which pyrealm likewise documents
-    as climatological. The instantaneous temperature response is a separate term,
-    driven by ``tc``.
+    attained. The instantaneous temperature response is a separate term, driven
+    by ``tc``.
 
-    So this reduces over the whole record rather than over a window. Computing it
-    weekly (as this node once did) returned NaN for any week in which no day rose
-    above 0 degC — an ordinary winter week, not an error — and that NaN
-    propagated through kphio into GPP.
-
-    A pixel that never rises above 0 degC over the whole record still yields NaN.
-    That is a real gap rather than an artifact of the window, so it is left to
-    propagate.
+    The mean is taken over the whole record, not a rolling window, and over days
+    above 0 degC only. A pixel that never rises above 0 degC over the record
+    yields NaN, which propagates through kphio into GPP.
     """
+    # Reduce over the whole record, not per week: a winter week with no day above
+    # 0 degC is an ordinary week, and windowing turned it into a NaN in GPP.
     growing_days = temperature_daily.where(temperature_daily > 0.0)
     return growing_days.mean(sole_time_dim(temperature_daily, "temperature_daily"))

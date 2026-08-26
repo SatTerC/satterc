@@ -1,7 +1,8 @@
 """Configuration generator for SatTerC.
 
-This module contains the logic for generating configuration files
-by introspecting the Hamilton driver and discovering required inputs.
+Generates a config file by introspecting the chosen model modules: which inputs
+they need, at which frequencies, and which of those another model already
+produces.
 """
 
 import inspect
@@ -23,10 +24,6 @@ from ..temporal import resample_offset
 from .bridges import Bridge, bridge_for
 
 
-#: The pandas offsets behind satterc's node-name suffixes, for the ``freq`` key
-#: that conduit's ``[[resample]]`` requires. conduit infers nothing from the
-#: ``from``/``to`` labels — they are node-name suffixes and nothing more — so
-#: the mapping from a suffix pair to an offset is satterc's convention to make.
 def _analyze_model_module(
     module: ModuleType, config: dict[str, Any], units: dict[str, str] | None = None
 ) -> tuple[list[str], list[str], list[str]]:
@@ -114,18 +111,16 @@ def _output_hints(module: ModuleType) -> dict[str, Any]:
 
 
 def _strip_suffix(name: str) -> tuple[str, str | None]:
-    """Strip frequency suffix from variable name.
+    """Strip a frequency suffix from a variable name.
+
+    The suffixes are a satterc naming convention, not framework behaviour, and
+    match the `Freq` contracts the model modules declare (see
+    `satterc.temporal`). They decide which input file a variable belongs in.
 
     Parameters
     ----------
     name : str
         Variable name (e.g., 'temperature_daily').
-
-    These four suffixes are a satterc naming convention, not framework
-    behaviour: conduit treats an input section's label as inert and infers no
-    frequency from it. They are what this generator uses to decide which file a
-    variable belongs in, and they match the `Freq` contracts the model modules
-    declare (see `satterc.temporal`).
 
     Returns
     -------
@@ -330,9 +325,8 @@ def _infer_required_data(model_names: list[str]) -> dict[str, Any]:
         """Emit the units-restating node for ``base``, if a bridge supplies it.
 
         False when no bridge covers this name, when its source is not produced
-        at the frequency wanted, or when the factor cannot be established — in
-        every case the caller falls through to loading the variable from a file,
-        which is what it would have done before.
+        at the frequency wanted, or when the factor cannot be established. In
+        every case the caller falls through to loading the variable from a file.
         """
         bridge = bridge_for(base)
         if bridge is None or freq not in produced_at.get(bridge.source, set()):

@@ -307,10 +307,6 @@ def rothc(
         - heterotrophic_respiration_monthly: CO2 from microbial decomposition
 
         See `RothCOut` for per-output detail.
-
-    Notes
-    -----
-    All outputs are at monthly resolution and in tonnes of carbon per hectare.
     """
     return _rothc(
         temperature_monthly=temperature_monthly,
@@ -336,12 +332,9 @@ def rothc(
 
 
 # --- Bridge nodes, needed for RothC --- #
-# Ideally refactored in future to be more flexible, configurable via config.toml etc.
-#
 # Each of these produces a monthly series out of per-pixel static data, so it needs
-# a monthly calendar to build that series against. conduit supplies no ``dates_*``
-# node, and the time axis lives on the data, so each takes ``temperature_monthly``
-# purely for its time coordinate.
+# a monthly calendar to build that series against. The time axis lives on the data,
+# so each takes ``temperature_monthly`` purely for its time coordinate.
 
 
 @declare_freq
@@ -467,10 +460,6 @@ def farmyard_manure_input_monthly(
     temperature_monthly: Annotated[DataArray, MONTHLY],
 ) -> Annotated[DataArray, "t ha-1", MONTHLY]:
     """Return a zero-filled monthly farmyard manure carbon input.
-
-    In a future version, this could be driven by a grazing/manure C flux
-    estimated by SGAM for grass-dominated pixels. Such a flux would need
-    to be exposed as a monthly SGAM output and wired here.
 
     Parameters
     ----------

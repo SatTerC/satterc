@@ -178,7 +178,7 @@ The `disturbances_daily` node computes daily disturbance events from temperature
 
 ### Outputs
 
-SGAM returns 23 weekly `DataArray` outputs:
+SGAM returns 24 weekly `DataArray` outputs:
 
 **Pool sizes** (gC m⁻²):
 

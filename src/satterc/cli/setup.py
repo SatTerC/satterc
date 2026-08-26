@@ -173,14 +173,9 @@ def _select_builtin_models() -> list[str]:
 def _import_error(module_path: str) -> str | None:
     """Return why ``module_path`` cannot be imported, or ``None`` if it can.
 
-    A path that does not import is almost always a typo, and used to be accepted
-    in silence: `get_model_params` swallows the ImportError and returns ``{}``,
-    so a mistyped module was reported as "no configurable parameters found" and
-    only failed much later, when the pipeline ran. Importing here is also what
-    makes that message trustworthy when it does appear.
-
-    Adding one anyway stays possible — a module may be installed between writing
-    the config and running it — so this reports rather than decides.
+    A path that does not import is almost always a typo. Adding one anyway stays
+    possible — a module may be installed between writing the config and running
+    it — so this reports rather than decides.
     """
     try:
         import_module(module_path)
