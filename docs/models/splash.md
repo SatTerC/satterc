@@ -15,6 +15,12 @@ The model takes an initial estimate of soil moisture, then uses time series of p
 We wrap the [NumPy-based `pyrealm` implementation](https://github.com/ImperialCollegeLondon/pyrealm) of SPLASH.
 The [pyrealm SPLASH documentation](https://pyrealm.readthedocs.io/en/latest/users/splash.html) is the authoritative source for the model theory.
 
+The DAG for a pipeline running SPLASH alone, with the dashed cluster grouping nodes by declared frequency (`D` for daily):
+
+<div class="model-graph">
+--8<-- "docs/models/_graphs/splash.svg"
+</div>
+
 ## Theory
 
 The daily water balance equation is:
@@ -31,23 +37,35 @@ where:
 - $C_{[t]}$ – condensation (mm·d⁻¹)
 - $\textrm{AET}_{[t]}$ – actual evapotranspiration (mm·d⁻¹)
 
-The calculated soil moisture is capped at the maximum soil moisture capacity ($W_m$), with excess water allocated to surface water runoff:
+Runoff is whatever that balance leaves above the maximum soil moisture capacity ($W_m$), taken before the cap is applied:
 
 $$
-\text{if } W_{n[t]} > W_m: \quad W_{n[t]} = W_m, \quad R_{[t]} = W_{n[t]} - W_m
+R_{[t]} = \max\left(W_{n[t]} - W_m,\; 0\right), \qquad W_{n[t]} \leftarrow \min\left(W_{n[t]}, W_m\right)
 $$
 
 The maximum soil moisture capacity defaults to 150 mm but can be set on a per-site basis.
 
 ### Initial soil moisture estimation
 
-SPLASH estimates initial soil moisture by iterating over a full year of climate data until the difference between year-start and year-end soil moisture falls below a threshold, so the run starts from a quasi-equilibrium state. Because that tolerance is evaluated over the whole block, results shift by ~1e-4 relative when the block size or subset changes.
+SPLASH estimates initial soil moisture by iterating over a full year of climate data until the difference between year-start and year-end soil moisture falls below a threshold, so the run starts from a quasi-equilibrium state.
+An input period shorter than a year cannot equilibrate and fails.
+
+That tolerance is evaluated over the whole block, so results shift by ~1e-4 relative when the `[blocking]` block size or the `[subset]` range changes.
 
 ## Usage
 
-### Configuration
+### Quickstart
 
-SPLASH is configured in the TOML config file:
+```sh
+satterc setup --models splash --defaults
+satterc data-gen generate config.toml --grid 1 1 --duration 2y --seed 42
+satterc run config.toml
+```
+
+The [quickstart](../getting_started/quickstart.md) walks through what each of those does, and how to point the config at your own data instead of the synthetic set.
+For calibrating `max_soil_moisture` against observations, see the [soil moisture example](../examples/soil_moisture.md).
+
+### Configuration
 
 ```toml
 [splash]
@@ -55,8 +73,6 @@ _import_path = "satterc.models.splash"
 soil_moisture_init_max_iter = 10
 soil_moisture_init_max_diff = 1.0
 ```
-
-Both settings are optional, and both are top-level keys of the `[splash]` section.
 
 ::: satterc.models.splash.splash_params
     options:
@@ -68,9 +84,6 @@ Both settings are optional, and both are top-level keys of the `[splash]` sectio
       docstring_section_style: spacy
 
 ### Inputs
-
-The three climate inputs are daily `DataArray`s; the three site inputs are static.
-`splash_params` carries the settings above.
 
 ::: satterc.models.splash.splash
     options:

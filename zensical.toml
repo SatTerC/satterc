@@ -57,6 +57,7 @@ extra_javascript = [
     "https://unpkg.com/katex@0/dist/contrib/auto-render.min.js"
 ]
 extra_css = [
+    "_static/css/extra.css",
     "https://unpkg.com/katex@0/dist/katex.min.css"
 ]
 
@@ -125,6 +126,8 @@ pygments_lang_class = true
 [project.markdown_extensions.pymdownx.magiclink]
 [project.markdown_extensions.pymdownx.mark]
 [project.markdown_extensions.pymdownx.smartsymbols]
+[project.markdown_extensions.pymdownx.snippets]
+base_path = ["."]
 [project.markdown_extensions.pymdownx.superfences]
 custom_fences = [
   { name = "mermaid", class = "mermaid", format = "pymdownx.superfences.fence_code_format" }

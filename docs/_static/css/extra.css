@@ -1,0 +1,19 @@
+/* Model DAG diagrams, inlined as SVG by `just graph <model>`. */
+
+.model-graph {
+  /* Graphviz bakes a white canvas and light pastel fills into the SVG, so the
+     container keeps that ground in both colour schemes rather than letting a
+     dark page show through behind dark text. */
+  background: #fff;
+  border-radius: 0.2rem;
+  padding: 0.8rem;
+  /* A wide graph scrolls inside its own box; the page never scrolls sideways. */
+  overflow-x: auto;
+}
+
+.model-graph svg {
+  /* Graphviz's fixed width/height are stripped at render time, so the viewBox
+     scales the drawing down to the container and no further. */
+  max-width: 100%;
+  height: auto;
+}

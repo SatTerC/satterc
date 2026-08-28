@@ -30,9 +30,22 @@ test-cov:
 regen-pyrealm-golden:
   uv run python scripts/regen_pyrealm_golden.py
 
+# Render a model's DAG to an SVG inlined by its docs page.
+graph model:
+  uv run python scripts/render_model_graph.py {{model}} docs/models/_graphs/{{model}}.svg
+
+# Re-render every model graph in docs/models/_graphs/.
+graph-all:
+  just graph splash
+
 # Build the documentation using Zensical.
-docs:
-  zensical build
+# Depends on `graph-all` because the model graphs are generated, not committed:
+# rendering one takes well under a second, so there is nothing to gain by
+# checking in an SVG that a signature change would silently invalidate.
+# `--clean` because zensical's incremental cache does not track the files pulled
+# in by `pymdownx.snippets`, so a freshly rendered graph is otherwise ignored.
+docs: graph-all
+  zensical build --clean
 
 # Export a single example notebook to docs/examples/.
 export example:
