@@ -427,8 +427,8 @@ class TestModelSelectionFlag:
 class TestCustomModuleImportCheck:
     """A mistyped module path used to be accepted in silence.
 
-    `get_model_params` swallows the ImportError and returns {}, so a typo was
-    reported as "no configurable parameters found" and only failed later, when
+    `get_model_config` swallows the ImportError and returns {}, so a typo was
+    reported as "no configurable settings found" and only failed later, when
     the pipeline ran.
     """
 

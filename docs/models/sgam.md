@@ -149,7 +149,7 @@ use_dynamic_allocation = true
 strict_mass_balance = false
 ```
 
-::: satterc.models.sgam.sgam_params
+::: satterc.models.sgam.sgam_config
     options:
       show_root_heading: false
       show_root_toc_entry: false
@@ -160,7 +160,7 @@ strict_mass_balance = false
 
 Disturbance detection has one setting of its own, configured as a key of the same `[sgam]` section:
 
-::: satterc.models.sgam.disturbances_params
+::: satterc.models.sgam.disturbances_config
     options:
       show_root_heading: false
       show_root_toc_entry: false

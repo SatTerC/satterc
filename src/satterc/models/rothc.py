@@ -8,11 +8,7 @@ import xarray as xr
 from conduit import declare_units
 from hamilton.function_modifiers import extract_fields
 from numpy.typing import NDArray
-
-# rothc_py's own `RothCParams` is the kernel's parameter object, which is not the
-# same thing as this module's config container of the same name; alias it.
-from rothc_py import RothC, percent_modern_c
-from rothc_py import RothCParams as RothCPyParams
+from rothc_py import RothC, RothCParams, percent_modern_c
 from rothc_py.containers import InputData
 from xarray import DataArray
 from xarray_annotated.temporal import declare_freq
@@ -95,7 +91,7 @@ def _rothc_1px(
     ordered as `_ROTHC_OUTPUT_KEYS`. This is the per-pixel kernel mapped over the
     ``pixel`` dimension by `_rothc` via `xarray.apply_ufunc`.
     """
-    params = RothCPyParams(
+    params = RothCParams(
         clay=float(clay),
         depth=float(depth),
         iom=float(iom),
@@ -222,10 +218,10 @@ def _rothc(
     )
 
 
-class RothCParams(TypedDict):
-    """Settings for the `rothc` node, as returned by `rothc_params`.
+class RothCConfig(TypedDict):
+    """Settings for the `rothc` node, as returned by `rothc_config`.
 
-    The descriptions and defaults live on `rothc_params`, which is what the
+    The descriptions and defaults live on `rothc_config`, which is what the
     pipeline config populates.
     """
 
@@ -239,7 +235,7 @@ class RothCParams(TypedDict):
     zero_threshold: float
 
 
-def rothc_params(
+def rothc_config(
     *,
     n_years_spinup: int = 1,
     dpm_rate: float = 10.0,
@@ -249,7 +245,7 @@ def rothc_params(
     evap_factor: float = 1.0,
     equilibrium_threshold: float = 1e-6,
     zero_threshold: float = 1e-8,
-) -> RothCParams:
+) -> RothCConfig:
     """Collect the RothC settings from the pipeline config.
 
     Grouping the settings into one node keeps them out of `rothc`'s data inputs.
@@ -285,10 +281,10 @@ def rothc_params(
 
     Returns
     -------
-    RothCParams
+    RothCConfig
         The settings, ready to unpack into the model call.
     """
-    return RothCParams(
+    return RothCConfig(
         n_years_spinup=n_years_spinup,
         dpm_rate=dpm_rate,
         rpm_rate=rpm_rate,
@@ -314,7 +310,7 @@ def rothc(
     clay_content: Annotated[DataArray, "percent"],
     inert_organic_matter: Annotated[DataArray, "t ha-1"],
     soil_depth: Annotated[DataArray, "cm"],
-    rothc_params: RothCParams,
+    rothc_config: RothCConfig,
 ) -> RothCOut:
     """
     Rothamsted Carbon model.
@@ -344,8 +340,8 @@ def rothc(
         Soil depth (centimetres).
     inert_organic_matter
         Inert organic matter (tonnes of carbon per hectare).
-    rothc_params
-        Model settings; see `rothc_params`.
+    rothc_config
+        Model settings; see `rothc_config`.
 
     Returns
     -------
@@ -373,7 +369,7 @@ def rothc(
         soil_depth=soil_depth,
         inert_organic_matter=inert_organic_matter,
         dates_monthly=time_index(temperature_monthly, "temperature_monthly"),
-        **rothc_params,
+        **rothc_config,
     )
 
 
@@ -439,10 +435,10 @@ def plant_cover_monthly(
     )
 
 
-class DpmRpmRatioParams(TypedDict):
-    """Settings for `dpm_rpm_ratio_monthly`, as returned by `dpm_rpm_ratio_params`.
+class DpmRpmRatioConfig(TypedDict):
+    """Settings for `dpm_rpm_ratio_monthly`, as returned by `dpm_rpm_ratio_config`.
 
-    The descriptions and defaults live on `dpm_rpm_ratio_params`, which is what
+    The descriptions and defaults live on `dpm_rpm_ratio_config`, which is what
     the pipeline config populates.
     """
 
@@ -452,13 +448,13 @@ class DpmRpmRatioParams(TypedDict):
     dpm_rpm_ratio_crop: float
 
 
-def dpm_rpm_ratio_params(
+def dpm_rpm_ratio_config(
     *,
     dpm_rpm_ratio_tree: float = 0.25,
     dpm_rpm_ratio_grass: float = 1.44,
     dpm_rpm_ratio_shrub: float = 0.67,
     dpm_rpm_ratio_crop: float = 1.44,
-) -> DpmRpmRatioParams:
+) -> DpmRpmRatioConfig:
     """Collect the per-PFT DPM/RPM ratios from the pipeline config.
 
     Grouping the settings into one node keeps them out of
@@ -481,10 +477,10 @@ def dpm_rpm_ratio_params(
 
     Returns
     -------
-    DpmRpmRatioParams
+    DpmRpmRatioConfig
         The settings, ready to unpack into the ratio lookup.
     """
-    return DpmRpmRatioParams(
+    return DpmRpmRatioConfig(
         dpm_rpm_ratio_tree=dpm_rpm_ratio_tree,
         dpm_rpm_ratio_grass=dpm_rpm_ratio_grass,
         dpm_rpm_ratio_shrub=dpm_rpm_ratio_shrub,
@@ -496,7 +492,7 @@ def dpm_rpm_ratio_params(
 def dpm_rpm_ratio_monthly(
     plant_type: DataArray,
     temperature_monthly: Annotated[DataArray, MONTHLY],
-    dpm_rpm_ratio_params: DpmRpmRatioParams,
+    dpm_rpm_ratio_config: DpmRpmRatioConfig,
 ) -> Annotated[DataArray, MONTHLY]:
     """Return the DPM/RPM ratio for RothC based on plant type.
 
@@ -508,18 +504,18 @@ def dpm_rpm_ratio_monthly(
     temperature_monthly
         Read only for its monthly time coordinate, which sets the returned
         series' calendar.
-    dpm_rpm_ratio_params
-        The per-PFT ratios; see `dpm_rpm_ratio_params`.
+    dpm_rpm_ratio_config
+        The per-PFT ratios; see `dpm_rpm_ratio_config`.
 
     Returns
     -------
     DataArray
         DPM/RPM ratio with shape (time, pixel).
     """
-    dpm_rpm_ratio_tree = dpm_rpm_ratio_params["dpm_rpm_ratio_tree"]
-    dpm_rpm_ratio_grass = dpm_rpm_ratio_params["dpm_rpm_ratio_grass"]
-    dpm_rpm_ratio_shrub = dpm_rpm_ratio_params["dpm_rpm_ratio_shrub"]
-    dpm_rpm_ratio_crop = dpm_rpm_ratio_params["dpm_rpm_ratio_crop"]
+    dpm_rpm_ratio_tree = dpm_rpm_ratio_config["dpm_rpm_ratio_tree"]
+    dpm_rpm_ratio_grass = dpm_rpm_ratio_config["dpm_rpm_ratio_grass"]
+    dpm_rpm_ratio_shrub = dpm_rpm_ratio_config["dpm_rpm_ratio_shrub"]
+    dpm_rpm_ratio_crop = dpm_rpm_ratio_config["dpm_rpm_ratio_crop"]
     ratio_map = {
         0: dpm_rpm_ratio_tree,
         1: dpm_rpm_ratio_grass,

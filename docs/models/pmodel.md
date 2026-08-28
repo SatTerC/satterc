@@ -105,7 +105,7 @@ method_kphio = "temperature"
 method_arrhenius = "simple"
 ```
 
-::: satterc.models.pmodel.pmodel_params
+::: satterc.models.pmodel.pmodel_config
     options:
       show_root_heading: false
       show_root_toc_entry: false

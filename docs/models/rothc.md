@@ -83,7 +83,7 @@ _import_path = "satterc.models.rothc"
 n_years_spinup = 1
 ```
 
-::: satterc.models.rothc.rothc_params
+::: satterc.models.rothc.rothc_config
     options:
       show_root_heading: false
       show_root_toc_entry: false
@@ -94,7 +94,7 @@ n_years_spinup = 1
 
 The per-PFT DPM/RPM ratios are settings of the `dpm_rpm_ratio_monthly` bridge node below, and are configured as keys of the same `[rothc]` section:
 
-::: satterc.models.rothc.dpm_rpm_ratio_params
+::: satterc.models.rothc.dpm_rpm_ratio_config
     options:
       show_root_heading: false
       show_root_toc_entry: false

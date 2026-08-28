@@ -11,14 +11,14 @@ from enum import StrEnum
 from .config_gen import (
     generate_config,
     get_builtin_models,
-    get_model_params,
+    get_model_config,
 )
 
 __all__ = [
     "BuiltinModels",
     "generate_config",
     "get_builtin_models",
-    "get_model_params",
+    "get_model_config",
 ]
 
 

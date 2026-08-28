@@ -11,7 +11,7 @@ from ..scaffold import (
     BuiltinModels,
     generate_config,
     get_builtin_models,
-    get_model_params,
+    get_model_config,
 )
 from ..scaffold.data_gen import generate_synthetic_data
 
@@ -220,15 +220,15 @@ def _select_custom_modules() -> list[str]:
                 continue
 
         try:
-            params = get_model_params(choice)
+            settings = get_model_config(choice)
         except Exception:
-            params = {}
+            settings = {}
 
-        if params:
-            param_str = ", ".join(f"{k}={v!r}" for k, v in params.items())
-            typer.echo(f"  Added: {choice}  (defaults: {param_str})")
+        if settings:
+            setting_str = ", ".join(f"{k}={v!r}" for k, v in settings.items())
+            typer.echo(f"  Added: {choice}  (defaults: {setting_str})")
         else:
-            typer.echo(f"  Added: {choice}  (no configurable parameters found)")
+            typer.echo(f"  Added: {choice}  (no configurable settings found)")
 
         selected.append(choice)
 

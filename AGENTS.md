@@ -36,13 +36,15 @@ checkout, if present) rather than guessing at its API.
   column. A module's non-model public nodes get their own `:::` blocks with
   `show_root_full_path: false`, `separate_signature: false` and
   `heading_level: 4`.
-- Configurable settings live in a `<node>_params` node returning a
-  `<Node>Params` TypedDict, which the consuming node unpacks. Descriptions and
-  defaults go on that function, never on the TypedDict fields — conduit reads
-  the defaults off its keyword-only arguments. Every settings-bearing node gets
-  its own container, not just the model node: rothc's per-PFT DPM/RPM ratios sit
-  on `dpm_rpm_ratio_params` and sgam's growing-season gate on
-  `disturbances_params`. `get_model_params` in `scaffold/config_gen.py` scans
+- Configurable settings live in a `<node>_config` node returning a
+  `<Node>Config` TypedDict, which the consuming node unpacks. `Config`, not
+  `Params`: `params` is already taken by per-pixel scientific parameters that
+  are not pipeline config (`sgam.pft_params`, `rothc_py.RothCParams`).
+  Descriptions and defaults go on that function, never on the TypedDict fields —
+  conduit reads the defaults off its keyword-only arguments. Every
+  settings-bearing node gets its own container, not just the model node: rothc's
+  per-PFT DPM/RPM ratios sit on `dpm_rpm_ratio_config` and sgam's growing-season
+  gate on `disturbances_config`. `get_model_config` in `config_gen.py` scans
   every public function in the module, so a new container is picked up with no
   change there; the keys still land flat in the one `[<model>]` section.
 - Model DAG graphs are generated, not committed: `just graph <model>` writes

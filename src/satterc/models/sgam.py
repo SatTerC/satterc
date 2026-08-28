@@ -290,20 +290,20 @@ def _disturbances_daily(
     return out.assign_coords(time=time_coord).transpose("time", "pixel")
 
 
-class DisturbancesParams(TypedDict):
-    """Settings for `disturbances_daily`, as returned by `disturbances_params`.
+class DisturbancesConfig(TypedDict):
+    """Settings for `disturbances_daily`, as returned by `disturbances_config`.
 
-    The descriptions and defaults live on `disturbances_params`, which is what
+    The descriptions and defaults live on `disturbances_config`, which is what
     the pipeline config populates.
     """
 
     growing_season_limit: float
 
 
-def disturbances_params(
+def disturbances_config(
     *,
     growing_season_limit: float = 10.0,
-) -> DisturbancesParams:
+) -> DisturbancesConfig:
     """Collect the disturbance-detection settings from the pipeline config.
 
     Grouping the settings into one node keeps them out of
@@ -321,10 +321,10 @@ def disturbances_params(
 
     Returns
     -------
-    DisturbancesParams
+    DisturbancesConfig
         The settings, ready to unpack into the detection call.
     """
-    return DisturbancesParams(growing_season_limit=growing_season_limit)
+    return DisturbancesConfig(growing_season_limit=growing_season_limit)
 
 
 @declare_units
@@ -334,7 +334,7 @@ def disturbances_daily(
     gpp_daily: Annotated[xr.DataArray, "g m-2 d-1", DAILY],
     lai_daily: Annotated[xr.DataArray, "1", DAILY],
     pft_params: xr.Dataset,
-    disturbances_params: DisturbancesParams,
+    disturbances_config: DisturbancesConfig,
 ) -> Annotated[xr.DataArray, "1", DAILY]:
     """Detect daily disturbance events from anomalous declines in GPP and LAI.
 
@@ -357,8 +357,8 @@ def disturbances_daily(
     pft_params
         PFT parameters for each pixel. Output of the `pft_params` node; only
         ``disturbance_threshold`` is used here.
-    disturbances_params
-        Detection settings; see `disturbances_params`.
+    disturbances_config
+        Detection settings; see `disturbances_config`.
 
     Returns
     -------
@@ -372,7 +372,7 @@ def disturbances_daily(
         gpp_daily,
         lai_daily,
         pft_params["disturbance_threshold"],
-        **disturbances_params,
+        **disturbances_config,
     )
 
 
@@ -562,10 +562,10 @@ def _sgam(
     )
 
 
-class SgamParams(TypedDict):
-    """Settings for the `sgam` node, as returned by `sgam_params`.
+class SgamConfig(TypedDict):
+    """Settings for the `sgam` node, as returned by `sgam_config`.
 
-    The descriptions and defaults live on `sgam_params`, which is what the
+    The descriptions and defaults live on `sgam_config`, which is what the
     pipeline config populates.
     """
 
@@ -573,11 +573,11 @@ class SgamParams(TypedDict):
     strict_mass_balance: bool
 
 
-def sgam_params(
+def sgam_config(
     *,
     use_dynamic_allocation: bool = True,
     strict_mass_balance: bool = False,
-) -> SgamParams:
+) -> SgamConfig:
     """Collect the SGAM settings from the pipeline config.
 
     Grouping the settings into one node keeps them out of `sgam`'s data inputs.
@@ -596,10 +596,10 @@ def sgam_params(
 
     Returns
     -------
-    SgamParams
+    SgamConfig
         The settings, ready to unpack into the model call.
     """
-    return SgamParams(
+    return SgamConfig(
         use_dynamic_allocation=use_dynamic_allocation,
         strict_mass_balance=strict_mass_balance,
     )
@@ -622,7 +622,7 @@ def sgam(
     stem_pool_init: Annotated[xr.DataArray, "g m-2"],
     root_pool_init: Annotated[xr.DataArray, "g m-2"],
     latitude: xr.DataArray,
-    sgam_params: SgamParams,
+    sgam_config: SgamConfig,
     litter_pool_init: xr.DataArray | None = None,
     removed_init: xr.DataArray | None = None,
 ) -> SgamOut:
@@ -664,8 +664,8 @@ def sgam(
         Initial root carbon pool (grams of carbon per square metre).
     latitude
         Latitude for each pixel (degrees; used to determine hemisphere).
-    sgam_params
-        Model settings; see `sgam_params`.
+    sgam_config
+        Model settings; see `sgam_config`.
     litter_pool_init
         Initial litter carbon pool (grams of carbon per square metre). Defaults
         to zero.
@@ -697,5 +697,5 @@ def sgam(
         latitude=latitude,
         litter_pool_init=litter_pool_init,
         removed_init=removed_init,
-        **sgam_params,
+        **sgam_config,
     )

@@ -153,10 +153,10 @@ def _pmodel(
     )
 
 
-class PModelParams(TypedDict):
-    """Settings for the `pmodel` node, as returned by `pmodel_params`.
+class PModelConfig(TypedDict):
+    """Settings for the `pmodel` node, as returned by `pmodel_config`.
 
-    The descriptions and defaults live on `pmodel_params`, which is what the
+    The descriptions and defaults live on `pmodel_config`, which is what the
     pipeline config populates.
     """
 
@@ -166,13 +166,13 @@ class PModelParams(TypedDict):
     method_arrhenius: str
 
 
-def pmodel_params(
+def pmodel_config(
     *,
     method_optchi: str = "prentice14",
     method_jmaxlim: str = "wang17",
     method_kphio: str = "temperature",
     method_arrhenius: str = "simple",
-) -> PModelParams:
+) -> PModelConfig:
     """Collect the P-model settings from the pipeline config.
 
     Grouping the settings into one node keeps them out of `pmodel`'s data
@@ -201,10 +201,10 @@ def pmodel_params(
 
     Returns
     -------
-    PModelParams
+    PModelConfig
         The settings, ready to unpack into the model call.
     """
-    return PModelParams(
+    return PModelConfig(
         method_optchi=method_optchi,
         method_jmaxlim=method_jmaxlim,
         method_kphio=method_kphio,
@@ -225,7 +225,7 @@ def pmodel(
     mean_growth_temperature: Annotated[DataArray, "degC"],
     aridity_index: Annotated[DataArray, "1"],
     volumetric_water_content_weekly: Annotated[DataArray, "m3 m-3", WEEKLY],
-    pmodel_params: PModelParams,
+    pmodel_config: PModelConfig,
 ) -> PModelOut:
     """Run the P-Model to calculate GPP, LUE, and IWUE.
 
@@ -258,8 +258,8 @@ def pmodel(
         ``theta``, not SPLASH's soil moisture, which is a depth of water in
         millimetres — see the ``volumetric_water_content`` node in the example
         config for the conversion.
-    pmodel_params
-        Model settings; see `pmodel_params`.
+    pmodel_config
+        Model settings; see `pmodel_config`.
 
     Returns
     -------
@@ -284,7 +284,7 @@ def pmodel(
         mean_growth_temperature=mean_growth_temperature,
         aridity_index=aridity_index,
         volumetric_water_content_weekly=volumetric_water_content_weekly,
-        **pmodel_params,
+        **pmodel_config,
     )
 
 

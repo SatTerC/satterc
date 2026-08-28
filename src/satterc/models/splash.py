@@ -166,10 +166,10 @@ def _splash(
     )
 
 
-class SplashParams(TypedDict):
-    """Settings for the `splash` node, as returned by `splash_params`.
+class SplashConfig(TypedDict):
+    """Settings for the `splash` node, as returned by `splash_config`.
 
-    The descriptions and defaults live on `splash_params`, which is what the
+    The descriptions and defaults live on `splash_config`, which is what the
     pipeline config populates.
     """
 
@@ -177,11 +177,11 @@ class SplashParams(TypedDict):
     soil_moisture_init_max_diff: float
 
 
-def splash_params(
+def splash_config(
     *,
     soil_moisture_init_max_iter: int = 10,
     soil_moisture_init_max_diff: float = 1.0,
-) -> SplashParams:
+) -> SplashConfig:
     """Collect the SPLASH settings from the pipeline config.
 
     Grouping the settings into one node keeps them out of `splash`'s data
@@ -200,10 +200,10 @@ def splash_params(
 
     Returns
     -------
-    SplashParams
+    SplashConfig
         The settings, ready to unpack into the model call.
     """
-    return SplashParams(
+    return SplashConfig(
         soil_moisture_init_max_iter=soil_moisture_init_max_iter,
         soil_moisture_init_max_diff=soil_moisture_init_max_diff,
     )
@@ -227,7 +227,7 @@ def splash(
     # tests/test_pyrealm_units.py.
     latitude: DataArray,
     max_soil_moisture: Annotated[DataArray, "mm"],
-    splash_params: SplashParams,
+    splash_config: SplashConfig,
 ) -> SplashOut:
     """Run the SPLASH water balance model.
 
@@ -248,8 +248,8 @@ def splash(
         Latitude of the site (degrees).
     max_soil_moisture
         Maximum soil moisture capacity (millimetres).
-    splash_params
-        Model settings; see `splash_params`.
+    splash_config
+        Model settings; see `splash_config`.
 
     Returns
     -------
@@ -273,5 +273,5 @@ def splash(
         latitude=latitude,
         max_soil_moisture=max_soil_moisture,
         dates_daily=time_index(temperature_daily, "temperature_daily"),
-        **splash_params,
+        **splash_config,
     )

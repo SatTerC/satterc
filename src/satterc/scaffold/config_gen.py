@@ -140,14 +140,14 @@ def get_builtin_models() -> list[str]:
     return [m.value for m in BuiltinModels]
 
 
-def get_model_params(model_name: str) -> dict[str, Any]:
-    """Extract keyword-only parameters with defaults from a model's nodes.
+def get_model_config(model_name: str) -> dict[str, Any]:
+    """Collect a model's configurable settings and their defaults.
 
     Every public function the module defines is read, not just the model node.
-    A module's settings are gathered into ``<node>_params`` container nodes (see
-    `satterc.models.splash.splash_params`), and a module with more than one
+    A module's settings are gathered into ``<node>_config`` container nodes (see
+    `satterc.models.splash.splash_config`), and a module with more than one
     settings-bearing node has more than one such container — RothC's per-PFT
-    DPM/RPM ratios sit on `satterc.models.rothc.dpm_rpm_ratio_params`, not on
+    DPM/RPM ratios sit on `satterc.models.rothc.dpm_rpm_ratio_config`, not on
     the model node. Scanning the module finds all of them, and the result is
     still one flat dict because conduit merges a section's keys into one flat
     driver config regardless of which node consumes them.
@@ -162,13 +162,13 @@ def get_model_params(model_name: str) -> dict[str, Any]:
     except ImportError:
         return {}
 
-    params: dict[str, Any] = {}
+    settings: dict[str, Any] = {}
     for name, func in vars(module).items():
         if name.startswith("_") or not inspect.isfunction(func):
             continue
         if func.__module__ != module.__name__:
             continue
-        params.update(
+        settings.update(
             {
                 p.name: p.default
                 for p in inspect.signature(func).parameters.values()
@@ -176,7 +176,7 @@ def get_model_params(model_name: str) -> dict[str, Any]:
                 and p.default is not inspect.Parameter.empty
             }
         )
-    return params
+    return settings
 
 
 #: Suffixes ordered fine to coarse, so an index comparison answers "can this be
@@ -479,7 +479,7 @@ def generate_config(
     for model in builtin_models:
         config_data[model] = {
             "_import_path": f"satterc.models.{model}",
-            **get_model_params(model),
+            **get_model_config(model),
         }
 
     # conduit names each input node `{var}{suffix}`, with the suffix defaulting to
@@ -545,7 +545,7 @@ def generate_config(
         label = mod_path.rsplit(".", 1)[-1]
         config_data[label] = {
             "_import_path": mod_path,
-            **get_model_params(mod_path),
+            **get_model_config(mod_path),
         }
 
     return Config(config_data)

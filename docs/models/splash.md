@@ -74,7 +74,7 @@ soil_moisture_init_max_iter = 10
 soil_moisture_init_max_diff = 1.0
 ```
 
-::: satterc.models.splash.splash_params
+::: satterc.models.splash.splash_config
     options:
       show_root_heading: false
       show_root_toc_entry: false

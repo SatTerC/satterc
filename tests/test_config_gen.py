@@ -1,6 +1,6 @@
 """Tests for scaffold/config_gen.py."""
 
-from satterc.scaffold import generate_config, get_model_params
+from satterc.scaffold import generate_config, get_model_config
 from satterc.scaffold.config_gen import _infer_required_data, _strip_suffix
 
 PATH_DEFAULTS = {
@@ -14,25 +14,25 @@ PATH_DEFAULTS = {
 }
 
 
-class TestGetModelParams:
+class TestGetModelConfig:
     def test_builtin_returns_defaults(self):
-        params = get_model_params("rothc")
+        params = get_model_config("rothc")
         assert "n_years_spinup" in params
         assert isinstance(params["n_years_spinup"], int)
 
     def test_unknown_module_returns_empty(self):
-        assert get_model_params("nonexistent.module") == {}
+        assert get_model_config("nonexistent.module") == {}
 
     def test_custom_path_uses_last_component_as_func_prefix(self):
         # Passing the full dotted path to a known module must find the same
         # _parameters() function as passing the short name.
-        params_short = get_model_params("rothc")
-        params_full = get_model_params("satterc.models.rothc")
+        params_short = get_model_config("rothc")
+        params_full = get_model_config("satterc.models.rothc")
         assert params_full == params_short
 
     def test_module_without_matching_function_returns_empty(self):
         # satterc.models has no function named "models" → hits the return {} fallback
-        assert get_model_params("satterc.models") == {}
+        assert get_model_config("satterc.models") == {}
 
 
 class TestGenerateConfigCustomModules:
