@@ -139,16 +139,22 @@ class TestRothcBridgeFunctions:
             )
 
     def test_dpm_rpm_ratio_shape(self, plant_type_mixed):
-        result = rothc_module.dpm_rpm_ratio_monthly(plant_type_mixed, MONTHLY_CLOCK)
+        result = rothc_module.dpm_rpm_ratio_monthly(
+            plant_type_mixed, MONTHLY_CLOCK, rothc_module.dpm_rpm_ratio_params()
+        )
         assert result.sizes["pixel"] == 4
         assert result.sizes["time"] == N_MONTHS
 
     def test_dpm_rpm_ratio_positive(self, plant_type_mixed):
-        result = rothc_module.dpm_rpm_ratio_monthly(plant_type_mixed, MONTHLY_CLOCK)
+        result = rothc_module.dpm_rpm_ratio_monthly(
+            plant_type_mixed, MONTHLY_CLOCK, rothc_module.dpm_rpm_ratio_params()
+        )
         assert np.all(result.values > 0)
 
     def test_dpm_rpm_ratio_values_by_type(self, plant_type_mixed):
-        result = rothc_module.dpm_rpm_ratio_monthly(plant_type_mixed, MONTHLY_CLOCK)
+        result = rothc_module.dpm_rpm_ratio_monthly(
+            plant_type_mixed, MONTHLY_CLOCK, rothc_module.dpm_rpm_ratio_params()
+        )
         np.testing.assert_allclose(result.sel(pixel=0).values, 0.25)
         np.testing.assert_allclose(result.sel(pixel=1).values, 1.44)
         np.testing.assert_allclose(result.sel(pixel=2).values, 0.67)
@@ -156,7 +162,9 @@ class TestRothcBridgeFunctions:
 
     def test_dpm_rpm_ratio_config_override(self, plant_type_mixed):
         result = rothc_module.dpm_rpm_ratio_monthly(
-            plant_type_mixed, MONTHLY_CLOCK, dpm_rpm_ratio_grass=0.67
+            plant_type_mixed,
+            MONTHLY_CLOCK,
+            rothc_module.dpm_rpm_ratio_params(dpm_rpm_ratio_grass=0.67),
         )
         np.testing.assert_allclose(result.sel(pixel=1).values, 0.67)
 
@@ -630,13 +638,14 @@ class TestDisturbancesDaily:
         def _static_da(values):
             return xr.DataArray(values, dims=["pixel"], coords={"pixel": pixel})
 
-        from satterc.models.sgam import pft_params
+        from satterc.models.sgam import disturbances_params, pft_params
 
         result = disturbances_daily(
             temperature_daily=_da(np.full((n_days, n_pixels), 15.0)),
             gpp_daily=_da(np.full((n_days, n_pixels), 5.0)),
             lai_daily=_da(np.full((n_days, n_pixels), 2.0)),
             pft_params=pft_params(_static_da(np.array([0, 3]))),
+            disturbances_params=disturbances_params(),
         )
         assert isinstance(result, xr.DataArray)
         assert result.sizes["time"] == n_days

@@ -8,7 +8,11 @@ import xarray as xr
 from conduit import declare_units
 from hamilton.function_modifiers import extract_fields
 from numpy.typing import NDArray
-from rothc_py import RothC, RothCParams, percent_modern_c
+
+# rothc_py's own `RothCParams` is the kernel's parameter object, which is not the
+# same thing as this module's config container of the same name; alias it.
+from rothc_py import RothC, percent_modern_c
+from rothc_py import RothCParams as RothCPyParams
 from rothc_py.containers import InputData
 from xarray import DataArray
 from xarray_annotated.temporal import declare_freq
@@ -91,7 +95,7 @@ def _rothc_1px(
     ordered as `_ROTHC_OUTPUT_KEYS`. This is the per-pixel kernel mapped over the
     ``pixel`` dimension by `_rothc` via `xarray.apply_ufunc`.
     """
-    params = RothCParams(
+    params = RothCPyParams(
         clay=float(clay),
         depth=float(depth),
         iom=float(iom),
@@ -218,6 +222,84 @@ def _rothc(
     )
 
 
+class RothCParams(TypedDict):
+    """Settings for the `rothc` node, as returned by `rothc_params`.
+
+    The descriptions and defaults live on `rothc_params`, which is what the
+    pipeline config populates.
+    """
+
+    n_years_spinup: int
+    dpm_rate: float
+    rpm_rate: float
+    bio_rate: float
+    hum_rate: float
+    evap_factor: float
+    equilibrium_threshold: float
+    zero_threshold: float
+
+
+def rothc_params(
+    *,
+    n_years_spinup: int = 1,
+    dpm_rate: float = 10.0,
+    rpm_rate: float = 0.3,
+    bio_rate: float = 0.66,
+    hum_rate: float = 0.02,
+    evap_factor: float = 1.0,
+    equilibrium_threshold: float = 1e-6,
+    zero_threshold: float = 1e-8,
+) -> RothCParams:
+    """Collect the RothC settings from the pipeline config.
+
+    Grouping the settings into one node keeps them out of `rothc`'s data inputs.
+    It does not namespace them: conduit merges every module section's params
+    into one flat driver config, so these are still configured as top-level keys
+    of ``[rothc]``.
+
+    Parameters
+    ----------
+    n_years_spinup
+        Number of years of climate data used for model spin-up.
+    dpm_rate
+        Decomposition rate constant for decomposable plant material (per year).
+    rpm_rate
+        Decomposition rate constant for resistant plant material (per year).
+    bio_rate
+        Decomposition rate constant for microbial biomass (per year).
+    hum_rate
+        Decomposition rate constant for humified organic matter (per year).
+    evap_factor
+        Factor applied to `potential_evapotranspiration_monthly` before RothC's
+        water balance (dimensionless). RothC's own driver is open-pan
+        evaporation, and rothc_py's 0.75 converts that to evapotranspiration;
+        satterc supplies evapotranspiration already, so the default here is 1.0
+        (no conversion). Only change it if you are feeding open-pan evaporation
+        into this node instead.
+    equilibrium_threshold
+        Spin-up convergence criterion: maximum annual change in total organic
+        carbon (tonnes of carbon per hectare).
+    zero_threshold
+        Minimum pool size for numerical stability in radiocarbon age
+        calculations (tonnes of carbon per hectare).
+
+    Returns
+    -------
+    RothCParams
+        The settings, ready to unpack into the model call.
+    """
+    return RothCParams(
+        n_years_spinup=n_years_spinup,
+        dpm_rate=dpm_rate,
+        rpm_rate=rpm_rate,
+        bio_rate=bio_rate,
+        hum_rate=hum_rate,
+        evap_factor=evap_factor,
+        equilibrium_threshold=equilibrium_threshold,
+        zero_threshold=zero_threshold,
+    )
+
+
 @extract_fields()
 @declare_units
 @declare_freq
@@ -232,15 +314,7 @@ def rothc(
     clay_content: Annotated[DataArray, "percent"],
     inert_organic_matter: Annotated[DataArray, "t ha-1"],
     soil_depth: Annotated[DataArray, "cm"],
-    *,
-    n_years_spinup: int = 1,
-    dpm_rate: float = 10.0,
-    rpm_rate: float = 0.3,
-    bio_rate: float = 0.66,
-    hum_rate: float = 0.02,
-    evap_factor: float = 1.0,
-    equilibrium_threshold: float = 1e-6,
-    zero_threshold: float = 1e-8,
+    rothc_params: RothCParams,
 ) -> RothCOut:
     """
     Rothamsted Carbon model.
@@ -270,29 +344,8 @@ def rothc(
         Soil depth (centimetres).
     inert_organic_matter
         Inert organic matter (tonnes of carbon per hectare).
-    n_years_spinup
-        Number of years to use for model spin-up.
-    dpm_rate
-        Decomposition rate constant for Decomposable Plant Material (per year).
-    rpm_rate
-        Decomposition rate constant for Resistant Plant Material (per year).
-    bio_rate
-        Decomposition rate constant for Microbial Biomass (per year).
-    hum_rate
-        Decomposition rate constant for Humified Organic Matter (per year).
-    evap_factor
-        Factor applied to `potential_evapotranspiration_monthly` before RothC's
-        water balance (dimensionless). RothC's own driver is open-pan
-        evaporation, and rothc_py's 0.75 converts that to evapotranspiration;
-        satterc supplies evapotranspiration already, so the default here is 1.0
-        (no conversion). Only change it if you are feeding open-pan evaporation
-        into this node instead.
-    equilibrium_threshold
-        Spin-up convergence criterion: maximum annual change in total organic
-        carbon (tonnes of carbon per hectare).
-    zero_threshold
-        Minimum pool size for numerical stability in radiocarbon age
-        calculations (tonnes of carbon per hectare).
+    rothc_params
+        Model settings; see `rothc_params`.
 
     Returns
     -------
@@ -320,14 +373,7 @@ def rothc(
         soil_depth=soil_depth,
         inert_organic_matter=inert_organic_matter,
         dates_monthly=time_index(temperature_monthly, "temperature_monthly"),
-        n_years_spinup=n_years_spinup,
-        dpm_rate=dpm_rate,
-        rpm_rate=rpm_rate,
-        bio_rate=bio_rate,
-        hum_rate=hum_rate,
-        evap_factor=evap_factor,
-        equilibrium_threshold=equilibrium_threshold,
-        zero_threshold=zero_threshold,
+        **rothc_params,
     )
 
 
@@ -353,7 +399,7 @@ def plant_cover_monthly(
     Parameters
     ----------
     plant_type
-        Plant functional type as integer (0=tree, 1=grass, 2=shrub, 3=crop).
+        Plant functional type as an integer (0=tree, 1=grass, 2=shrub, 3=crop).
         Dims: ["pixel"].
     latitude
         Latitude for each pixel. Dims: ["pixel"].
@@ -393,51 +439,87 @@ def plant_cover_monthly(
     )
 
 
-@declare_freq
-def dpm_rpm_ratio_monthly(
-    plant_type: DataArray,
-    temperature_monthly: Annotated[DataArray, MONTHLY],
+class DpmRpmRatioParams(TypedDict):
+    """Settings for `dpm_rpm_ratio_monthly`, as returned by `dpm_rpm_ratio_params`.
+
+    The descriptions and defaults live on `dpm_rpm_ratio_params`, which is what
+    the pipeline config populates.
+    """
+
+    dpm_rpm_ratio_tree: float
+    dpm_rpm_ratio_grass: float
+    dpm_rpm_ratio_shrub: float
+    dpm_rpm_ratio_crop: float
+
+
+def dpm_rpm_ratio_params(
     *,
     dpm_rpm_ratio_tree: float = 0.25,
     dpm_rpm_ratio_grass: float = 1.44,
     dpm_rpm_ratio_shrub: float = 0.67,
     dpm_rpm_ratio_crop: float = 1.44,
+) -> DpmRpmRatioParams:
+    """Collect the per-PFT DPM/RPM ratios from the pipeline config.
+
+    Grouping the settings into one node keeps them out of
+    `dpm_rpm_ratio_monthly`'s data inputs. It does not namespace them: conduit
+    merges every module section's params into one flat driver config, so these
+    are still configured as top-level keys of ``[rothc]``.
+
+    The defaults are the ratios given in the RothC documentation.
+
+    Parameters
+    ----------
+    dpm_rpm_ratio_tree
+        DPM/RPM ratio for tree/woodland (dimensionless).
+    dpm_rpm_ratio_grass
+        DPM/RPM ratio for improved grassland (dimensionless).
+    dpm_rpm_ratio_shrub
+        DPM/RPM ratio for shrub/scrub (dimensionless).
+    dpm_rpm_ratio_crop
+        DPM/RPM ratio for crop (dimensionless).
+
+    Returns
+    -------
+    DpmRpmRatioParams
+        The settings, ready to unpack into the ratio lookup.
+    """
+    return DpmRpmRatioParams(
+        dpm_rpm_ratio_tree=dpm_rpm_ratio_tree,
+        dpm_rpm_ratio_grass=dpm_rpm_ratio_grass,
+        dpm_rpm_ratio_shrub=dpm_rpm_ratio_shrub,
+        dpm_rpm_ratio_crop=dpm_rpm_ratio_crop,
+    )
+
+
+@declare_freq
+def dpm_rpm_ratio_monthly(
+    plant_type: DataArray,
+    temperature_monthly: Annotated[DataArray, MONTHLY],
+    dpm_rpm_ratio_params: DpmRpmRatioParams,
 ) -> Annotated[DataArray, MONTHLY]:
     """Return the DPM/RPM ratio for RothC based on plant type.
-
-    Default ratios follow the RothC documentation:
-      - Tree (0) → 0.25 (woodland)
-      - Grass (1) → 1.44 (improved grassland)
-      - Shrub (2) → 0.67 (scrub)
-      - Crop (3) → 1.44 (crop)
-
-    Each ratio can be overridden via config, e.g.:
-        [rothc]
-        _import_path = "satterc.models.rothc"
-        dpm_rpm_ratio_grass = 0.67
 
     Parameters
     ----------
     plant_type
-        Plant functional type as integer (0=tree, 1=grass, 2=shrub, 3=crop).
+        Plant functional type as an integer (0=tree, 1=grass, 2=shrub, 3=crop).
         Dims: ["pixel"].
     temperature_monthly
         Read only for its monthly time coordinate, which sets the returned
         series' calendar.
-    dpm_rpm_ratio_tree
-        DPM/RPM ratio for tree/woodland.
-    dpm_rpm_ratio_grass
-        DPM/RPM ratio for grass.
-    dpm_rpm_ratio_shrub
-        DPM/RPM ratio for shrub/scrub.
-    dpm_rpm_ratio_crop
-        DPM/RPM ratio for crop.
+    dpm_rpm_ratio_params
+        The per-PFT ratios; see `dpm_rpm_ratio_params`.
 
     Returns
     -------
     DataArray
         DPM/RPM ratio with shape (time, pixel).
     """
+    dpm_rpm_ratio_tree = dpm_rpm_ratio_params["dpm_rpm_ratio_tree"]
+    dpm_rpm_ratio_grass = dpm_rpm_ratio_params["dpm_rpm_ratio_grass"]
+    dpm_rpm_ratio_shrub = dpm_rpm_ratio_params["dpm_rpm_ratio_shrub"]
+    dpm_rpm_ratio_crop = dpm_rpm_ratio_params["dpm_rpm_ratio_crop"]
     ratio_map = {
         0: dpm_rpm_ratio_tree,
         1: dpm_rpm_ratio_grass,
@@ -464,7 +546,7 @@ def farmyard_manure_input_monthly(
     Parameters
     ----------
     plant_type
-        Plant functional type as integer (0=tree, 1=grass, 2=shrub, 3=crop).
+        Plant functional type as an integer (0=tree, 1=grass, 2=shrub, 3=crop).
         Used only for its shape and coordinates. Dims: ["pixel"].
     temperature_monthly
         Read only for its monthly time coordinate, which sets the returned

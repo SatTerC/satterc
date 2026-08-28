@@ -37,6 +37,9 @@ graph model:
 # Re-render every model graph in docs/models/_graphs/.
 graph-all:
   just graph splash
+  just graph pmodel
+  just graph sgam
+  just graph rothc
 
 # Build the documentation using Zensical.
 # Depends on `graph-all` because the model graphs are generated, not committed:

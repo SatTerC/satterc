@@ -143,10 +143,14 @@ def get_builtin_models() -> list[str]:
 def get_model_params(model_name: str) -> dict[str, Any]:
     """Extract keyword-only parameters with defaults from a model's nodes.
 
-    A model may declare its settings on the main node function, or on a
-    companion ``<model>_params`` node that gathers them into a container (see
-    `satterc.models.splash.splash_params`). Both are read, because conduit
-    merges a section's keys into one flat driver config either way.
+    Every public function the module defines is read, not just the model node.
+    A module's settings are gathered into ``<node>_params`` container nodes (see
+    `satterc.models.splash.splash_params`), and a module with more than one
+    settings-bearing node has more than one such container — RothC's per-PFT
+    DPM/RPM ratios sit on `satterc.models.rothc.dpm_rpm_ratio_params`, not on
+    the model node. Scanning the module finds all of them, and the result is
+    still one flat dict because conduit merges a section's keys into one flat
+    driver config regardless of which node consumes them.
     """
     builtin_models = get_builtin_models()
     module_path = (
@@ -158,11 +162,11 @@ def get_model_params(model_name: str) -> dict[str, Any]:
     except ImportError:
         return {}
 
-    func_name = model_name.split(".")[-1]
     params: dict[str, Any] = {}
-    for name in (func_name, f"{func_name}_params"):
-        func = getattr(module, name, None)
-        if func is None:
+    for name, func in vars(module).items():
+        if name.startswith("_") or not inspect.isfunction(func):
+            continue
+        if func.__module__ != module.__name__:
             continue
         params.update(
             {

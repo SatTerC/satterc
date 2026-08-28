@@ -153,6 +153,65 @@ def _pmodel(
     )
 
 
+class PModelParams(TypedDict):
+    """Settings for the `pmodel` node, as returned by `pmodel_params`.
+
+    The descriptions and defaults live on `pmodel_params`, which is what the
+    pipeline config populates.
+    """
+
+    method_optchi: str
+    method_jmaxlim: str
+    method_kphio: str
+    method_arrhenius: str
+
+
+def pmodel_params(
+    *,
+    method_optchi: str = "prentice14",
+    method_jmaxlim: str = "wang17",
+    method_kphio: str = "temperature",
+    method_arrhenius: str = "simple",
+) -> PModelParams:
+    """Collect the P-model settings from the pipeline config.
+
+    Grouping the settings into one node keeps them out of `pmodel`'s data
+    inputs. It does not namespace them: conduit merges every module section's
+    params into one flat driver config, so these are still configured as
+    top-level keys of ``[pmodel]``.
+
+    Each setting selects one of pyrealm's alternative formulations; the
+    accepted values are pyrealm's, and the
+    [pyrealm P-model documentation](https://pyrealm.readthedocs.io/en/latest/users/pmodel/module_overview.html)
+    is the authoritative list.
+
+    Parameters
+    ----------
+    method_optchi
+        Formulation for optimal chi, the ratio of leaf-internal to ambient CO2:
+        ``prentice14``, ``lavergne20_c3`` or ``lavergne20_c4``.
+    method_jmaxlim
+        Whether to apply Jmax limitation: ``wang17`` or ``none``.
+    method_kphio
+        Temperature dependence of the quantum yield efficiency (phi0):
+        ``temperature``, ``sandoval`` or ``constant``. ``sandoval`` is the one
+        method that consumes `mean_growth_temperature`.
+    method_arrhenius
+        Arrhenius temperature scaling: ``simple`` or ``heskel``.
+
+    Returns
+    -------
+    PModelParams
+        The settings, ready to unpack into the model call.
+    """
+    return PModelParams(
+        method_optchi=method_optchi,
+        method_jmaxlim=method_jmaxlim,
+        method_kphio=method_kphio,
+        method_arrhenius=method_arrhenius,
+    )
+
+
 @extract_fields()
 @declare_units
 @declare_freq
@@ -166,11 +225,7 @@ def pmodel(
     mean_growth_temperature: Annotated[DataArray, "degC"],
     aridity_index: Annotated[DataArray, "1"],
     volumetric_water_content_weekly: Annotated[DataArray, "m3 m-3", WEEKLY],
-    *,
-    method_optchi: str = "prentice14",
-    method_jmaxlim: str = "wang17",
-    method_kphio: str = "temperature",
-    method_arrhenius: str = "simple",
+    pmodel_params: PModelParams,
 ) -> PModelOut:
     """Run the P-Model to calculate GPP, LUE, and IWUE.
 
@@ -203,15 +258,8 @@ def pmodel(
         ``theta``, not SPLASH's soil moisture, which is a depth of water in
         millimetres — see the ``volumetric_water_content`` node in the example
         config for the conversion.
-    method_optchi
-        Method for calculating optimal chi (leaf-internal CO2 compensation
-        point).
-    method_jmaxlim
-        Method for Jmax limitation.
-    method_kphio
-        Method for calculating the quantum yield efficiency (phi0).
-    method_arrhenius
-        Method for Arrhenius temperature scaling.
+    pmodel_params
+        Model settings; see `pmodel_params`.
 
     Returns
     -------
@@ -236,10 +284,7 @@ def pmodel(
         mean_growth_temperature=mean_growth_temperature,
         aridity_index=aridity_index,
         volumetric_water_content_weekly=volumetric_water_content_weekly,
-        method_optchi=method_optchi,
-        method_jmaxlim=method_jmaxlim,
-        method_kphio=method_kphio,
-        method_arrhenius=method_arrhenius,
+        **pmodel_params,
     )
 
 

@@ -7,8 +7,11 @@
   background: #fff;
   border-radius: 0.2rem;
   padding: 0.8rem;
-  /* A wide graph scrolls inside its own box; the page never scrolls sideways. */
-  overflow-x: auto;
+  /* A wide graph scrolls inside its own box; the page never scrolls sideways.
+     SGAM's 24 outputs make a graph nearly three pages tall once scaled to width,
+     so cap the height and let that one scroll vertically too. */
+  overflow: auto;
+  max-height: 80vh;
 }
 
 .model-graph svg {

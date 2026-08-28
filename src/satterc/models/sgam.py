@@ -205,8 +205,8 @@ def pft_params(plant_type: xr.DataArray) -> xr.Dataset:
 
     Parameters
     ----------
-    plant_type : xr.DataArray
-        Plant functional type as integer (0=tree, 1=grass, 2=shrub, 3=crop).
+    plant_type
+        Plant functional type as an integer (0=tree, 1=grass, 2=shrub, 3=crop).
         Dims: ["pixel"].
 
     Returns
@@ -290,6 +290,43 @@ def _disturbances_daily(
     return out.assign_coords(time=time_coord).transpose("time", "pixel")
 
 
+class DisturbancesParams(TypedDict):
+    """Settings for `disturbances_daily`, as returned by `disturbances_params`.
+
+    The descriptions and defaults live on `disturbances_params`, which is what
+    the pipeline config populates.
+    """
+
+    growing_season_limit: float
+
+
+def disturbances_params(
+    *,
+    growing_season_limit: float = 10.0,
+) -> DisturbancesParams:
+    """Collect the disturbance-detection settings from the pipeline config.
+
+    Grouping the settings into one node keeps them out of
+    `disturbances_daily`'s data inputs. It does not namespace them: conduit
+    merges every module section's params into one flat driver config, so these
+    are still configured as top-level keys of ``[sgam]``.
+
+    Parameters
+    ----------
+    growing_season_limit
+        Minimum daily mean temperature for a day to count as within the growing
+        season (degrees Celsius). This is a temperature gate, not a calendar
+        one, so it needs no hemisphere correction: the seasonal phase is already
+        carried by ``temperature_daily``.
+
+    Returns
+    -------
+    DisturbancesParams
+        The settings, ready to unpack into the detection call.
+    """
+    return DisturbancesParams(growing_season_limit=growing_season_limit)
+
+
 @declare_units
 @declare_freq
 def disturbances_daily(
@@ -297,7 +334,7 @@ def disturbances_daily(
     gpp_daily: Annotated[xr.DataArray, "g m-2 d-1", DAILY],
     lai_daily: Annotated[xr.DataArray, "1", DAILY],
     pft_params: xr.Dataset,
-    growing_season_limit: float = 10.0,
+    disturbances_params: DisturbancesParams,
 ) -> Annotated[xr.DataArray, "1", DAILY]:
     """Detect daily disturbance events from anomalous declines in GPP and LAI.
 
@@ -310,21 +347,18 @@ def disturbances_daily(
 
     Parameters
     ----------
-    temperature_daily : xr.DataArray
+    temperature_daily
         Daily mean air temperature (degrees Celsius).
-    gpp_daily : xr.DataArray
+    gpp_daily
         Daily gross primary productivity (grams of carbon per square metre per
         day).
-    lai_daily : xr.DataArray
+    lai_daily
         Daily leaf area index (dimensionless).
-    pft_params : xr.Dataset
-        PFT parameters for each pixel. Output of the ``pft_params`` node; only
+    pft_params
+        PFT parameters for each pixel. Output of the `pft_params` node; only
         ``disturbance_threshold`` is used here.
-    growing_season_limit : float, optional
-        Minimum daily mean temperature for a day to count as within the growing
-        season (degrees Celsius). Defaults to 10.0. This is a temperature gate,
-        not a calendar one, so it needs no hemisphere correction: the seasonal
-        phase is already carried by ``temperature_daily``.
+    disturbances_params
+        Detection settings; see `disturbances_params`.
 
     Returns
     -------
@@ -338,7 +372,7 @@ def disturbances_daily(
         gpp_daily,
         lai_daily,
         pft_params["disturbance_threshold"],
-        growing_season_limit,
+        **disturbances_params,
     )
 
 
@@ -528,6 +562,49 @@ def _sgam(
     )
 
 
+class SgamParams(TypedDict):
+    """Settings for the `sgam` node, as returned by `sgam_params`.
+
+    The descriptions and defaults live on `sgam_params`, which is what the
+    pipeline config populates.
+    """
+
+    use_dynamic_allocation: bool
+    strict_mass_balance: bool
+
+
+def sgam_params(
+    *,
+    use_dynamic_allocation: bool = True,
+    strict_mass_balance: bool = False,
+) -> SgamParams:
+    """Collect the SGAM settings from the pipeline config.
+
+    Grouping the settings into one node keeps them out of `sgam`'s data inputs.
+    It does not namespace them: conduit merges every module section's params
+    into one flat driver config, so these are still configured as top-level keys
+    of ``[sgam]``.
+
+    Parameters
+    ----------
+    use_dynamic_allocation
+        Whether allocation fractions vary with environmental conditions. When
+        False, the PFT's fixed base allocations are used instead.
+    strict_mass_balance
+        Whether a mass balance violation raises `RuntimeError`. When False, it
+        issues a warning instead.
+
+    Returns
+    -------
+    SgamParams
+        The settings, ready to unpack into the model call.
+    """
+    return SgamParams(
+        use_dynamic_allocation=use_dynamic_allocation,
+        strict_mass_balance=strict_mass_balance,
+    )
+
+
 @extract_fields()
 @declare_units
 @declare_freq
@@ -545,25 +622,24 @@ def sgam(
     stem_pool_init: Annotated[xr.DataArray, "g m-2"],
     root_pool_init: Annotated[xr.DataArray, "g m-2"],
     latitude: xr.DataArray,
+    sgam_params: SgamParams,
     litter_pool_init: xr.DataArray | None = None,
     removed_init: xr.DataArray | None = None,
-    use_dynamic_allocation: bool = True,
-    strict_mass_balance: bool = False,
 ) -> SgamOut:
     """Run the Simplified Growth and Allocation Model (SGAM) vegetation model.
 
     Parameters
     ----------
-    plant_type : xr.DataArray
-        Plant functional type as integer (0=tree, 1=grass, 2=shrub, 3=crop).
-    pft_params : xr.Dataset
-        PFT parameters for each pixel. Output of the ``pft_params`` node.
-    temperature_weekly : xr.DataArray
+    plant_type
+        Plant functional type as an integer (0=tree, 1=grass, 2=shrub, 3=crop).
+    pft_params
+        PFT parameters for each pixel. Output of the `pft_params` node.
+    temperature_weekly
         Weekly mean air temperature (degrees Celsius).
-    gpp_weekly : xr.DataArray
+    gpp_weekly
         Weekly gross primary productivity (grams of carbon per square metre per
         day).
-    volumetric_water_content_weekly : xr.DataArray
+    volumetric_water_content_weekly
         Weekly mean volumetric soil water content: the fraction of soil volume
         occupied by water (cubic metres of water per cubic metre of soil). SGAM
         compares this against the PFT's ``wilting_point`` and ``field_capacity``,
@@ -571,35 +647,31 @@ def sgam(
         is a depth of water in millimetres. See the
         ``volumetric_water_content_weekly`` node in the example config for the
         conversion.
-    vpd_weekly : xr.DataArray
+    vpd_weekly
         Weekly mean vapour pressure deficit (pascals).
-    lue_weekly : xr.DataArray
+    lue_weekly
         Weekly mean light use efficiency (grams of carbon per megajoule).
-    iwue_weekly : xr.DataArray
+    iwue_weekly
         Weekly mean intrinsic water use efficiency (micromoles per mole).
-    disturbances_weekly : xr.DataArray
+    disturbances_weekly
         Weekly disturbance severity: the maximum daily relative decline observed
         during the week, in [0, 1] (dimensionless).
-    leaf_pool_init : xr.DataArray
+    leaf_pool_init
         Initial leaf carbon pool (grams of carbon per square metre).
-    stem_pool_init : xr.DataArray
+    stem_pool_init
         Initial stem carbon pool (grams of carbon per square metre).
-    root_pool_init : xr.DataArray
+    root_pool_init
         Initial root carbon pool (grams of carbon per square metre).
-    latitude : xr.DataArray
+    latitude
         Latitude for each pixel (degrees; used to determine hemisphere).
-    litter_pool_init : xr.DataArray, optional
+    sgam_params
+        Model settings; see `sgam_params`.
+    litter_pool_init
         Initial litter carbon pool (grams of carbon per square metre). Defaults
-        to 0.0.
-    removed_init : xr.DataArray, optional
+        to zero.
+    removed_init
         Initial removed-carbon pool (grams of carbon per square metre). Defaults
-        to 0.0.
-    use_dynamic_allocation : bool, optional
-        If True (default), allocation fractions vary with environmental
-        conditions. If False, use fixed base allocations from pft_params.
-    strict_mass_balance : bool, optional
-        If True, raise RuntimeError on a mass balance violation.
-        If False, issue a warning instead. Defaults to False.
+        to zero.
 
     Returns
     -------
@@ -625,6 +697,5 @@ def sgam(
         latitude=latitude,
         litter_pool_init=litter_pool_init,
         removed_init=removed_init,
-        use_dynamic_allocation=use_dynamic_allocation,
-        strict_mass_balance=strict_mass_balance,
+        **sgam_params,
     )
