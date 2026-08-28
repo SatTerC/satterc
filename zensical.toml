@@ -36,7 +36,6 @@ nav = [
       "api/satterc.cli/index.md",
       "api/satterc.cli/setup.md",
       "api/satterc.cli/data_gen.md",
-      "api/satterc.cli/version.md",
       "api/satterc.models/splash.md",
       "api/satterc.models/pmodel.md",
       "api/satterc.models/sgam.md",

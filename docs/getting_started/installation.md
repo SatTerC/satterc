@@ -100,7 +100,7 @@ brew install graphviz
 ## Verify installation
 
 ```sh
-satterc version
+satterc --version
 ```
 
 This prints the installed SatTerC version and, beneath it, the version of
