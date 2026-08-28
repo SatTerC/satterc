@@ -1,0 +1,34 @@
+{#- Shared helper for rendering an annotation's contents.
+
+Model nodes declare a variable's type, units and frequency together, as
+``Annotated[DataArray, "mm d-1", DAILY]``. All three matter to a reader of the
+model pages, so the macro unwraps the ``Annotated[...]`` and renders what is
+inside it, comma-separated. Anything else — a plain `int` setting, an input
+with no declared units — renders whole.
+
+Griffe hands a units string over quoted where the text does not parse as
+Python (``'mm d-1'``) and as an ``ExprName`` where it does (``degC``), so string
+elements get their quotes stripped and expression elements go through the stock
+expression template, which keeps the cross-references.
+-#}
+
+{% macro contents(annotation) %}
+  {%- if annotation is not none -%}
+    {%- if annotation.left is defined and annotation.left|string == "Annotated" -%}
+      {%- for element in annotation.slice.elements | default([], true) -%}
+        {{- ", " if not loop.first -}}
+        {%- if element is string -%}
+          {{- element | trim("\"'") -}}
+        {%- else -%}
+          {%- with expression = element, backlink_type = "used-by" -%}
+            {%- include "expression.html.jinja" with context -%}
+          {%- endwith -%}
+        {%- endif -%}
+      {%- endfor -%}
+    {%- else -%}
+      {%- with expression = annotation, backlink_type = "used-by" -%}
+        {%- include "expression.html.jinja" with context -%}
+      {%- endwith -%}
+    {%- endif -%}
+  {%- endif -%}
+{% endmacro %}

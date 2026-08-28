@@ -707,7 +707,7 @@ class TestSplashExecution:
 
     def test_public_splash_wrapper_returns_dict(self):
         """Test the public splash() function (covers the 'return _splash(...)' line)."""
-        from satterc.models.splash import splash
+        from satterc.models.splash import splash, splash_params
 
         n_days = 366
         n_pixels = 1
@@ -733,6 +733,7 @@ class TestSplashExecution:
             elevation=_static_da(np.array([50.0])),
             latitude=_static_da(np.array([51.5])),
             max_soil_moisture=_static_da(np.array([150.0])),
+            splash_params=splash_params(),
         )
         assert isinstance(result, dict)
         assert "actual_evapotranspiration_daily" in result

@@ -139,6 +139,9 @@ custom_checkbox = true
 # Mkdocstrings
 # ------------
 
+[project.plugins.mkdocstrings]
+custom_templates = "docs_tools/templates"
+
 [project.plugins.mkdocstrings.handlers.python]
 inventories = ["https://docs.python.org/3/objects.inv"]
 paths = ["src"]
@@ -162,4 +165,7 @@ show_root_members_full_path = false
 show_source = false
 show_symbol_type_heading = true
 show_symbol_type_toc = true
+
+[[project.plugins.mkdocstrings.handlers.python.options.extensions]]
+"docs_tools/units.py" = { }
 

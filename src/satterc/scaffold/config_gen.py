@@ -141,7 +141,13 @@ def get_builtin_models() -> list[str]:
 
 
 def get_model_params(model_name: str) -> dict[str, Any]:
-    """Extract keyword-only parameters with defaults from the main model function."""
+    """Extract keyword-only parameters with defaults from a model's nodes.
+
+    A model may declare its settings on the main node function, or on a
+    companion ``<model>_params`` node that gathers them into a container (see
+    `satterc.models.splash.splash_params`). Both are read, because conduit
+    merges a section's keys into one flat driver config either way.
+    """
     builtin_models = get_builtin_models()
     module_path = (
         f"satterc.models.{model_name}" if model_name in builtin_models else model_name
@@ -153,16 +159,20 @@ def get_model_params(model_name: str) -> dict[str, Any]:
         return {}
 
     func_name = model_name.split(".")[-1]
-    if hasattr(module, func_name):
-        func = getattr(module, func_name)
-        sig = inspect.signature(func)
-        return {
-            p.name: p.default
-            for p in sig.parameters.values()
-            if p.kind == inspect.Parameter.KEYWORD_ONLY
-            and p.default is not inspect.Parameter.empty
-        }
-    return {}
+    params: dict[str, Any] = {}
+    for name in (func_name, f"{func_name}_params"):
+        func = getattr(module, name, None)
+        if func is None:
+            continue
+        params.update(
+            {
+                p.name: p.default
+                for p in inspect.signature(func).parameters.values()
+                if p.kind == inspect.Parameter.KEYWORD_ONLY
+                and p.default is not inspect.Parameter.empty
+            }
+        )
+    return params
 
 
 #: Suffixes ordered fine to coarse, so an index comparison answers "can this be

@@ -56,41 +56,41 @@ soil_moisture_init_max_iter = 10
 soil_moisture_init_max_diff = 1.0
 ```
 
-Both parameters are optional. The defaults are:
+Both settings are optional, and both are top-level keys of the `[splash]` section.
 
-| Parameter | Default | Description |
-|-----------|---------|-------------|
-| `soil_moisture_init_max_iter` | 10 | Maximum number of one-year iterations for initial soil moisture estimation |
-| `soil_moisture_init_max_diff` | 1.0 | Maximum acceptable difference (mm) between year-start and year-end soil moisture |
+::: satterc.models.splash.splash_params
+    options:
+      show_root_heading: false
+      show_root_toc_entry: false
+      show_signature: false
+      show_docstring_description: false
+      show_docstring_returns: false
+      docstring_section_style: spacy
 
-### Required inputs
+### Inputs
 
-SPLASH requires the following daily `DataArray` inputs:
+The three climate inputs are daily `DataArray`s; the three site inputs are static.
+`splash_params` carries the settings above.
 
-| Variable | Units | Description |
-|----------|-------|-------------|
-| `sunshine_fraction_daily` | dimensionless (0–1) | Fraction of daylight hours that are sunny |
-| `temperature_daily` | °C | Air temperature |
-| `precipitation_daily` | mm·d⁻¹ | Precipitation |
-
-And the following static `DataArray` inputs:
-
-| Variable | Units | Description |
-|----------|-------|-------------|
-| `elevation` | m | Site elevation |
-| `latitude` | degrees | Site latitude |
-| `max_soil_moisture` | mm | Maximum soil moisture capacity |
+::: satterc.models.splash.splash
+    options:
+      show_root_heading: false
+      show_root_toc_entry: false
+      show_signature: false
+      show_docstring_description: false
+      show_docstring_returns: false
+      docstring_section_style: spacy
 
 ### Outputs
 
-SPLASH returns four daily `DataArray` outputs:
-
-| Variable | Units | Description |
-|----------|-------|-------------|
-| `actual_evapotranspiration_daily` | mm·d⁻¹ | Actual evapotranspiration |
-| `potential_evapotranspiration_daily` | mm·d⁻¹ | Potential evapotranspiration (Priestley-Taylor energy-limited demand) |
-| `soil_moisture_daily` | mm | Soil moisture content |
-| `runoff_daily` | mm | Surface water runoff |
+::: satterc.models.splash.SplashOut
+    options:
+      show_root_heading: false
+      show_root_toc_entry: false
+      show_docstring_description: false
+      docstring_section_style: spacy
+      show_bases: false
+      members: false
 
 ### Python API
 
