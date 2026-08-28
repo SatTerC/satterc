@@ -61,6 +61,7 @@ test = [
 
 [tool.uv]
 exclude-newer = "1 week"
+exclude-newer-package = { marimo-md-export = false , xarray-annotated = false , conduit = false , sgam = false , rothc-py = false }
 
 [tool.uv.sources]
 rothc-py = { git = "https://github.com/SatTerC/rothc_py.git" }
