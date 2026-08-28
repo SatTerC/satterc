@@ -55,7 +55,7 @@ app.add_typer(graph_app)
 app.add_typer(setup_app)
 app.add_typer(run_app)
 app.add_typer(gridded_app, name="gridded")
-app.add_typer(data_gen_app, name="data-gen")
+app.add_typer(data_gen_app)
 
 
 def main() -> None:

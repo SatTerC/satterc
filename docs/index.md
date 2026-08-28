@@ -56,68 +56,42 @@ representation of each rather than taking a whole model as given. That is a long
 way off. What exists today is four models and the machinery to wire them
 together.
 
-## Installation
+## Navigating these docs
 
-See the [installation guide](getting_started/installation.md).
+<div class="grid cards" markdown>
 
-## Quickstart
+- **[Guides](guides/installation.md)** — how-to guides. Start with [installation](guides/installation.md), then the [quickstart](guides/quickstart.md), which goes from an empty directory to a NetCDF file of results without needing any data of your own.
+- **[Models](models/index.md)** — a page per model: [SPLASH](models/splash.md) for the water balance, the [P-model](models/pmodel.md) for photosynthesis, [SGAM](models/sgam.md) for vegetation carbon pools, [RothC](models/rothc.md) for soil carbon. Each one gives the DAG, the theory, and tables of inputs, outputs and settings generated from the code.
+- **[Recipes](recipes/my_first_pipeline.md)** — complete pipelines as executable [marimo](https://marimo.io) notebooks. [My first pipeline](recipes/my_first_pipeline.md) is the step-by-step introduction; [soil moisture](recipes/soil_moisture.md) and [PFT parameters](recipes/pft_parameters.md) calibrate parameters against observations; [full pipeline](recipes/full_pipeline.md) chains all four models from Python rather than the CLI.
+- **[Reference](reference/index.md)** — the [CLI](reference/cli.md) commands that are satterc's own, the [Python API](reference/python-api.md), and every module's signatures. Config schema and data formats are conduit's, and the [overview](reference/index.md) says where to find them.
 
-The [quickstart](getting_started/quickstart.md) runs a one-model pipeline on
-synthetic data, from an empty directory to a NetCDF file of results.
+</div>
 
-## Learn more
+## See also
 
-### Here
+**Upstream**
 
-- [Quickstart](getting_started/quickstart.md) — run your first pipeline
-- [Models](models/index.md) — the four model modules, their inputs and outputs
-- [Examples](examples/my_first_pipeline.md) — interactive notebooks
-  (run `just export-all` to regenerate)
+SatTerC is a thin layer over other people's work:
 
-### In conduit's documentation
+- [conduit][conduit] — the pipeline framework: config, DAG, contracts, I/O.
+- [Hamilton](https://github.com/dagworks-inc/hamilton) — the DAG engine underneath conduit.
+- [pyrealm][pyrealm] — the SPLASH and P-model implementations.
+- [RothC-Py](https://github.com/Rothamsted-Models/RothC_Py) — the Rothamsted carbon model.
+- [xarray](https://docs.xarray.dev/) — labelled N-D arrays.
+- [Typer](https://typer.tiangolo.com/) — the CLI.
 
-- [Configuration reference][conduit-config] — every config section
-- [Bring your own module][conduit-byom] — the conventions a model module follows
-- [Contracts][conduit-contracts] — what the units/schema/frequency checks catch
-- [Run and visualise][conduit-run] — the `run` and `graph` commands
-- [Scale up][conduit-scale] — caching, blocking, and parallel subset runs
+SGAM is the exception: it is implemented here.
 
 ## Acknowledgements
 
-### Funding
+<!-- TODO: add funding bodies and grant numbers, and contributors. Example:
 
-<!-- TODO: add funding bodies and grant numbers. Example:
+This work has been supported by:
 
-- **[Funding Body Name]** — Grant number XXXXXXX
-- **[Institution Name]** — Project title, grant period
-
--->
-
-### Contributors
-
-<!-- TODO: add contributors. Example:
-
-- **Joe Marsh Rossney** — Lead developer
-- **Name** — Role/contribution
+- NC-International
 
 -->
-
-### Software dependencies
-
-SatTerC builds on the following open-source projects:
-
-- [conduit][conduit] — the pipeline framework: config, DAG, contracts, I/O
-- [Hamilton](https://github.com/dagworks-inc/hamilton) — DAG-based dataflow framework
-- [pyrealm](https://github.com/ImperialCollegeLondon/pyrealm) — SPLASH and P-Model implementations
-- [RothC-Py](https://github.com/Rothamsted-Models/RothC_Py) — Rothamsted Carbon Model
-- [xarray](https://docs.xarray.dev/) — N-D labeled arrays and datasets
-- [Typer](https://typer.tiangolo.com/) — CLI framework
 
 [pyrealm]: https://github.com/ImperialCollegeLondon/pyrealm
 [conduit]: https://github.com/NERC-CEH/conduit
-[conduit-docs]: https://github.com/NERC-CEH/conduit/tree/develop/docs
-[conduit-config]: https://github.com/NERC-CEH/conduit/blob/develop/docs/reference/configuration.md
-[conduit-byom]: https://github.com/NERC-CEH/conduit/blob/develop/docs/guides/bring-your-own-module.md
-[conduit-contracts]: https://github.com/NERC-CEH/conduit/blob/develop/docs/concepts/contracts.md
-[conduit-run]: https://github.com/NERC-CEH/conduit/blob/develop/docs/guides/run-and-visualise.md
-[conduit-scale]: https://github.com/NERC-CEH/conduit/blob/develop/docs/guides/scale-up.md
+[conduit-docs]: https://github.com/NERC-CEH/conduit/tree/main/docs

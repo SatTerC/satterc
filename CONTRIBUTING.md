@@ -89,7 +89,7 @@ Built-in models live in `src/satterc/pipeline/models/`. To add a new model:
 
 5. **Register the model** — add it to the `BuiltinModels` enum in `src/satterc/scaffold/__init__.py`.
 
-6. **Add documentation** — create a page in `docs/Models/` and add it to the navigation in `zensical.toml`.
+6. **Add documentation** — create a page in `docs/models/` and a module page in `docs/reference/modules/satterc.models/`, add both to the navigation in `zensical.toml`, and add a `just graph` line to `graph-all` in the `justfile`.
 
 ## Documentation
 

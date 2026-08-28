@@ -133,12 +133,12 @@ A violation beyond a relative tolerance of $10^{-6}$ means something is wrong; `
 
 ```sh
 satterc setup --models sgam --defaults
-satterc data-gen generate config.toml --grid 1 1 --duration 2y --seed 42
+satterc data-gen config.toml --grid 1 1 --duration 2y --seed 42
 satterc run config.toml
 ```
 
-The [quickstart](../getting_started/quickstart.md) walks through what each of those does, and how to point the config at your own data instead of the synthetic set.
-For tuning the per-PFT parameters against observations, see the [PFT parameters example](../examples/pft_parameters.md).
+The [quickstart](../guides/quickstart.md) walks through what each of those does, and how to point the config at your own data instead of the synthetic set.
+For tuning the per-PFT parameters against observations, see the [PFT parameters recipe](../recipes/pft_parameters.md).
 
 ### Configuration
 
@@ -222,7 +222,7 @@ Leaf area index is not one of them.
 
 ### Python API
 
-See the [API documentation](../api/satterc.models/sgam.md) for full function signatures and parameter details.
+See the [API documentation](../reference/modules/satterc.models/sgam.md) for full function signatures and parameter details.
 
 ## References
 

@@ -79,7 +79,7 @@ from it:
 
 ```sh
 mkdir -p inputs
-satterc data-gen generate config.toml --grid 1 1 --duration 2y --seed 42
+satterc data-gen config.toml --grid 1 1 --duration 2y --seed 42
 ```
 
 This writes NetCDF files at the input paths named in the config.

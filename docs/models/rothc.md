@@ -69,11 +69,11 @@ RothC needs potential evapotranspiration, which [SPLASH](splash.md) produces, so
 
 ```sh
 satterc setup --models splash --models rothc --defaults
-satterc data-gen generate config.toml --grid 1 1 --duration 2y --seed 42
+satterc data-gen config.toml --grid 1 1 --duration 2y --seed 42
 satterc run config.toml
 ```
 
-The [quickstart](../getting_started/quickstart.md) walks through what each of those does, and how to point the config at your own data instead of the synthetic set.
+The [quickstart](../guides/quickstart.md) walks through what each of those does, and how to point the config at your own data instead of the synthetic set.
 
 ### Configuration
 
@@ -166,7 +166,7 @@ If you supply your own version of one of these nodes, it needs a time-bearing in
 
 ### Python API
 
-See the [API documentation](../api/satterc.models/rothc.md) for full function signatures and parameter details.
+See the [API documentation](../reference/modules/satterc.models/rothc.md) for full function signatures and parameter details.
 
 ## References
 

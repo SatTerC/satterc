@@ -14,9 +14,9 @@ copyright = "Copyright &copy; 2026 The authors"
 
 nav = [
   { "Home" = "index.md" },
-  { "Getting Started" = [
-      "getting_started/installation.md",
-      "getting_started/quickstart.md",
+  { "Guides" = [
+      "guides/installation.md",
+      "guides/quickstart.md",
   ]},
   { "Models" = [
       "models/index.md",
@@ -25,27 +25,30 @@ nav = [
       "models/sgam.md",
       "models/rothc.md",
   ]},
-  { "Examples" = [
-      "examples/my_first_pipeline.md",
-      "examples/soil_moisture.md",
-      "examples/pft_parameters.md",
-      "examples/full_pipeline.md",
+  { "Recipes" = [
+      "recipes/my_first_pipeline.md",
+      "recipes/soil_moisture.md",
+      "recipes/pft_parameters.md",
+      "recipes/full_pipeline.md",
   ]},
-  { "API Reference" = [
-      "api/satterc.temporal.md",
-      "api/satterc.cli/index.md",
-      "api/satterc.cli/setup.md",
-      "api/satterc.cli/data_gen.md",
-      "api/satterc.models/splash.md",
-      "api/satterc.models/pmodel.md",
-      "api/satterc.models/sgam.md",
-      "api/satterc.models/rothc.md",
-      "api/satterc.scaffold/config_gen.md",
-      "api/satterc.scaffold/data_gen/spec.md",
-      "api/satterc.scaffold/data_gen/daily.md",
-      "api/satterc.scaffold/data_gen/static.md",
-      "api/satterc.scaffold/data_gen/fallback.md",
-      "api/satterc.scaffold/data_gen/generate.md",
+  { "Reference" = [
+      "reference/index.md",
+      "reference/cli.md",
+      "reference/python-api.md",
+      { "Modules" = [
+          "reference/modules/satterc.models/splash.md",
+          "reference/modules/satterc.models/pmodel.md",
+          "reference/modules/satterc.models/sgam.md",
+          "reference/modules/satterc.models/rothc.md",
+          "reference/modules/satterc.scaffold/config_gen.md",
+          "reference/modules/satterc.scaffold/bridges.md",
+          "reference/modules/satterc.scaffold/data_gen/generate.md",
+          "reference/modules/satterc.scaffold/data_gen/spec.md",
+          "reference/modules/satterc.scaffold/data_gen/daily.md",
+          "reference/modules/satterc.scaffold/data_gen/static.md",
+          "reference/modules/satterc.scaffold/data_gen/fallback.md",
+          "reference/modules/satterc.temporal.md",
+      ]},
   ]},
 ]
 
@@ -54,11 +57,13 @@ extra_javascript = [
     "_static/js/marimo-button.js",
     "_static/js/katex.js",
     "https://unpkg.com/katex@0/dist/katex.min.js",
-    "https://unpkg.com/katex@0/dist/contrib/auto-render.min.js"
+    "https://unpkg.com/katex@0/dist/contrib/auto-render.min.js",
+    "assets/termynal.js",
 ]
 extra_css = [
     "_static/css/extra.css",
-    "https://unpkg.com/katex@0/dist/katex.min.css"
+    "https://unpkg.com/katex@0/dist/katex.min.css",
+    "assets/termynal.css",
 ]
 
 [project.theme]
@@ -77,6 +82,7 @@ features = [
     "navigation.instant",
     "navigation.instant.prefetch",
     "navigation.path",
+    "navigation.sections",
     "navigation.tabs",
     "navigation.top",
     "navigation.tracking",
@@ -138,6 +144,12 @@ combine_header_slug = true
 [project.markdown_extensions.pymdownx.tasklist]
 custom_checkbox = true
 [project.markdown_extensions.pymdownx.tilde]
+
+# mkdocs-typer2
+[project.markdown_extensions.tables]
+[project.markdown_extensions."mkdocs_typer2.markdown:makeExtension"]
+pretty = false
+engine = "native"
 
 # Mkdocstrings
 # ------------

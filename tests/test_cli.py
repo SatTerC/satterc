@@ -71,7 +71,7 @@ vars = [
 
 @pytest.fixture
 def datagen_config_toml(tmp_path):
-    """Config TOML and output data dir for data-gen generate tests.
+    """Config TOML and output data dir for data-gen tests.
 
     The parent directory exists but no NetCDF files have been written yet.
     """
@@ -260,7 +260,7 @@ class TestDataGenHelpers:
 
 
 # ---------------------------------------------------------------------------
-# data-gen generate command
+# data-gen command
 # ---------------------------------------------------------------------------
 
 
@@ -269,7 +269,7 @@ class TestDataGenGenerateCommand:
         toml_path, data_dir = datagen_config_toml
         result = runner.invoke(
             app,
-            ["data-gen", "generate", str(toml_path), "--duration", "30d"],
+            ["data-gen", str(toml_path), "--duration", "30d"],
         )
         assert result.exit_code == 0, result.output
         assert (data_dir / "daily.nc").exists()
@@ -279,7 +279,7 @@ class TestDataGenGenerateCommand:
         toml_path, _ = datagen_config_toml
         result = runner.invoke(
             app,
-            ["data-gen", "generate", str(toml_path), "--duration", "30d"],
+            ["data-gen", str(toml_path), "--duration", "30d"],
         )
         assert "Grid dimensions" in result.output
         assert "Duration" in result.output
@@ -288,38 +288,32 @@ class TestDataGenGenerateCommand:
     def test_overwrite_confirmed_reruns_successfully(self, datagen_config_toml):
         toml_path, _data_dir = datagen_config_toml
         # First run creates files.
-        runner.invoke(
-            app, ["data-gen", "generate", str(toml_path), "--duration", "30d"]
-        )
+        runner.invoke(app, ["data-gen", str(toml_path), "--duration", "30d"])
         # Second run: files exist → prompt → confirm overwrite.
         result = runner.invoke(
             app,
-            ["data-gen", "generate", str(toml_path), "--duration", "30d"],
+            ["data-gen", str(toml_path), "--duration", "30d"],
             input="y\n",
         )
         assert result.exit_code == 0, result.output
 
     def test_overwrite_declined_aborts(self, datagen_config_toml):
         toml_path, _data_dir = datagen_config_toml
-        runner.invoke(
-            app, ["data-gen", "generate", str(toml_path), "--duration", "30d"]
-        )
+        runner.invoke(app, ["data-gen", str(toml_path), "--duration", "30d"])
         result = runner.invoke(
             app,
-            ["data-gen", "generate", str(toml_path), "--duration", "30d"],
+            ["data-gen", str(toml_path), "--duration", "30d"],
             input="n\n",
         )
         assert result.exit_code != 0
 
     def test_invalid_duration_fails(self, datagen_config_toml):
         toml_path, _ = datagen_config_toml
-        result = runner.invoke(
-            app, ["data-gen", "generate", str(toml_path), "--duration", "bad"]
-        )
+        result = runner.invoke(app, ["data-gen", str(toml_path), "--duration", "bad"])
         assert result.exit_code != 0
 
     def test_missing_config_fails(self, tmp_path):
-        result = runner.invoke(app, ["data-gen", "generate", str(tmp_path / "no.toml")])
+        result = runner.invoke(app, ["data-gen", str(tmp_path / "no.toml")])
         assert result.exit_code != 0
 
 

@@ -58,12 +58,12 @@ That tolerance is evaluated over the whole block, so results shift by ~1e-4 rela
 
 ```sh
 satterc setup --models splash --defaults
-satterc data-gen generate config.toml --grid 1 1 --duration 2y --seed 42
+satterc data-gen config.toml --grid 1 1 --duration 2y --seed 42
 satterc run config.toml
 ```
 
-The [quickstart](../getting_started/quickstart.md) walks through what each of those does, and how to point the config at your own data instead of the synthetic set.
-For calibrating `max_soil_moisture` against observations, see the [soil moisture example](../examples/soil_moisture.md).
+The [quickstart](../guides/quickstart.md) walks through what each of those does, and how to point the config at your own data instead of the synthetic set.
+For calibrating `max_soil_moisture` against observations, see the [soil moisture recipe](../recipes/soil_moisture.md).
 
 ### Configuration
 
@@ -107,7 +107,7 @@ soil_moisture_init_max_diff = 1.0
 
 ### Python API
 
-See the [API documentation](../api/satterc.models/splash.md) for full function signatures and parameter details.
+See the [API documentation](../reference/modules/satterc.models/splash.md) for full function signatures and parameter details.
 
 ## References
 

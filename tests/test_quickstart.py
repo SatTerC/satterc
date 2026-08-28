@@ -42,7 +42,6 @@ def quickstart(tmp_path_factory):
         app,
         [
             "data-gen",
-            "generate",
             str(config),
             "--grid",
             *GRID,

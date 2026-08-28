@@ -50,13 +50,13 @@ graph-all:
 docs: graph-all
   zensical build --clean
 
-# Export a single example notebook to docs/examples/.
+# Export a single example notebook to docs/recipes/.
 export example:
   # Export to Markdown and keep the HTML notebook in the generated assets directory.
-  marimo-md-export "examples/{{example}}.py" "docs/examples/{{example}}.md" \
+  marimo-md-export "examples/{{example}}.py" "docs/recipes/{{example}}.md" \
     --keep-html --overflow scroll
 
-# Export all notebooks in examples/ to docs/Examples/.
+# Export all notebooks in examples/ to docs/recipes/.
 export-all:
   just export my_first_pipeline
   just export soil_moisture

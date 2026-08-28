@@ -54,6 +54,7 @@ docs = [
     "marimo-md-export>=0.5.2",
     "mkdocstrings-python>=2.0.3",
     "zensical>=0.0.24",
+    "mkdocs-typer2[termynal]>=0.4.1",
 ]
 examples = [
     "matplotlib>=3.10.8",
