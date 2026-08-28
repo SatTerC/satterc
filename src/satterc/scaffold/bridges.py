@@ -3,7 +3,7 @@
 Each model wrapper reports the units its upstream library actually uses rather
 than rescaling, so a producer and a consumer of the same quantity can disagree.
 This table lists those pairs and the factor between them: the config generator
-reads it to emit a ``[[node]]`` doing the conversion, and `examples/config.toml`
+reads it to emit a ``[[node]]`` doing the conversion, and `recipes/config.toml`
 writes the same nodes by hand.
 
 A bridge is only consulted for an input no model produces under its own name. It
@@ -31,7 +31,7 @@ class Bridge:
         registry already knows.
     note : str
         Why the factor is what it is, for the reader of this table. Mirrors the
-        prose in `examples/config.toml`.
+        prose in `recipes/config.toml`.
     """
 
     source: str

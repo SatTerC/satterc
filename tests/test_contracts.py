@@ -19,7 +19,7 @@ from conduit.specs import AnnotationPolicySpec
 
 from satterc.scaffold.data_gen import generate_synthetic_data
 
-EXAMPLE_CONFIG = Path(__file__).parent.parent / "examples" / "config.toml"
+EXAMPLE_CONFIG = Path(__file__).parent.parent / "recipes" / "config.toml"
 
 # Two years, because RothC needs a year to equilibrate and frequency inference
 # needs enough timesteps to have something to infer from.

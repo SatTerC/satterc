@@ -1,0 +1,98 @@
+[splash]
+    _import_path = "satterc.models.splash"
+
+    [pmodel]
+    _import_path = "satterc.models.pmodel"
+    method_kphio = "sandoval"
+    method_optchi = "lavergne20_c3"
+
+    [sgam]
+    _import_path = "satterc.models.sgam"
+
+    [inputs.daily]
+    path = "daily.nc"
+    vars = [
+      "precipitation",
+      "sunshine_fraction",
+      "temperature",
+      "lai",
+      "gpp",
+    ]
+
+    [inputs.weekly]
+    path = "weekly.nc"
+    vars = [
+      "co2",
+      "fapar",
+      "ppfd",
+      "pressure",
+      "vpd",
+    ]
+
+    [inputs.static]
+    path = "static.nc"
+    suffix = ""
+    vars = [
+      "elevation",
+      "plant_type",
+      "max_soil_moisture",
+      "leaf_pool_init",
+      "stem_pool_init",
+      "root_pool_init",
+    ]
+
+    # pyrealm's `aridity_index` is climatological and oriented PET/P: both terms
+    # accumulate over the whole record, giving one value per pixel rather than a
+    # time series. SPLASH computes PET on its way to AET and exposes it.
+    [[node]]
+    name = "aridity_index"
+    inputs = ["potential_evapotranspiration_daily", "precipitation_daily"]
+    expression = "potential_evapotranspiration_daily.sum('time') / precipitation_daily.sum('time')"
+    units = "1"  # ratio of two mm totals -> dimensionless
+
+    # Both the P-model (as pyrealm's `theta`) and SGAM (against the PFT's
+    # `wilting_point`/`field_capacity`) want volumetric water content (m3 m-3).
+    # SPLASH reports a depth of water in mm held in a bucket of capacity
+    # `max_soil_moisture`, so dividing gives relative saturation (0-1) and
+    # multiplying by a representative mineral-soil porosity (0.45) turns that
+    # into a volume fraction.
+    [[node]]
+    name = "volumetric_water_content_weekly"
+    inputs = ["soil_moisture_weekly", "max_soil_moisture"]
+    expression = "soil_moisture_weekly / max_soil_moisture * 0.45"
+    units = "m3 m-3"
+    freq = "7D"
+
+    # satterc.models.pmodel reports GPP and LUE in pyrealm's own units, which are
+    # not the ones SGAM consumes. These two nodes are the explicit bridge.
+    # GPP goes ug C m-2 s-1 -> g C m-2 d-1 (86400 s d-1 x 1e-6 g ug-1 = 0.0864).
+    [[node]]
+    name = "gpp_weekly"
+    inputs = ["gpp_flux_weekly"]
+    expression = "gpp_flux_weekly * 0.0864"
+    units = "g m-2 d-1"
+    freq = "7D"
+
+    # For LUE, pyrealm's denominator is moles of photons and SGAM's is MJ of PAR.
+    [[node]]
+    name = "lue_weekly"
+    inputs = ["lue_photon_weekly"]
+    expression = "lue_photon_weekly * 4.57"
+    units = "g MJ-1"
+    freq = "7D"
+
+    [[resample]]
+    vars = [
+      "temperature",
+      "soil_moisture",
+    ]
+    from = "daily"
+    to = "weekly"
+    freq = "7D"
+
+    [[resample]]
+    vars = ["disturbances"]
+    from = "daily"
+    to = "weekly"
+    freq = "7D"
+    aggfunc = "max"

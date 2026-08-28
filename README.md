@@ -91,10 +91,10 @@ You can run the following commands anywhere in the repository:
 
 ```bash
 just test        # run the test suite (pytest)
-just lint        # format and lint code with ruff, check examples with marimo
+just lint        # format and lint code with ruff, check recipe notebooks with marimo
 just docs        # build the docs (zensical)
-just export <x>  # export a notebook example to docs (e.g. just export my_first_pipeline)
-just export-all  # export all example notebooks
+just export <x>  # export a recipe notebook to docs (e.g. just export my_first_pipeline)
+just export-all  # export all recipe notebooks
 ```
 
 ## CLI use

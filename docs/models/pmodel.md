@@ -137,7 +137,7 @@ method_arrhenius = "simple"
       docstring_section_style: spacy
 
 `aridity_index` is not: it is PET over precipitation, both accumulated over the record, and PET comes from [SPLASH](splash.md).
-`examples/config.toml` derives it in a `[[node]]` rather than hiding the choice of PET inside a wrapper.
+`recipes/config.toml` derives it in a `[[node]]` rather than hiding the choice of PET inside a wrapper.
 
 ### Outputs
 
@@ -151,7 +151,7 @@ method_arrhenius = "simple"
       members: false
 
 None of these are the units SGAM consumes.
-`examples/config.toml` defines `gpp_weekly` and `lue_weekly` as bridge nodes for that purpose, where the conversion factor is visible rather than buried in a wrapper.
+`recipes/config.toml` defines `gpp_weekly` and `lue_weekly` as bridge nodes for that purpose, where the conversion factor is visible rather than buried in a wrapper.
 iWUE needs no bridge, because `pyrealm` and SGAM agree on µmol mol⁻¹.
 
 ### Python API

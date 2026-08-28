@@ -151,7 +151,7 @@ ds["soil_moisture"].plot()
 ## Next steps
 
 - Read about the [built-in models](../models/index.md) and how to compose them
-- Browse the examples for interactive notebooks (run `just export-all` to generate)
+- Browse the [recipes](../recipes/my_first_pipeline.md) for interactive notebooks (run `just export-all` to generate)
 - Read conduit's [contracts][conduit-contracts] page for what the checks can and
   cannot catch
 - Read conduit's [scale-up guide][conduit-scale] for caching, blocking and

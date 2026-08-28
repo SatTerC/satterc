@@ -43,14 +43,14 @@ dev = [
     "rust-just>=1.46.0",
 ]
 docs = [
-    {include-group = "examples"},
+    {include-group = "recipes"},
     "marimo>=0.23.0",
     "marimo-md-export>=0.5.2",
     "mkdocstrings-python>=2.0.3",
     "zensical>=0.0.24",
     "mkdocs-typer2[termynal]>=0.4.1",
 ]
-examples = [
+recipes = [
     "matplotlib>=3.10.8",
 ]
 test = [
@@ -97,13 +97,13 @@ select = [
 "scripts/**" = ["D"]
 # Typer CLI modules use typer.Option() in function signatures as standard practice.
 "src/satterc/cli/**" = ["B008"]
-# Marimo notebooks use bare expressions for display output (B018),
+# Marimo recipe notebooks use bare expressions for display output (B018),
 # contain prose that naturally exceeds 88 chars (E501),
 # include academic citations with en dashes (RUF001),
 # may have unused variables from exploratory cells (F841),
 # use scientific notation with Greek letters (RUF003),
 # and are exploratory notebooks without module docstrings (D100, D401).
-"examples/**" = ["B018", "E501", "F841", "RUF001", "RUF003", "D100", "D401"]
+"recipes/**" = ["B018", "E501", "F841", "RUF001", "RUF003", "D100", "D401"]
 
 [tool.ruff.lint.pydocstyle]
 convention = "numpy"

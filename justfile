@@ -1,16 +1,16 @@
 _: lint typecheck test
 
-# Format and lint the package using ruff, and lint the examples using marimo.
+# Format and lint the package using ruff, and lint the recipe notebooks using marimo.
 lint:
   ruff format
   ruff check --fix
-  marimo check examples/
+  marimo check recipes/
 
 # Variant of `lint` that doesn't cause any changes to files.
 lint-check:
   ruff format --check
   ruff check
-  marimo check examples/
+  marimo check recipes/
 
 # Run static type checker.
 typecheck:
@@ -50,13 +50,13 @@ graph-all:
 docs: graph-all
   zensical build --clean
 
-# Export a single example notebook to docs/recipes/.
-export example:
+# Export a single recipe notebook to docs/recipes/.
+export recipe:
   # Export to Markdown and keep the HTML notebook in the generated assets directory.
-  marimo-md-export "examples/{{example}}.py" "docs/recipes/{{example}}.md" \
+  marimo-md-export "recipes/{{recipe}}/{{recipe}}.py" "docs/recipes/{{recipe}}.md" \
     --keep-html --overflow scroll
 
-# Export all notebooks in examples/ to docs/recipes/.
+# Export all notebooks in recipes/ to docs/recipes/.
 export-all:
   just export my_first_pipeline
   just export soil_moisture

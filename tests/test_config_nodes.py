@@ -6,7 +6,7 @@ did was `test_contracts.py`, which generates two years of data and runs four
 models. That left the cheapest, most load-bearing part of every satterc config
 covered only by the slowest test in the suite.
 
-These tests build the same *shapes* of node that `examples/config.toml` relies on
+These tests build the same *shapes* of node that `recipes/config.toml` relies on
 — an expression carrying units and a frequency, a climatological one that reduces
 the time axis away and declares no frequency, and one node consuming another —
 and assert the declared contract survives onto the built function. They need no
@@ -43,7 +43,7 @@ units = "1"
 freq = "D"
 
 # Climatological: reduces the time axis away, so it declares no frequency. This
-# is the shape of `aridity_index` in examples/config.toml.
+# is the shape of `aridity_index` in recipes/config.toml.
 [[node]]
 name = "dryness"
 inputs = ["rain", "demand"]
@@ -117,7 +117,7 @@ class TestNodeLowering:
 
 
 def test_the_example_config_still_uses_nodes():
-    """Guards the premise: if examples/config.toml ever drops its `[[node]]`
+    """Guards the premise: if recipes/config.toml ever drops its `[[node]]`
     entries, the coverage above stops mirroring anything real."""
-    config = Path(__file__).parent.parent / "examples" / "config.toml"
+    config = Path(__file__).parent.parent / "recipes" / "config.toml"
     assert "[[node]]" in config.read_text()

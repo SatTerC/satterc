@@ -66,7 +66,7 @@ The project uses [just](https://github.com/casey/just) for shortcuts:
 
 ```bash
 just test        # run the test suite (pytest)
-just lint        # format and lint code with ruff, check examples with marimo
+just lint        # format and lint code with ruff, check recipe notebooks with marimo
 just docs        # build the docs (zensical)
 just export <x>  # export a notebook example to docs
 just export-all  # export all example notebooks

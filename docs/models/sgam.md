@@ -218,7 +218,7 @@ Two of those inputs are produced by this module rather than loaded:
       members: false
 
 Leaf area index is not one of them.
-`examples/config.toml` derives `leaf_area_index_weekly` in a `[[node]]`, as `leaf_pool_weekly / pft_params["leaf_carbon_area"]`.
+`recipes/config.toml` derives `leaf_area_index_weekly` in a `[[node]]`, as `leaf_pool_weekly / pft_params["leaf_carbon_area"]`.
 
 ### Python API
 

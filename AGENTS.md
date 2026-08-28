@@ -17,8 +17,8 @@ checkout, if present) rather than guessing at its API.
 
 - All common tasks run via `just` (see `justfile`) — no need to invoke `pytest`/`uv run` directly.
 - Pre-commit hooks only run `uv-lock`, `pyright`, and `ruff` — not the full test suite.
-- Marimo example notebooks pin `satterc==<version>` in inline `# dependencies` — update when bumping the package version, then re-export with `just export-all`.
-- Plain config files in `examples/` (`config.toml`, `graphviz.toml`) are **not** loaded by any code or tooling — they are user-facing references only, so nothing will catch a mistake in them. Check with `satterc run --dry-run`.
+- Marimo notebooks live one per directory under `recipes/`, as `recipes/<name>/<name>.py`, and `just export <name>` renders one into `docs/recipes/`. They pin `satterc==<version>` in inline `# dependencies` — update when bumping the package version, then re-export with `just export-all`.
+- Plain config files under `recipes/` are **not** loaded by any code or tooling — they are user-facing references only, so nothing will catch a mistake in them. Check with `satterc run --dry-run`. That covers the standalone `recipes/config.toml` and `recipes/graphviz.toml`, and `recipes/<name>/config.toml`, which duplicates the TOML string inlined in the notebook beside it — edit both together.
 - Documentation uses **zensical** (markdown, mkdocstrings-material-like), **not** Sphinx/rst.
 - Synthetic data is table-driven: a variable is one `Var` row (units, long name,
   one generator lambda) in `scaffold/data_gen/daily.py` or `static.py`. Adding
