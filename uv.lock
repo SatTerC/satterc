@@ -2111,26 +2111,13 @@ name = "satterc"
 version = "0.7.0"
 source = { editable = "." }
 dependencies = [
-    { name = "conduit", extra = ["geo"] },
+    { name = "conduit", extra = ["geo", "viz"] },
     { name = "numpy" },
+    { name = "pyrealm" },
+    { name = "rothc-py" },
+    { name = "sgam" },
     { name = "typer" },
     { name = "xarray" },
-]
-
-[package.optional-dependencies]
-all = [
-    { name = "conduit", extra = ["viz"] },
-    { name = "pyrealm" },
-    { name = "rothc-py" },
-    { name = "sgam" },
-]
-models = [
-    { name = "pyrealm" },
-    { name = "rothc-py" },
-    { name = "sgam" },
-]
-viz = [
-    { name = "conduit", extra = ["viz"] },
 ]
 
 [package.dev-dependencies]
@@ -2147,7 +2134,6 @@ dev = [
     { name = "pytest-cov" },
     { name = "ruff" },
     { name = "rust-just" },
-    { name = "satterc", extra = ["all", "models"] },
     { name = "zensical" },
 ]
 docs = [
@@ -2156,7 +2142,6 @@ docs = [
     { name = "matplotlib" },
     { name = "mkdocs-typer2", extra = ["termynal"] },
     { name = "mkdocstrings-python" },
-    { name = "satterc", extra = ["all"] },
     { name = "zensical" },
 ]
 examples = [
@@ -2166,22 +2151,18 @@ test = [
     { name = "coverage" },
     { name = "pytest" },
     { name = "pytest-cov" },
-    { name = "satterc", extra = ["models"] },
 ]
 
 [package.metadata]
 requires-dist = [
-    { name = "conduit", extras = ["geo"], git = "https://github.com/NERC-CEH/conduit" },
-    { name = "conduit", extras = ["viz"], marker = "extra == 'viz'", git = "https://github.com/NERC-CEH/conduit" },
+    { name = "conduit", extras = ["geo", "viz"], git = "https://github.com/NERC-CEH/conduit" },
     { name = "numpy", specifier = ">=2.4.2" },
-    { name = "pyrealm", marker = "extra == 'models'", specifier = ">=2.0.0,<3" },
-    { name = "rothc-py", marker = "extra == 'models'", git = "https://github.com/SatTerC/rothc_py.git" },
-    { name = "satterc", extras = ["viz", "models"], marker = "extra == 'all'" },
-    { name = "sgam", marker = "extra == 'models'", git = "https://github.com/SatTerC/sgam.git" },
+    { name = "pyrealm", specifier = ">=2.0.0,<3" },
+    { name = "rothc-py", git = "https://github.com/SatTerC/rothc_py.git" },
+    { name = "sgam", git = "https://github.com/SatTerC/sgam.git" },
     { name = "typer", specifier = ">=0.24.1" },
     { name = "xarray", specifier = ">=2026.2.0" },
 ]
-provides-extras = ["viz", "models", "all"]
 
 [package.metadata.requires-dev]
 dev = [
@@ -2197,8 +2178,6 @@ dev = [
     { name = "pytest-cov", specifier = ">=7.1.0" },
     { name = "ruff", specifier = ">=0.15.4" },
     { name = "rust-just", specifier = ">=1.46.0" },
-    { name = "satterc", extras = ["all"] },
-    { name = "satterc", extras = ["models"] },
     { name = "zensical", specifier = ">=0.0.24" },
 ]
 docs = [
@@ -2207,7 +2186,6 @@ docs = [
     { name = "matplotlib", specifier = ">=3.10.8" },
     { name = "mkdocs-typer2", extras = ["termynal"], specifier = ">=0.4.1" },
     { name = "mkdocstrings-python", specifier = ">=2.0.3" },
-    { name = "satterc", extras = ["all"] },
     { name = "zensical", specifier = ">=0.0.24" },
 ]
 examples = [{ name = "matplotlib", specifier = ">=3.10.8" }]
@@ -2215,7 +2193,6 @@ test = [
     { name = "coverage", specifier = ">=7.13.5" },
     { name = "pytest", specifier = ">=9.0.2" },
     { name = "pytest-cov", specifier = ">=7.1.0" },
-    { name = "satterc", extras = ["models"] },
 ]
 
 [[package]]

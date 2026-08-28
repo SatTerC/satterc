@@ -5,7 +5,7 @@ build-backend = "uv_build"
 [project]
 name = "satterc"
 version = "0.7.0"
-description = "Carbon-cycle model modules for conduit pipelines: SPLASH, P-model, SGAM and RothC."
+description = "Carbon-cycle model modules for conduit pipelines."
 authors = [
     { name = "jmarshrossney", email = "17361029+jmarshrossney@users.noreply.github.com" }
 ]
@@ -15,20 +15,15 @@ license-files = ["LICENSE"]
 classifiers = ["Development Status :: 2 - Pre-Alpha"]
 requires-python = ">=3.13"
 dependencies = [
-    "conduit[geo]",
+    "conduit[geo,viz]",
     "numpy>=2.4.2",
     "xarray>=2026.2.0",
     "typer>=0.24.1",
+    # pyrealm is capped below 3 in case their units change
+    "pyrealm>=2.0.0,<3",
+    "rothc-py",
+    "sgam",
 ]
-
-[project.optional-dependencies]
-viz = ["conduit[viz]"]
-# pyrealm is capped below 3: `tests/test_pyrealm_units.py` anchors satterc's
-# unit annotations to numbers recorded against a reviewed pyrealm, and a major
-# release is where that review has to happen again. Within 2.x the anchor is
-# expected to hold, so a golden failure there is real news rather than noise.
-models = ["pyrealm>=2.0.0,<3", "rothc-py", "sgam"]
-all = ["satterc[viz,models]"]
 
 [project.scripts]
 satterc = "satterc.cli:main"
@@ -49,7 +44,6 @@ dev = [
 ]
 docs = [
     {include-group = "examples"},
-    "satterc[all]",  # examples and API docs import the model modules
     "marimo>=0.23.0",
     "marimo-md-export>=0.5.2",
     "mkdocstrings-python>=2.0.3",
@@ -60,7 +54,6 @@ examples = [
     "matplotlib>=3.10.8",
 ]
 test = [
-    "satterc[models]",  # the test suite imports pyrealm/sgam/rothc
     "coverage>=7.13.5",
     "pytest>=9.0.2",
     "pytest-cov>=7.1.0",

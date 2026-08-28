@@ -54,7 +54,7 @@ Both exist to get a pipeline running before there is any real data to run it on:
 
 ## `satterc gridded`
 
-Parallel-Zarr commands for gridded pipelines, needing the `geo` extra.
+Parallel-Zarr commands for gridded pipelines.
 They bracket a set of independent `[subset]` runs: create the shared store once, run the subsets concurrently, then stitch the parts back together.
 
 ### `satterc gridded create-store`
