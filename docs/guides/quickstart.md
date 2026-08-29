@@ -34,7 +34,6 @@ This creates a `config.toml` file that looks like:
 
 ```toml
 [splash]
-_import_path = "satterc.models.splash"
 soil_moisture_init_max_iter = 10
 soil_moisture_init_max_diff = 1.0
 
@@ -63,8 +62,9 @@ vars = [
 ]
 ```
 
-A model is a section carrying `_import_path`. SatTerC's models are ordinary
-conduit modules, with nothing special about them beyond shipping in this package.
+A model is a section named after the model.
+SatTerC's models are ordinary conduit modules; SatTerC registers them with conduit, so a section resolves to a module by its name alone.
+A module conduit has no registration for needs `_import_path` to say where it lives.
 Node names are `{var}{suffix}`, and the suffix defaults to the section label, so
 `temperature` under `[inputs.daily]` becomes the node `temperature_daily`, which
 is what `splash`'s parameter is called. Static variables are consumed under bare

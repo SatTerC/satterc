@@ -11,6 +11,7 @@ import typer
 from conduit import __version__ as conduit_version
 from conduit.cli.graph import app as graph_app
 from conduit.cli.run import app as run_app
+from conduit.errors import ConduitError
 from conduit.gridded.cli import app as gridded_app
 
 from .._version import __version__
@@ -20,6 +21,8 @@ from .setup import app as setup_app
 app = typer.Typer(
     help="Command-line interface for SatTerC, built on the conduit framework.",
     context_settings={"help_option_names": ["-h", "--help"]},
+    # `main` renders ConduitError itself; typer's traceback would bury the message.
+    pretty_exceptions_enable=False,
 )
 
 
@@ -59,5 +62,16 @@ app.add_typer(data_gen_app)
 
 
 def main() -> None:
-    """Entry point for the satterc CLI."""
-    app()
+    """Entry point for the satterc CLI.
+
+    A `ConduitError` is a condition conduit anticipated and wrote a message for,
+    so the message is all a user needs; the frames above it are conduit's own
+    call stack. Every other exception propagates with its traceback, because that
+    is a bug and the frames are the point. This mirrors `conduit.cli.main`, which
+    a satterc user never reaches because the commands are mounted here.
+    """
+    try:
+        app()
+    except ConduitError as exc:
+        typer.secho(f"Error: {exc}", fg=typer.colors.RED, err=True)
+        raise SystemExit(1) from exc

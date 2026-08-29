@@ -94,7 +94,6 @@ def _(mo):
 
     config_toml = textwrap.dedent("""\
     [splash]
-    _import_path = "satterc.models.splash"
 
     [inputs.daily]
     path = "daily.csv"

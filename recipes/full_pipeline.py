@@ -14,7 +14,7 @@
 
 import marimo
 
-__generated_with = "0.23.5"
+__generated_with = "0.24.0"
 app = marimo.App(width="medium")
 
 
@@ -45,7 +45,7 @@ def _():
 
     import marimo as mo  # required for Markdown etc.
     import matplotlib.pyplot as plt
-    from conduit import build_driver, get_final_vars, get_outputs, load_inputs
+    from conduit import build_driver, run
     from conduit.config import Config
 
     from satterc.scaffold.data_gen import generate_synthetic_data
@@ -55,11 +55,9 @@ def _():
         Path,
         build_driver,
         generate_synthetic_data,
-        get_final_vars,
-        get_outputs,
-        load_inputs,
         mo,
         plt,
+        run,
         tempfile,
         tomllib,
     )
@@ -110,18 +108,14 @@ def _(mo):
 
     config_toml = textwrap.dedent("""\
     [splash]
-    _import_path = "satterc.models.splash"
 
     [pmodel]
-    _import_path = "satterc.models.pmodel"
     method_kphio = "sandoval"
     method_optchi = "lavergne20_c3"
 
     [sgam]
-    _import_path = "satterc.models.sgam"
 
     [rothc]
-    _import_path = "satterc.models.rothc"
     n_years_spinup = 1
     equilibrium_threshold = 0.0001
 
@@ -144,12 +138,6 @@ def _(mo):
       "ppfd",
       "pressure",
       "vpd",
-    ]
-
-    [inputs.monthly]
-    path = "monthly.nc"
-    vars = [
-      "dummy_variable",
     ]
 
     [inputs.static]
@@ -345,18 +333,29 @@ def _(Config, config_toml, tomllib):
 
 
 @app.cell
-def _(Path, generate_synthetic_data, load_inputs, parsed_config, tempfile):
+def _(Path, generate_synthetic_data, parsed_config, tempfile):
     _tmpdir = Path(tempfile.mkdtemp())
 
     parsed_config.input_specs["daily"].path = str(_tmpdir / "daily.nc")
     parsed_config.input_specs["weekly"].path = str(_tmpdir / "weekly.nc")
-    parsed_config.input_specs["monthly"].path = str(_tmpdir / "monthly.nc")
     parsed_config.input_specs["static"].path = str(_tmpdir / "static.nc")
+
+    # conduit will not create a missing output directory; it fails rather than
+    # guess. The config asks for `results/*.nc`, so make `results/` first.
+    (_tmpdir / "results").mkdir()
+    for _label in ("daily", "weekly", "monthly"):
+        parsed_config.output_specs[_label].path = str(
+            _tmpdir / "results" / f"{_label}.nc"
+        )
 
     generate_synthetic_data(config=parsed_config, grid=(4, 4), n_days=730, seed=42)
 
-    inputs = load_inputs(parsed_config.input_specs)
-    return (inputs,)
+    # The same object under a second name. `run` reads the input files off the
+    # config, so it must not run until this cell has redirected the paths and
+    # written the data; taking `pipeline_config` is what puts that edge in the
+    # graph.
+    pipeline_config = parsed_config
+    return (pipeline_config,)
 
 
 @app.cell
@@ -441,6 +440,7 @@ def _(mo):
 @app.cell
 def _(show_path):
     show_path("splash", "pmodel")
+    return
 
 
 @app.cell(hide_code=True)
@@ -474,6 +474,7 @@ def _(mo):
 @app.cell
 def _(show_path):
     show_path("pmodel", "sgam")
+    return
 
 
 @app.cell(hide_code=True)
@@ -496,6 +497,7 @@ def _(mo):
 @app.cell
 def _(show_path):
     show_path("sgam", "rothc")
+    return
 
 
 @app.cell(hide_code=True)
@@ -520,6 +522,7 @@ def _(mo):
 @app.cell
 def _(show_path):
     show_path("splash", "rothc", rankdir="TB")
+    return
 
 
 @app.cell(hide_code=True)
@@ -527,20 +530,21 @@ def _(mo):
     mo.md(r"""
     ## Running it end to end
 
-    `dr.execute` takes the variables to compute and the loaded inputs.
-    `get_final_vars` collects the requested names out of the output specs, and `get_outputs` merges the results back into one Dataset per output frequency.
+    `run` takes the config and does the rest: loads the inputs, builds the DAG, computes every variable the `[outputs.*]` sections name, and writes the three NetCDF files.
 
-    Nothing has been written to disk: the pipeline's declared outputs are three NetCDF files, but here we keep the Datasets in memory.
+    It hands back a `RunReport`.
+    `report.outputs` is one Dataset per output section, keyed by section name, and that is what the plots below read — so the files on disk are incidental here.
+    `report.written` records where each one went.
     """)
     return
 
 
 @app.cell
-def _(dr, get_final_vars, get_outputs, inputs, parsed_config):
-    results = dr.execute(get_final_vars(parsed_config.output_specs), inputs=inputs)
-    outputs = get_outputs(results, parsed_config.output_specs)
+def _(pipeline_config, run):
+    report = run(pipeline_config)
+    outputs = report.outputs
 
-    {name: dict(dataset.sizes) for name, dataset in outputs.items()}
+    {written.label: str(written.path) for written in report.written}
     return (outputs,)
 
 
@@ -594,6 +598,7 @@ def _(outputs, plt):
 
     _fig.tight_layout()
     _fig
+    return
 
 
 @app.cell(hide_code=True)

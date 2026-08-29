@@ -8,9 +8,10 @@ icon: lucide/package
 `satterc` currently comes with four models, which can be composed into a pipeline.
 Each model is called through a single Python function, which becomes a node in the DAG.
 
+SatTerC registers all four with conduit, so a config names one by its section alone.
+
 ```toml
 [splash]
-_import_path = "satterc.models.splash"
 soil_moisture_init_max_iter = 10
 ```
 

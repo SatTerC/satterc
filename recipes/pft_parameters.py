@@ -86,15 +86,12 @@ def _(mo):
 
     config_toml = textwrap.dedent("""\
     [splash]
-    _import_path = "satterc.models.splash"
 
     [pmodel]
-    _import_path = "satterc.models.pmodel"
     method_kphio = "sandoval"
     method_optchi = "lavergne20_c3"
 
     [sgam]
-    _import_path = "satterc.models.sgam"
 
     [inputs.daily]
     path = "daily.nc"

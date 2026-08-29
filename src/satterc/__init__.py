@@ -3,9 +3,16 @@
 satterc supplies the carbon-cycle model modules — SPLASH, the P-model, SGAM and
 RothC — for pipelines built with [conduit](https://github.com/NERC-CEH/conduit).
 conduit owns the framework: config parsing, the DAG, contract validation, I/O and
-execution, so import `build_driver`, `load_config` and friends from `conduit`.
-Import the models from `satterc.models`, or reference them from a config by
-``_import_path``.
+execution. Run a pipeline with `conduit.run("config.toml")`, or check one without
+computing with `conduit.dry_run`.
+
+satterc registers its four model modules with conduit, so a config addresses one
+by section name alone::
+
+    [rothc]
+    n_years_spinup = 1
+
+Import the models from `satterc.models` to call their functions directly.
 """
 
 import warnings

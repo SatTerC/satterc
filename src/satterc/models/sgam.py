@@ -5,12 +5,12 @@ from typing import Annotated, TypedDict, cast
 import numpy as np
 import pandas as pd
 import xarray as xr
-from conduit import declare_units
 from hamilton.function_modifiers import extract_fields
 from numpy.typing import NDArray
 from sgam import Disturbances, Sgam
 from sgam.pft import PftParams, PlantFunctionalType, get_default_pft_params
 from xarray_annotated.temporal import declare_freq
+from xarray_annotated.units import declare_units
 
 from ..temporal import DAILY, WEEKLY, time_index
 

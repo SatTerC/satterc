@@ -15,9 +15,10 @@ license-files = ["LICENSE"]
 classifiers = ["Development Status :: 2 - Pre-Alpha"]
 requires-python = ">=3.13"
 dependencies = [
-    "conduit[geo,viz]",
+    "conduit[cli,geo,viz]",
     "numpy>=2.4.2",
     "xarray>=2026.2.0",
+    "xarray-annotated>=0.6.0",
     "typer>=0.24.1",
     # pyrealm is capped below 3 in case their units change
     "pyrealm>=2.0.0,<3",
@@ -27,6 +28,15 @@ dependencies = [
 
 [project.scripts]
 satterc = "satterc.cli:main"
+
+# Registering the model modules under conduit's entry-point group makes each one
+# addressable by a bare section name, so a config writes `[splash]` with no
+# `_import_path`. The section name and the model name are deliberately the same.
+[project.entry-points."conduit.modules"]
+splash = "satterc.models.splash"
+pmodel = "satterc.models.pmodel"
+sgam = "satterc.models.sgam"
+rothc = "satterc.models.rothc"
 
 [project.urls]
 Homepage = "https://SatTerC.github.io/satterc"

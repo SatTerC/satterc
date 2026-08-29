@@ -14,8 +14,9 @@ executes it with validation turned on.
 from pathlib import Path
 
 import pytest
-from conduit import ParsedConfig, build_driver, get_final_vars, load_config, load_inputs
+from conduit import ParsedConfig, get_final_vars, load_config, load_inputs
 from conduit.specs import AnnotationPolicySpec
+from conftest import driver_from_config
 
 from satterc.scaffold.data_gen import generate_synthetic_data
 
@@ -73,19 +74,11 @@ def strict_contracts():
 class TestGeneratedDataSatisfiesContracts:
     def test_driver_builds(self, validated_config):
         """The build-time check compares every declared contract across the graph."""
-        build_driver(
-            validated_config.modules,
-            validated_config.driver_config,
-            node_specs=validated_config.node_specs,
-        )
+        driver_from_config(validated_config)
 
     def test_pipeline_executes(self, validated_config):
         """Validation of the real arrays: units and frequency of what was written."""
-        driver = build_driver(
-            validated_config.modules,
-            validated_config.driver_config,
-            node_specs=validated_config.node_specs,
-        )
+        driver = driver_from_config(validated_config)
         inputs = load_inputs(validated_config.input_specs)
         final_vars: list = get_final_vars(validated_config.output_specs)
         results = driver.execute(final_vars, inputs=inputs)

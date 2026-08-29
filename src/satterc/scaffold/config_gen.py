@@ -473,14 +473,12 @@ def generate_config(
 
     config_data: dict[str, Any] = {}
 
-    # One flat section per model, in conduit's external-module form. There is no
-    # short-name registry to lean on: conduit resolves every non-built-in section
-    # by its dotted `_import_path`.
+    # One flat section per model, named after the model. satterc registers each
+    # model module under conduit's `conduit.modules` entry-point group (see
+    # pyproject.toml), so the section name alone resolves it and no
+    # `_import_path` is needed.
     for model in builtin_models:
-        config_data[model] = {
-            "_import_path": f"satterc.models.{model}",
-            **get_model_config(model),
-        }
+        config_data[model] = dict(get_model_config(model))
 
     # conduit names each input node `{var}{suffix}`, with the suffix defaulting to
     # `_<section label>`. That is exactly satterc's convention for the temporal
@@ -540,7 +538,8 @@ def generate_config(
     }
 
     for mod_path in custom_modules:
-        # The section label is free-form; only `_import_path` is semantic. Use the
+        # A module conduit has no registration for still needs an explicit
+        # `_import_path`, which makes the section label free-form. Use the
         # module's own last component so the config reads naturally.
         label = mod_path.rsplit(".", 1)[-1]
         config_data[label] = {

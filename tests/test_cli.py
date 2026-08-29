@@ -373,9 +373,9 @@ class TestModelSelectionFlag:
     def _models_in(self, path) -> list[str]:
         with open(path, "rb") as f:
             data = tomllib.load(f)
-        return [
-            k for k, v in data.items() if isinstance(v, dict) and "_import_path" in v
-        ]
+        # A built-in model section carries no `_import_path` -- satterc
+        # registers the module with conduit -- so it is identified by name.
+        return [k for k in data if k in self.FOUR]
 
     @pytest.mark.parametrize(
         "flags",
@@ -485,7 +485,7 @@ class TestSetupCommandNonInteractive:
         )
         with open(out, "rb") as f:
             data = tomllib.load(f)
-        assert data["rothc"]["_import_path"] == "satterc.models.rothc"
+        assert "_import_path" not in data["rothc"]
         assert "n_years_spinup" in data["rothc"]
 
     def test_defaults_without_models_fails(self):

@@ -18,7 +18,8 @@ import typing
 from pathlib import Path
 
 import pytest
-from conduit import build_driver, load_config
+from conduit import load_config
+from conftest import driver_from_config
 
 CONFIG = """
 [inputs.daily]
@@ -82,11 +83,7 @@ class TestNodeLowering:
 
     def test_driver_builds(self, node_config):
         """The regression guard: this is what fails when lowering breaks."""
-        driver = build_driver(
-            node_config.modules,
-            node_config.driver_config,
-            node_specs=node_config.node_specs,
-        )
+        driver = driver_from_config(node_config)
         assert {"balance", "balance_is_positive", "dryness"} <= set(driver.graph.nodes)
 
     @pytest.mark.parametrize(
@@ -104,11 +101,7 @@ class TestNodeLowering:
         so that `functools.wraps` no longer carried the injected hint across.
         Fixed upstream in xarray-annotated 0.4.1; this is the regression guard.
         """
-        driver = build_driver(
-            node_config.modules,
-            node_config.driver_config,
-            node_specs=node_config.node_specs,
-        )
+        driver = driver_from_config(node_config)
         hints = typing.get_type_hints(
             driver.graph.nodes[name].callable, include_extras=True
         )

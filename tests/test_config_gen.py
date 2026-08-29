@@ -45,6 +45,9 @@ class TestGenerateConfigCustomModules:
             paths=PATH_DEFAULTS,
         )
         section = config._data["rothc"]
+        # A module named explicitly as a custom module still gets an
+        # `_import_path`, even one satterc happens to register: `generate_config`
+        # has been told to treat it as the user's own.
         assert section["_import_path"] == "satterc.models.rothc"
         assert "n_years_spinup" in section
 
@@ -137,7 +140,9 @@ class TestGenerateConfigBuiltinModels:
             paths=PATH_DEFAULTS,
         )
         section = config._data["rothc"]
-        assert section["_import_path"] == "satterc.models.rothc"
+        # satterc registers rothc with conduit, so the section resolves by name
+        # alone and must carry no `_import_path`.
+        assert "_import_path" not in section
         assert "n_years_spinup" in section
 
     def test_pmodel_generates_model_section(self):
@@ -146,7 +151,8 @@ class TestGenerateConfigBuiltinModels:
             custom_modules=[],
             paths=PATH_DEFAULTS,
         )
-        assert config._data["pmodel"]["_import_path"] == "satterc.models.pmodel"
+        assert "pmodel" in config._data
+        assert "_import_path" not in config._data["pmodel"]
 
     def test_static_input_section_opts_out_of_suffix(self):
         # Static variables are consumed under bare names, so the generated

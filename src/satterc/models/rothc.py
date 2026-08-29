@@ -5,13 +5,13 @@ from typing import Annotated, TypedDict, cast
 import numpy as np
 import pandas as pd
 import xarray as xr
-from conduit import declare_units
 from hamilton.function_modifiers import extract_fields
 from numpy.typing import NDArray
 from rothc_py import RothC, RothCParams, percent_modern_c
 from rothc_py.containers import InputData
 from xarray import DataArray
 from xarray_annotated.temporal import declare_freq
+from xarray_annotated.units import declare_units
 
 from ..temporal import MONTHLY, time_index
 

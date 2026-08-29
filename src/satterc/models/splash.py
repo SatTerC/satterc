@@ -12,12 +12,12 @@ import numpy as np
 import pyrealm.core.calendar
 import pyrealm.splash.splash
 import xarray as xr
-from conduit import declare_units
 from hamilton.function_modifiers import extract_fields
 from numpy.typing import NDArray
 from pandas import DatetimeIndex
 from xarray import DataArray
 from xarray_annotated.temporal import declare_freq
+from xarray_annotated.units import declare_units
 
 from ..temporal import DAILY, time_index
 

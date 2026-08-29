@@ -69,7 +69,6 @@ For calibrating `max_soil_moisture` against observations, see the [soil moisture
 
 ```toml
 [splash]
-_import_path = "satterc.models.splash"
 soil_moisture_init_max_iter = 10
 soil_moisture_init_max_diff = 1.0
 ```

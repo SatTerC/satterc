@@ -144,7 +144,6 @@ For tuning the per-PFT parameters against observations, see the [PFT parameters 
 
 ```toml
 [sgam]
-_import_path = "satterc.models.sgam"
 use_dynamic_allocation = true
 strict_mass_balance = false
 ```

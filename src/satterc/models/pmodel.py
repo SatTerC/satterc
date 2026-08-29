@@ -10,12 +10,12 @@ from typing import Annotated, TypedDict, cast
 
 import pyrealm.pmodel
 import xarray as xr
-from conduit import declare_units
 from conduit.io import sole_time_dim
 from hamilton.function_modifiers import extract_fields
 from numpy.typing import NDArray
 from xarray import DataArray
 from xarray_annotated.temporal import declare_freq
+from xarray_annotated.units import declare_units
 
 from ..temporal import DAILY, WEEKLY
 

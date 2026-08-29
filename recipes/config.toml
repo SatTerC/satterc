@@ -1,30 +1,26 @@
 # A complete four-model SatTerC pipeline: SPLASH water balance -> P-model
 # photosynthesis -> SGAM vegetation growth -> RothC soil carbon.
 #
-# The framework is conduit; every section below is conduit's, and the four model
-# sections are ordinary "bring your own module" sections addressed by their
-# dotted `_import_path`. See the conduit configuration reference for the full
-# schema: https://github.com/NERC-CEH/conduit/blob/develop/docs/reference/configuration.md
+# The framework is conduit; every section below is conduit's. satterc registers
+# its four model modules with conduit, so `[sgam]` and friends need no
+# `_import_path`. See the conduit configuration reference for the full schema:
+# https://github.com/NERC-CEH/conduit/blob/develop/docs/reference/configuration.md
 #
 # This file is a user-facing reference. Nothing in satterc loads it.
 
 [sgam]
-_import_path = "satterc.models.sgam"
 
 [splash]
-_import_path = "satterc.models.splash"
 soil_moisture_init_max_iter = 10
 soil_moisture_init_max_diff = 1.0
 
 [pmodel]
-_import_path = "satterc.models.pmodel"
 method_optchi = "prentice14"
 method_jmaxlim = "wang17"
 method_kphio = "temperature"
 method_arrhenius = "simple"
 
 [rothc]
-_import_path = "satterc.models.rothc"
 n_years_spinup = 1
 dpm_rate = 10.0
 rpm_rate = 0.3

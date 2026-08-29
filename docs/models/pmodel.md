@@ -98,7 +98,6 @@ The [quickstart](../guides/quickstart.md) walks through what each of those does,
 
 ```toml
 [pmodel]
-_import_path = "satterc.models.pmodel"
 method_optchi = "prentice14"
 method_jmaxlim = "wang17"
 method_kphio = "temperature"

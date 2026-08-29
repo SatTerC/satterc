@@ -19,7 +19,7 @@ What satterc supplies is the modules that config points at, and the scaffolding 
 ## Models
 
 A model module is a set of plain functions whose names are node names.
-Conduit imports the module by the `_import_path` in the config, so nothing here is normally called by hand, but the functions are ordinary and can be.
+Conduit imports the module named by a config section, so nothing here is normally called by hand, but the functions are ordinary and can be.
 
 | Module | Model |
 | --- | --- |

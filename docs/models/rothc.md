@@ -79,7 +79,6 @@ The [quickstart](../guides/quickstart.md) walks through what each of those does,
 
 ```toml
 [rothc]
-_import_path = "satterc.models.rothc"
 n_years_spinup = 1
 ```
 
