@@ -114,9 +114,11 @@ def _(mo):
     return
 
 
-@app.cell
-def _():
-    config_toml = """
+@app.cell(hide_code=True)
+def _(mo):
+    import textwrap
+
+    config_toml = textwrap.dedent("""\
     [splash]
     _import_path = "satterc.models.splash"
 
@@ -144,8 +146,48 @@ def _():
       "soil_moisture",
       "runoff",
     ]
-    """
+    """)
+
+    mo.md("```toml\n" + config_toml + "```")
     return (config_toml,)
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""
+    ### The same config as a dictionary
+
+    TOML is only a serialisation format. `Config.loads` parses the string into an
+    ordinary Python dictionary and everything downstream works from that, so the
+    dictionary below is what conduit actually sees.
+    """)
+    return
+
+
+@app.cell
+def _(config_toml):
+    import tomllib
+
+    config_dict = tomllib.loads(config_toml)
+    config_dict
+    return (config_dict,)
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""
+    `Config` takes that dictionary directly — `Config.loads(config_toml)` is
+    defined as `Config(tomllib.loads(config_toml))` and nothing more. So you can
+    build a config in Python if you want to: one per parameter value for a sweep,
+    or a pipeline driven by another program that already holds the settings as
+    data.
+
+    It is worth knowing what you trade away. A TOML file is one artefact you can
+    version, diff, review and pass to `satterc run`; a dictionary assembled over
+    fifty lines of Python is none of those. Write the file by default, and reach
+    for the dictionary when you are generating configs rather than authoring them.
+    """)
+    return
 
 
 @app.cell(hide_code=True)

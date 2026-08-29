@@ -80,9 +80,11 @@ def _(mo):
     return
 
 
-@app.cell
-def _(Config, tomllib):
-    _config_toml = """
+@app.cell(hide_code=True)
+def _(mo):
+    import textwrap
+
+    config_toml = textwrap.dedent("""\
     [splash]
     _import_path = "satterc.models.splash"
 
@@ -181,10 +183,15 @@ def _(Config, tomllib):
     to = "weekly"
     freq = "7D"
     aggfunc = "max"
+    """)
 
-    """
+    mo.md("```toml\n" + config_toml + "```")
+    return (config_toml,)
 
-    parsed_config = Config(tomllib.loads(_config_toml)).parse()
+
+@app.cell
+def _(Config, config_toml, tomllib):
+    parsed_config = Config(tomllib.loads(config_toml)).parse()
     parsed_config
     return (parsed_config,)
 

@@ -88,12 +88,11 @@ def _(mo):
     return
 
 
-@app.cell
-def _(Config, tomllib):
-    # @output: config
-    from pprint import pprint
+@app.cell(hide_code=True)
+def _(mo):
+    import textwrap
 
-    _config_toml = """
+    config_toml = textwrap.dedent("""\
     [splash]
     _import_path = "satterc.models.splash"
 
@@ -114,9 +113,18 @@ def _(Config, tomllib):
       "max_soil_moisture",
       "plant_type",
     ]
-    """
+    """)
 
-    parsed_config = Config(tomllib.loads(_config_toml)).parse()
+    mo.md("```toml\n" + config_toml + "```")
+    return (config_toml,)
+
+
+@app.cell
+def _(Config, config_toml, tomllib):
+    # @output: config
+    from pprint import pprint
+
+    parsed_config = Config(tomllib.loads(config_toml)).parse()
     pprint(parsed_config)
     return (parsed_config,)
 

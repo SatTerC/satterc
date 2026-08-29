@@ -53,7 +53,7 @@ docs: graph-all
 # Export a single recipe notebook to docs/recipes/.
 export recipe:
   # Export to Markdown and keep the HTML notebook in the generated assets directory.
-  marimo-md-export "recipes/{{recipe}}/{{recipe}}.py" "docs/recipes/{{recipe}}.md" \
+  marimo-md-export "recipes/{{recipe}}.py" "docs/recipes/{{recipe}}.md" \
     --keep-html --overflow scroll
 
 # Export all notebooks in recipes/ to docs/recipes/.
