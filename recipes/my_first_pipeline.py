@@ -10,7 +10,7 @@
 #
 # [tool.uv.sources]
 # satterc = { path = ".." }
-# conduit = { git = "https://github.com/NERC-CEH/conduit", rev = "develop" }
+# conduit = { git = "https://github.com/NERC-CEH/conduit" }
 # ///
 
 import marimo
@@ -38,10 +38,10 @@ def _(mo):
     ### Option A — standalone, using `uv` (recommended)
 
     [uv](https://docs.astral.sh/uv/) is a fast Python package manager and installer.
-    If you have it installed, download this file and run:
+    From the repository root, run:
 
     ```bash
-    uv run 00-getting-started-csv.py
+    uv run recipes/my_first_pipeline.py
     ```
 
     `uv` will read the dependency list embedded at the top of this file, install everything
@@ -51,10 +51,11 @@ def _(mo):
     ### Option B — using an existing Python environment
 
     If SatTerC is already installed in a Python environment (for example, the project
-    development environment), activate that environment and run:
+    development environment), activate that environment, move to the repository root,
+    and run:
 
     ```bash
-    marimo run 00-getting-started-csv.py
+    marimo run recipes/my_first_pipeline.py
     ```
     ///
     """)
