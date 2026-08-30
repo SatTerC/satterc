@@ -47,6 +47,8 @@ def _():
     import matplotlib.pyplot as plt
     from conduit import build_driver, run
     from conduit.config import Config
+    from conduit.graph import _node_maps as node_maps
+    from conduit.graph import relabel_with_units
 
     from satterc.scaffold.data_gen import generate_synthetic_data
 
@@ -56,7 +58,9 @@ def _():
         build_driver,
         generate_synthetic_data,
         mo,
+        node_maps,
         plt,
+        relabel_with_units,
         run,
         tempfile,
         tomllib,
@@ -386,7 +390,7 @@ def _(mo):
 
 
 @app.cell
-def _(dr):
+def _(dr, node_maps, relabel_with_units):
     #: Shared appearance for every sub-graph drawn below.
     GRAPH_STYLE = {
         "graph_attr": {"rankdir": "LR", "ranksep": "0.5", "bgcolor": "transparent"},
@@ -411,6 +415,8 @@ def _(dr):
             show_legend=False,
             graphviz_kwargs=style,
         )
+        unit_map, _ = node_maps(dr)
+        relabel_with_units(graph, unit_map)
         # Driver-config values are drawn as unconnected notes; drop them.
         graph.body = [line for line in graph.body if "shape=note" not in line]
         return graph
