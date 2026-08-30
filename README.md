@@ -1,21 +1,11 @@
 # `satterc`
 
-> [!WARNING]
-> **Pre-alpha. Not ready for use.**
-> SatTerC is an unfinished research code with no users outside the core collaboration.
-> Results are unvalidated, large parts are untested against anything real, and the models, config schema and CLI change without notice or deprecation.
-> So, probably, will the name.
-> These docs are a skeleton to be filled in, so treat gaps as gaps rather than as things that work and went undocumented.
-> If you want to use this for something, get in touch first.
-
 Composable models of the terrestrial carbon and water cycles, for [conduit](https://github.com/NERC-CEH/conduit) pipelines.
 
-Four are implemented so far: SPLASH, the P-model, SGAM and RothC.
-They are a starting point rather than the intended scope.
-Most of what we want next is the rest of what [pyrealm](https://github.com/ImperialCollegeLondon/pyrealm) implements, then the satellite-driven ecosystem carbon models of the DALEC and CARDAMOM family, then a real hydrology in place of SPLASH's bucket.
-Further out, the version we are aiming at lets you assemble a land surface model of the kind CLM or JULES provides one process at a time, choosing the representation of each rather than taking a whole model as given.
+> [!WARNING]
+> **Alpha status.** `satterc` is an early-stage project under active development. Things will change without warning.
 
-Usage instructions are in the [documentation](https://SatTerC.github.io/satterc), which is at the same stage as the code.
+Usage instructions are in the [documentation](https://SatTerC.github.io/satterc).
 
 ## Developer instructions
 
@@ -97,34 +87,3 @@ just export <x>  # export a recipe notebook to docs (e.g. just export my_first_p
 just export-all  # export all recipe notebooks
 ```
 
-## CLI use
-
-Installing `satterc` installs the `satterc` command.
-You can explore the documentation using the `-h` or `--help` flags, e.g.
-
-```bash
-satterc -h  # help for the base command
-satterc graph -h  # help for the 'graph' subcommand
-```
-
-`run`, `graph` and `gridded` are conduit's commands, mounted into the `satterc` app so there is a single entry point.
-`setup`, `data-gen` and `version` are satterc-specific.
-
-### Generate a visualisation of the DAG
-
-```bash
-satterc graph config.toml --pdf  # or --png
-```
-
-> [!NOTE]
-> This requires graphviz to be installed. E.g. `sudo apt install graphviz` (Ubuntu) or `brew install graphviz` (MacOS).
-
-### Run
-
-```bash
-mkdir outputs
-satterc run config.toml --dry-run  # validate config, inputs and contracts first
-satterc run config.toml
-```
-
-This produces three netcdf files in `outputs/`, for daily, weekly and monthly output data.
