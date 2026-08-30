@@ -3,7 +3,7 @@
 # dependencies = [
 #     "marimo",
 #     "matplotlib==3.10.9",
-#     "satterc==0.7.0",
+#     "satterc==0.8.0",
 #     "conduit",
 # ]
 #

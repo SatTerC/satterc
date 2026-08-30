@@ -4,7 +4,7 @@ build-backend = "uv_build"
 
 [project]
 name = "satterc"
-version = "0.7.0"
+version = "0.8.0"
 description = "Carbon-cycle model modules for conduit pipelines."
 authors = [
     { name = "jmarshrossney", email = "17361029+jmarshrossney@users.noreply.github.com" }

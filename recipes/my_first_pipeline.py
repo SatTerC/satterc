@@ -1,7 +1,7 @@
 # /// script
 # requires-python = ">=3.13"
 # dependencies = [
-#   "satterc==0.7.0",
+#   "satterc==0.8.0",
 #   "conduit",
 #   "marimo",
 #   "matplotlib==3.10.9",
