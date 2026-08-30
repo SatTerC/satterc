@@ -5,56 +5,18 @@ icon: lucide/house
 
 # SatTerC: Satellite to Terrestrial Carbon
 
-Composable models of the terrestrial carbon and water cycles, for
-[conduit][conduit] pipelines.
+Composable models of the terrestrial carbon and water cycles, for [conduit][conduit] pipelines.
 
-/// admonition | Pre-alpha: not ready for use
-    type: warning
+SatTerC is an experimental research project which aims to be a flexible framework for composing models of the terrestrial carbon and water cycles, driven by Earth Observation data, into a Directed Acyclic Graph (DAG).
+To achieve this, SatTerC builds on [conduit][conduit] --- an opinionated integration of [Hamilton][hamilton] (the DAG engine) and [xarray][xarray] (the array library). 
 
-SatTerC is an unfinished research code with no users outside the core
-collaboration. Results are unvalidated, large parts are untested against
-anything real, and the models, config schema and CLI change without notice or
-deprecation. So, probably, will the name.
-///
+This documentation mainly focuses on the science, and the bare minimum technical know-how to assemble and run a pipeline.
+If you're interested in learning more about the underlying framework, go to [conduit's documentation][conduit-docs].
 
-## What is SatTerC?
+!!! warning "Alpha status"
 
-SatTerC packages models of the terrestrial carbon and water cycles as modules
-you can compose into a pipeline described by a TOML config file. Four are
-implemented so far: SPLASH, the P-model, SGAM and RothC. Each is an ordinary
-Python module of plain functions whose names are DAG node names, with units and
-frequency contracts declared on their signatures.
+    `satterc` is an early-stage project under active development. Things will change without warning.
 
-The framework underneath is conduit, which owns everything generic: parsing the
-config, building the DAG, validating contracts across the whole graph before
-anything runs, loading and saving data, caching, blocking, and spatial
-subsetting. SatTerC adds the science, plus a config generator and a
-synthetic-data generator for getting started without real data.
-
-Keep that split in mind while reading these docs. **For anything about the
-config schema, the CLI, data formats, or how the DAG works, go to [conduit's
-documentation][conduit-docs].** What is documented here is what SatTerC itself
-provides.
-
-## Where this is going
-
-Four models is a starting point, not the intended scope. Most of what we want
-next is the rest of what [pyrealm][pyrealm] implements: subdaily and two-leaf
-variants of the P-model, C3/C4 competition, carbon isotopes, phenology, and the
-T-model for tree growth and canopy structure. Others will come from elsewhere,
-or be written here as SGAM was. Hydrology beyond SPLASH's bucket is on the list
-too.
-
-Alongside those, the ecosystem carbon models of the DALEC and CARDAMOM family.
-They are satellite-driven and built from coupled carbon pools, which is close to
-what SatTerC already does: SGAM and RothC are pool models, and they run off the
-same kind of drivers.
-
-Further out, the version we are aiming at lets you assemble a land surface model
-of the kind CLM or JULES provides one process at a time, choosing the
-representation of each rather than taking a whole model as given. That is a long
-way off. What exists today is four models and the machinery to wire them
-together.
 
 ## Navigating these docs
 
@@ -69,18 +31,18 @@ together.
 
 ## See also
 
-**Upstream**
+SatTerC builds on the following excellent libraries:
 
-SatTerC is a thin layer over other people's work:
-
-- [conduit][conduit] — the pipeline framework: config, DAG, contracts, I/O.
-- [Hamilton](https://github.com/dagworks-inc/hamilton) — the DAG engine underneath conduit.
+- [conduit][conduit] — the pipeline framework. An opinionated integration of [Hamilton][hamilton] and [xarray][xarray].
 - [pyrealm][pyrealm] — the SPLASH and P-model implementations.
 - [RothC-Py](https://github.com/Rothamsted-Models/RothC_Py) — the Rothamsted carbon model.
-- [xarray](https://docs.xarray.dev/) — labelled N-D arrays.
 - [Typer](https://typer.tiangolo.com/) — the CLI.
 
-SGAM is the exception: it is implemented here.
+## Roadmap
+
+This is an early prototype.
+We definitely want to bring in more models, e.g. from PyRealm.
+We are also interested in substituting the DAG for a state machine (directed graph that can contain cycles) for prognostic modelling.
 
 ## Acknowledgements
 
@@ -95,3 +57,5 @@ This work has been supported by:
 [pyrealm]: https://github.com/ImperialCollegeLondon/pyrealm
 [conduit]: https://github.com/NERC-CEH/conduit
 [conduit-docs]: https://github.com/NERC-CEH/conduit/tree/main/docs
+[hamilton]: https://github.com/dagworks-inc/hamilton
+[xarray]: https://docs.xarray.dev/

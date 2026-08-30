@@ -5,15 +5,8 @@ icon: lucide/download
 
 # Installation
 
-SatTerC is not on PyPI and will not be until it is worth installing.
-Until then, install it from GitHub.
+SatTerC is not on PyPI, so install it from GitHub.
 
-/// admonition | Pin a commit
-    type: warning
-
-SatTerC is pre-alpha and the API changes without deprecation, so installing from the default branch means a later reinstall can break your pipeline.
-Pin a commit (`git+https://github.com/satterc/satterc@<sha>`) if you need the same behaviour twice.
-///
 
 ## Prerequisites
 

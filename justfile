@@ -59,6 +59,6 @@ export recipe:
 # Export all notebooks in recipes/ to docs/recipes/.
 export-all:
   just export my_first_pipeline
+  just export full_pipeline
   just export soil_moisture
   just export pft_parameters
-  just export full_pipeline
