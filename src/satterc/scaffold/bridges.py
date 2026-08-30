@@ -1,18 +1,14 @@
 """Unit bridges between what a model reports and what its consumer wants.
 
-satterc's model wrappers are honest: each reports the units its upstream library
-actually uses, rather than quietly rescaling so a downstream model is happier.
-That is deliberate — a wrapper that rescales hides the factor inside code nobody
-reads, whereas a config node puts it where a reader meets it.
-
-The cost is that a producer and a consumer of the same quantity can disagree
-about units, and something has to emit the node that reconciles them. This table
-is that something: the config generator reads it, and `examples/config.toml`
-writes the same nodes by hand with the same factors.
+Each model wrapper reports the units its upstream library actually uses rather
+than rescaling, so a producer and a consumer of the same quantity can disagree.
+This table lists those pairs and the factor between them: the config generator
+reads it to emit a ``[[node]]`` doing the conversion, and `recipes/config.toml`
+writes the same nodes by hand.
 
 A bridge is only consulted for an input no model produces under its own name. It
 does not coarsen — `source` and `target` must be wanted at the same frequency —
-so it composes with nothing and stays a pure restatement of units.
+so it is a pure restatement of units.
 """
 
 from dataclasses import dataclass
@@ -34,9 +30,8 @@ class Bridge:
         asks pint for the factor rather than repeating a number that a unit
         registry already knows.
     note : str
-        Why the factor is what it is. Emitted as a comment is not possible —
-        conduit's `Config` writes TOML from data — so this exists for the reader
-        of this table, and mirrors the prose in `examples/config.toml`.
+        Why the factor is what it is, for the reader of this table. Mirrors the
+        prose in `recipes/config.toml`.
     """
 
     source: str

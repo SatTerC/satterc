@@ -4,7 +4,7 @@
 #     "marimo",
 #     "matplotlib==3.10.9",
 #     "numpy==2.4.4",
-#     "satterc==0.6.0",
+#     "satterc==0.8.0",
 #     "conduit",
 #     "scipy==1.17.1",
 # ]
@@ -80,19 +80,18 @@ def _(mo):
     return
 
 
-@app.cell
-def _(Config, tomllib):
-    _config_toml = """
+@app.cell(hide_code=True)
+def _(mo):
+    import textwrap
+
+    config_toml = textwrap.dedent("""\
     [splash]
-    _import_path = "satterc.models.splash"
 
     [pmodel]
-    _import_path = "satterc.models.pmodel"
     method_kphio = "sandoval"
     method_optchi = "lavergne20_c3"
 
     [sgam]
-    _import_path = "satterc.models.sgam"
 
     [inputs.daily]
     path = "daily.nc"
@@ -181,10 +180,15 @@ def _(Config, tomllib):
     to = "weekly"
     freq = "7D"
     aggfunc = "max"
+    """)
 
-    """
+    mo.md("```toml\n" + config_toml + "```")
+    return (config_toml,)
 
-    parsed_config = Config(tomllib.loads(_config_toml)).parse()
+
+@app.cell
+def _(Config, config_toml, tomllib):
+    parsed_config = Config(tomllib.loads(config_toml)).parse()
     parsed_config
     return (parsed_config,)
 

@@ -12,12 +12,12 @@ import numpy as np
 import pyrealm.core.calendar
 import pyrealm.splash.splash
 import xarray as xr
-from conduit import declare_units
 from hamilton.function_modifiers import extract_fields
 from numpy.typing import NDArray
 from pandas import DatetimeIndex
 from xarray import DataArray
 from xarray_annotated.temporal import declare_freq
+from xarray_annotated.units import declare_units
 
 from ..temporal import DAILY, time_index
 
@@ -40,10 +40,9 @@ class SplashOut(TypedDict):
 
     SPLASH computes this on the way to actual evapotranspiration, by the
     Priestley-Taylor relation ``PET = (1 + k_w) * EET``, where equilibrium
-    evapotranspiration follows from daytime net radiation and ``k_w = 0.26``.
-    Exposing it costs no extra compute and saves a downstream consumer having to
-    find a separate PET product: it is the demand term in an aridity index, which
-    `satterc.models.pmodel` needs."""
+    evapotranspiration follows from daytime net radiation and ``k_w = 0.26``. It
+    is the demand term in an aridity index, which `satterc.models.pmodel`
+    needs."""
 
 
 def _splash_block(
@@ -167,6 +166,49 @@ def _splash(
     )
 
 
+class SplashConfig(TypedDict):
+    """Settings for the `splash` node, as returned by `splash_config`.
+
+    The descriptions and defaults live on `splash_config`, which is what the
+    pipeline config populates.
+    """
+
+    soil_moisture_init_max_iter: int
+    soil_moisture_init_max_diff: float
+
+
+def splash_config(
+    *,
+    soil_moisture_init_max_iter: int = 10,
+    soil_moisture_init_max_diff: float = 1.0,
+) -> SplashConfig:
+    """Collect the SPLASH settings from the pipeline config.
+
+    Grouping the settings into one node keeps them out of `splash`'s data
+    inputs. It does not namespace them: conduit merges every module section's
+    params into one flat driver config, so these are still configured as
+    top-level keys of ``[splash]``.
+
+    Parameters
+    ----------
+    soil_moisture_init_max_iter
+        Maximum number of one-year iterations used to estimate initial soil
+        moisture.
+    soil_moisture_init_max_diff
+        Maximum acceptable difference between year-start and year-end soil
+        moisture (millimetres).
+
+    Returns
+    -------
+    SplashConfig
+        The settings, ready to unpack into the model call.
+    """
+    return SplashConfig(
+        soil_moisture_init_max_iter=soil_moisture_init_max_iter,
+        soil_moisture_init_max_diff=soil_moisture_init_max_diff,
+    )
+
+
 @extract_fields()
 @declare_units
 @declare_freq
@@ -185,13 +227,9 @@ def splash(
     # tests/test_pyrealm_units.py.
     latitude: DataArray,
     max_soil_moisture: Annotated[DataArray, "mm"],
-    *,
-    soil_moisture_init_max_iter: int = 10,
-    soil_moisture_init_max_diff: float = 1.0,
+    splash_config: SplashConfig,
 ) -> SplashOut:
     """Run the SPLASH water balance model.
-
-    This function is intended to act as a node in a Hamilton DAG.
 
     The daily calendar SPLASH needs is read off ``temperature_daily``'s time
     coordinate.
@@ -210,12 +248,8 @@ def splash(
         Latitude of the site (degrees).
     max_soil_moisture
         Maximum soil moisture capacity (millimetres).
-    soil_moisture_init_max_iter
-        Maximum number of one-year iterations used to estimate initial soil
-        moisture.
-    soil_moisture_init_max_diff
-        Maximum acceptable difference between year-start and year-end soil
-        moisture (millimetres).
+    splash_config
+        Model settings; see `splash_config`.
 
     Returns
     -------
@@ -238,7 +272,6 @@ def splash(
         elevation=elevation,
         latitude=latitude,
         max_soil_moisture=max_soil_moisture,
-        soil_moisture_init_max_iter=soil_moisture_init_max_iter,
-        soil_moisture_init_max_diff=soil_moisture_init_max_diff,
         dates_daily=time_index(temperature_daily, "temperature_daily"),
+        **splash_config,
     )

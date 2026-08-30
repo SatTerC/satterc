@@ -1,0 +1,52 @@
+{% extends "_base/docstring/parameters.html.jinja" %}
+
+{#- Parameters in `spacy` style, showing the whole annotation.
+
+The stock `TYPE:` line renders the annotation as written, so a model input
+reads ``Annotated[DataArray, 'mm d-1', DAILY]``. This unwraps it to
+``DataArray, mm d-1, DAILY`` and relabels the line, which is otherwise the
+stock block. Only the `spacy` style is overridden, so the API reference pages
+keep their `list` rendering.
+-#}
+
+{% import "language.html.jinja" as lang with context %}
+{% import "docstring/_annotation.html.jinja" as annotation with context %}
+
+{% block spacy_style scoped %}
+  <table>
+    <thead>
+      <tr>
+        <th><span class="doc-section-title">{{ (section.title or lang.t("PARAMETER")).rstrip(":").upper() }}</span></th>
+        <th><span>{{ lang.t("DESCRIPTION") }}</span></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for parameter in section.value %}
+        <tr class="doc-section-item">
+          <td><code>{{ parameter.name }}</code></td>
+          <td class="doc-param-details">
+            <div class="doc-md-description">
+              {{ parameter.description|convert_markdown(heading_level, html_id, autoref_hook=autoref_hook) }}
+            </div>
+            <p>
+              {% if parameter.annotation %}
+                <span class="doc-param-annotation">
+                  <b>ANNOTATION:</b>
+                  <code>{{ annotation.contents(parameter.annotation) }}</code>
+                </span>
+              {% endif %}
+              {% if parameter.default %}
+                <span class="doc-param-default">
+                  <b>{{ lang.t("DEFAULT:") }}</b>
+                  {% with expression = parameter.default, backlink_type = "used-by" %}
+                    <code>{% include "expression.html.jinja" with context %}</code>
+                  {% endwith %}
+                </span>
+              {% endif %}
+            </p>
+          </td>
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+{% endblock spacy_style %}

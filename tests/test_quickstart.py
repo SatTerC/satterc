@@ -5,7 +5,7 @@ a new user to do, and it is the only path where the two scaffolding halves are
 exercised against each other: the config generator decides what a model needs,
 and the data generator has to be able to fabricate it.
 
-Nothing else covers that seam. `test_contracts.py` runs `examples/config.toml`,
+Nothing else covers that seam. `test_contracts.py` runs `recipes/config.toml`,
 which is hand-written — so it validates the models, not the generator. A gap in
 the generator (a resample it fails to emit, a variable it leaves unbound, a rate
 it coarsens as a mean) shows up here and nowhere else.
@@ -42,7 +42,6 @@ def quickstart(tmp_path_factory):
         app,
         [
             "data-gen",
-            "generate",
             str(config),
             "--grid",
             *GRID,

@@ -10,12 +10,12 @@ from typing import Annotated, TypedDict, cast
 
 import pyrealm.pmodel
 import xarray as xr
-from conduit import declare_units
 from conduit.io import sole_time_dim
 from hamilton.function_modifiers import extract_fields
 from numpy.typing import NDArray
 from xarray import DataArray
 from xarray_annotated.temporal import declare_freq
+from xarray_annotated.units import declare_units
 
 from ..temporal import DAILY, WEEKLY
 
@@ -41,8 +41,7 @@ class PModelOut(TypedDict):
     """Intrinsic water use efficiency (micromoles of CO2 per mole of air).
 
     pyrealm computes ``(5/8)(ca - ci) / P`` with the partial pressures in Pa and
-    ``P`` in megapascals, which lands in umol mol-1. That is a mixing ratio, not
-    the pressure the units once claimed."""
+    ``P`` in megapascals, so this is a mixing ratio rather than a pressure."""
 
 
 def _pmodel_block(
@@ -154,6 +153,65 @@ def _pmodel(
     )
 
 
+class PModelConfig(TypedDict):
+    """Settings for the `pmodel` node, as returned by `pmodel_config`.
+
+    The descriptions and defaults live on `pmodel_config`, which is what the
+    pipeline config populates.
+    """
+
+    method_optchi: str
+    method_jmaxlim: str
+    method_kphio: str
+    method_arrhenius: str
+
+
+def pmodel_config(
+    *,
+    method_optchi: str = "prentice14",
+    method_jmaxlim: str = "wang17",
+    method_kphio: str = "temperature",
+    method_arrhenius: str = "simple",
+) -> PModelConfig:
+    """Collect the P-model settings from the pipeline config.
+
+    Grouping the settings into one node keeps them out of `pmodel`'s data
+    inputs. It does not namespace them: conduit merges every module section's
+    params into one flat driver config, so these are still configured as
+    top-level keys of ``[pmodel]``.
+
+    Each setting selects one of pyrealm's alternative formulations; the
+    accepted values are pyrealm's, and the
+    [pyrealm P-model documentation](https://pyrealm.readthedocs.io/en/latest/users/pmodel/module_overview.html)
+    is the authoritative list.
+
+    Parameters
+    ----------
+    method_optchi
+        Formulation for optimal chi, the ratio of leaf-internal to ambient CO2:
+        ``prentice14``, ``lavergne20_c3`` or ``lavergne20_c4``.
+    method_jmaxlim
+        Whether to apply Jmax limitation: ``wang17`` or ``none``.
+    method_kphio
+        Temperature dependence of the quantum yield efficiency (phi0):
+        ``temperature``, ``sandoval`` or ``constant``. ``sandoval`` is the one
+        method that consumes `mean_growth_temperature`.
+    method_arrhenius
+        Arrhenius temperature scaling: ``simple`` or ``heskel``.
+
+    Returns
+    -------
+    PModelConfig
+        The settings, ready to unpack into the model call.
+    """
+    return PModelConfig(
+        method_optchi=method_optchi,
+        method_jmaxlim=method_jmaxlim,
+        method_kphio=method_kphio,
+        method_arrhenius=method_arrhenius,
+    )
+
+
 @extract_fields()
 @declare_units
 @declare_freq
@@ -167,11 +225,7 @@ def pmodel(
     mean_growth_temperature: Annotated[DataArray, "degC"],
     aridity_index: Annotated[DataArray, "1"],
     volumetric_water_content_weekly: Annotated[DataArray, "m3 m-3", WEEKLY],
-    *,
-    method_optchi: str = "prentice14",
-    method_jmaxlim: str = "wang17",
-    method_kphio: str = "temperature",
-    method_arrhenius: str = "simple",
+    pmodel_config: PModelConfig,
 ) -> PModelOut:
     """Run the P-Model to calculate GPP, LUE, and IWUE.
 
@@ -204,15 +258,8 @@ def pmodel(
         ``theta``, not SPLASH's soil moisture, which is a depth of water in
         millimetres — see the ``volumetric_water_content`` node in the example
         config for the conversion.
-    method_optchi
-        Method for calculating optimal chi (leaf-internal CO2 compensation
-        point).
-    method_jmaxlim
-        Method for Jmax limitation.
-    method_kphio
-        Method for calculating the quantum yield efficiency (phi0).
-    method_arrhenius
-        Method for Arrhenius temperature scaling.
+    pmodel_config
+        Model settings; see `pmodel_config`.
 
     Returns
     -------
@@ -237,10 +284,7 @@ def pmodel(
         mean_growth_temperature=mean_growth_temperature,
         aridity_index=aridity_index,
         volumetric_water_content_weekly=volumetric_water_content_weekly,
-        method_optchi=method_optchi,
-        method_jmaxlim=method_jmaxlim,
-        method_kphio=method_kphio,
-        method_arrhenius=method_arrhenius,
+        **pmodel_config,
     )
 
 
@@ -252,18 +296,14 @@ def mean_growth_temperature(
 
     pyrealm consumes this as an *acclimation* quantity: the ``sandoval`` quantum
     yield method uses it to set the temperature at which the highest kphio is
-    attained, and pairs it with `aridity_index`, which pyrealm likewise documents
-    as climatological. The instantaneous temperature response is a separate term,
-    driven by ``tc``.
+    attained. The instantaneous temperature response is a separate term, driven
+    by ``tc``.
 
-    So this reduces over the whole record rather than over a window. Computing it
-    weekly (as this node once did) returned NaN for any week in which no day rose
-    above 0 degC — an ordinary winter week, not an error — and that NaN
-    propagated through kphio into GPP.
-
-    A pixel that never rises above 0 degC over the whole record still yields NaN.
-    That is a real gap rather than an artifact of the window, so it is left to
-    propagate.
+    The mean is taken over the whole record, not a rolling window, and over days
+    above 0 degC only. A pixel that never rises above 0 degC over the record
+    yields NaN, which propagates through kphio into GPP.
     """
+    # Reduce over the whole record, not per week: a winter week with no day above
+    # 0 degC is an ordinary week, and windowing turned it into a NaN in GPP.
     growing_days = temperature_daily.where(temperature_daily > 0.0)
     return growing_days.mean(sole_time_dim(temperature_daily, "temperature_daily"))

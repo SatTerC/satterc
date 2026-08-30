@@ -3,6 +3,7 @@
 venv/
 __pycache__/
 site/
+docs/models/_graphs/
 .coverage
 coverage.json
 
@@ -15,8 +16,9 @@ tmp/
 *.nc
 
 *.html
+!overrides/*.html
 __marimo__/
 
 .claude/
 
-docs/examples
+docs/recipes

@@ -71,7 +71,7 @@ vars = [
 
 @pytest.fixture
 def datagen_config_toml(tmp_path):
-    """Config TOML and output data dir for data-gen generate tests.
+    """Config TOML and output data dir for data-gen tests.
 
     The parent directory exists but no NetCDF files have been written yet.
     """
@@ -104,17 +104,19 @@ vars = ["elevation", "plant_type", "clay_content", "soil_depth", "organic_carbon
 
 
 # ---------------------------------------------------------------------------
-# version
+# --version
 # ---------------------------------------------------------------------------
 
 
-class TestVersionCommand:
-    def test_exits_zero(self):
-        result = runner.invoke(app, ["version"])
+class TestVersionFlag:
+    @pytest.mark.parametrize("flag", ["--version", "-v"])
+    def test_exits_zero(self, flag):
+        result = runner.invoke(app, [flag])
         assert result.exit_code == 0
 
-    def test_shows_version_string(self):
-        result = runner.invoke(app, ["version"])
+    @pytest.mark.parametrize("flag", ["--version", "-v"])
+    def test_shows_version_string(self, flag):
+        result = runner.invoke(app, [flag])
         assert __version__ in result.output
 
 
@@ -258,7 +260,7 @@ class TestDataGenHelpers:
 
 
 # ---------------------------------------------------------------------------
-# data-gen generate command
+# data-gen command
 # ---------------------------------------------------------------------------
 
 
@@ -267,7 +269,7 @@ class TestDataGenGenerateCommand:
         toml_path, data_dir = datagen_config_toml
         result = runner.invoke(
             app,
-            ["data-gen", "generate", str(toml_path), "--duration", "30d"],
+            ["data-gen", str(toml_path), "--duration", "30d"],
         )
         assert result.exit_code == 0, result.output
         assert (data_dir / "daily.nc").exists()
@@ -277,7 +279,7 @@ class TestDataGenGenerateCommand:
         toml_path, _ = datagen_config_toml
         result = runner.invoke(
             app,
-            ["data-gen", "generate", str(toml_path), "--duration", "30d"],
+            ["data-gen", str(toml_path), "--duration", "30d"],
         )
         assert "Grid dimensions" in result.output
         assert "Duration" in result.output
@@ -286,38 +288,32 @@ class TestDataGenGenerateCommand:
     def test_overwrite_confirmed_reruns_successfully(self, datagen_config_toml):
         toml_path, _data_dir = datagen_config_toml
         # First run creates files.
-        runner.invoke(
-            app, ["data-gen", "generate", str(toml_path), "--duration", "30d"]
-        )
+        runner.invoke(app, ["data-gen", str(toml_path), "--duration", "30d"])
         # Second run: files exist → prompt → confirm overwrite.
         result = runner.invoke(
             app,
-            ["data-gen", "generate", str(toml_path), "--duration", "30d"],
+            ["data-gen", str(toml_path), "--duration", "30d"],
             input="y\n",
         )
         assert result.exit_code == 0, result.output
 
     def test_overwrite_declined_aborts(self, datagen_config_toml):
         toml_path, _data_dir = datagen_config_toml
-        runner.invoke(
-            app, ["data-gen", "generate", str(toml_path), "--duration", "30d"]
-        )
+        runner.invoke(app, ["data-gen", str(toml_path), "--duration", "30d"])
         result = runner.invoke(
             app,
-            ["data-gen", "generate", str(toml_path), "--duration", "30d"],
+            ["data-gen", str(toml_path), "--duration", "30d"],
             input="n\n",
         )
         assert result.exit_code != 0
 
     def test_invalid_duration_fails(self, datagen_config_toml):
         toml_path, _ = datagen_config_toml
-        result = runner.invoke(
-            app, ["data-gen", "generate", str(toml_path), "--duration", "bad"]
-        )
+        result = runner.invoke(app, ["data-gen", str(toml_path), "--duration", "bad"])
         assert result.exit_code != 0
 
     def test_missing_config_fails(self, tmp_path):
-        result = runner.invoke(app, ["data-gen", "generate", str(tmp_path / "no.toml")])
+        result = runner.invoke(app, ["data-gen", str(tmp_path / "no.toml")])
         assert result.exit_code != 0
 
 
@@ -377,9 +373,9 @@ class TestModelSelectionFlag:
     def _models_in(self, path) -> list[str]:
         with open(path, "rb") as f:
             data = tomllib.load(f)
-        return [
-            k for k, v in data.items() if isinstance(v, dict) and "_import_path" in v
-        ]
+        # A built-in model section carries no `_import_path` -- satterc
+        # registers the module with conduit -- so it is identified by name.
+        return [k for k in data if k in self.FOUR]
 
     @pytest.mark.parametrize(
         "flags",
@@ -425,8 +421,8 @@ class TestModelSelectionFlag:
 class TestCustomModuleImportCheck:
     """A mistyped module path used to be accepted in silence.
 
-    `get_model_params` swallows the ImportError and returns {}, so a typo was
-    reported as "no configurable parameters found" and only failed later, when
+    `get_model_config` swallows the ImportError and returns {}, so a typo was
+    reported as "no configurable settings found" and only failed later, when
     the pipeline ran.
     """
 
@@ -489,7 +485,7 @@ class TestSetupCommandNonInteractive:
         )
         with open(out, "rb") as f:
             data = tomllib.load(f)
-        assert data["rothc"]["_import_path"] == "satterc.models.rothc"
+        assert "_import_path" not in data["rothc"]
         assert "n_years_spinup" in data["rothc"]
 
     def test_defaults_without_models_fails(self):

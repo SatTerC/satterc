@@ -11,7 +11,7 @@ from ..scaffold import (
     BuiltinModels,
     generate_config,
     get_builtin_models,
-    get_model_params,
+    get_model_config,
 )
 from ..scaffold.data_gen import generate_synthetic_data
 
@@ -173,14 +173,9 @@ def _select_builtin_models() -> list[str]:
 def _import_error(module_path: str) -> str | None:
     """Return why ``module_path`` cannot be imported, or ``None`` if it can.
 
-    A path that does not import is almost always a typo, and used to be accepted
-    in silence: `get_model_params` swallows the ImportError and returns ``{}``,
-    so a mistyped module was reported as "no configurable parameters found" and
-    only failed much later, when the pipeline ran. Importing here is also what
-    makes that message trustworthy when it does appear.
-
-    Adding one anyway stays possible — a module may be installed between writing
-    the config and running it — so this reports rather than decides.
+    A path that does not import is almost always a typo. Adding one anyway stays
+    possible — a module may be installed between writing the config and running
+    it — so this reports rather than decides.
     """
     try:
         import_module(module_path)
@@ -225,15 +220,15 @@ def _select_custom_modules() -> list[str]:
                 continue
 
         try:
-            params = get_model_params(choice)
+            settings = get_model_config(choice)
         except Exception:
-            params = {}
+            settings = {}
 
-        if params:
-            param_str = ", ".join(f"{k}={v!r}" for k, v in params.items())
-            typer.echo(f"  Added: {choice}  (defaults: {param_str})")
+        if settings:
+            setting_str = ", ".join(f"{k}={v!r}" for k, v in settings.items())
+            typer.echo(f"  Added: {choice}  (defaults: {setting_str})")
         else:
-            typer.echo(f"  Added: {choice}  (no configurable parameters found)")
+            typer.echo(f"  Added: {choice}  (no configurable settings found)")
 
         selected.append(choice)
 

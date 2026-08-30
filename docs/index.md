@@ -5,101 +5,57 @@ icon: lucide/house
 
 # SatTerC: Satellite to Terrestrial Carbon
 
-Carbon-cycle model modules for [conduit][conduit] pipelines.
+Composable models of the terrestrial carbon and water cycles, for [conduit][conduit] pipelines.
 
-## What is SatTerC?
+SatTerC is an experimental research project which aims to be a flexible framework for composing models of the terrestrial carbon and water cycles, driven by Earth Observation data, into a Directed Acyclic Graph (DAG).
+To achieve this, SatTerC builds on [conduit][conduit] --- an opinionated integration of [Hamilton][hamilton] (the DAG engine) and [xarray][xarray] (the array library). 
 
-SatTerC packages four terrestrial carbon models — SPLASH, the P-model, SGAM and
-RothC — as modules you can compose into a pipeline described by a TOML config
-file. Each is an ordinary Python module of plain functions whose names are DAG
-node names, with units and frequency contracts declared on their signatures.
+This documentation mainly focuses on the science, and the bare minimum technical know-how to assemble and run a pipeline.
+If you're interested in learning more about the underlying framework, go to [conduit's documentation][conduit-docs].
 
-The framework underneath is **conduit**, which owns everything generic: parsing
-the config, building the DAG, validating contracts across the whole graph before
-anything runs, loading and saving data, caching, blocking, and spatial
-subsetting. SatTerC adds the science, plus two conveniences — a config generator
-and a synthetic-data generator — for getting started without real data.
+!!! warning "Alpha status"
 
-That split is worth keeping in mind while reading these docs: **for anything
-about the config schema, the CLI, data formats, or how the DAG works, go to
-[conduit's documentation][conduit-docs].** What is documented here is what
-SatTerC itself provides.
+    `satterc` is an early-stage project under active development. Things will change without warning.
 
-Key features:
 
-- **Composable models** — SPLASH, P-Model, SGAM and RothC can be mixed and matched
-- **Declared contracts** — units, dimensions and temporal frequency are checked
-  across the whole graph before any compute
-- **Scaffolding** — `satterc setup` writes a starting config; `satterc data-gen`
-  fills it with synthetic data
-- **Extensible** — add your own models as Python modules
+## Navigating these docs
 
-## Installation
+<div class="grid cards" markdown>
 
-See the [Installation guide](getting_started/installation.md).
+- **[Guides](guides/installation.md)** — how-to guides. Start with [installation](guides/installation.md), then the [quickstart](guides/quickstart.md), which goes from an empty directory to a NetCDF file of results without needing any data of your own.
+- **[Models](models/index.md)** — a page per model: [SPLASH](models/splash.md) for the water balance, the [P-model](models/pmodel.md) for photosynthesis, [SGAM](models/sgam.md) for vegetation carbon pools, [RothC](models/rothc.md) for soil carbon. Each one gives the DAG, the theory, and tables of inputs, outputs and settings generated from the code.
+- **[Recipes](recipes/my_first_pipeline.md)** — complete pipelines as executable [marimo](https://marimo.io) notebooks. [My first pipeline](recipes/my_first_pipeline.md) is the step-by-step introduction; [soil moisture](recipes/soil_moisture.md) and [PFT parameters](recipes/pft_parameters.md) calibrate parameters against observations; [full pipeline](recipes/full_pipeline.md) chains all four models from Python rather than the CLI.
+- **[Reference](reference/index.md)** — the [CLI](reference/cli.md) commands that are satterc's own, the [Python API](reference/python-api.md), and every module's signatures. Config schema and data formats are conduit's, and the [overview](reference/index.md) says where to find them.
 
-## Quick Start
+</div>
 
-Get a pipeline running in five minutes — see the
-[Quickstart guide](getting_started/quickstart.md).
+## See also
 
-## Learn More
+SatTerC builds on the following excellent libraries:
 
-### Here
+- [conduit][conduit] — the pipeline framework. An opinionated integration of [Hamilton][hamilton] and [xarray][xarray].
+- [pyrealm][pyrealm] — the SPLASH and P-model implementations.
+- [RothC-Py](https://github.com/Rothamsted-Models/RothC_Py) — the Rothamsted carbon model.
+- [Typer](https://typer.tiangolo.com/) — the CLI.
 
-- [Quickstart](getting_started/quickstart.md) — run your first pipeline
-- [Models](models/index.md) — the four model modules, their inputs and outputs
-- [Examples](examples/my_first_pipeline.md) — interactive notebooks
-  (run `just export-all` to regenerate)
+## Roadmap
 
-### In conduit's documentation
-
-- [Configuration reference][conduit-config] — every config section
-- [Bring your own module][conduit-byom] — the conventions a model module follows
-- [Contracts][conduit-contracts] — what the units/schema/frequency checks catch
-- [Run and visualise][conduit-run] — the `run` and `graph` commands
-- [Scale up][conduit-scale] — caching, blocking, and parallel subset runs
+This is an early prototype.
+We definitely want to bring in more models, e.g. from PyRealm.
+We are also interested in substituting the DAG for a state machine (directed graph that can contain cycles) for prognostic modelling.
 
 ## Acknowledgements
 
-### Funding
+<!-- TODO: add funding bodies and grant numbers, and contributors. Example:
 
-SatTerC is supported by the following grants and institutions:
+This work has been supported by:
 
-<!-- Add your funding bodies here. Example:
-
-- **[Funding Body Name]** — Grant number XXXXXXX
-- **[Institution Name]** — Project title, grant period
+- NC-International
 
 -->
 
-### Contributors
-
-The following people have contributed to the development of SatTerC:
-
-<!-- Add contributors here. Example:
-
-- **Joe Marsh Rossney** — Lead developer
-- **Name** — Role/contribution
-- **Name** — Role/contribution
-
--->
-
-### Software Dependencies
-
-SatTerC builds on the following open-source projects:
-
-- [conduit][conduit] — the pipeline framework: config, DAG, contracts, I/O
-- [Hamilton](https://github.com/dagworks-inc/hamilton) — DAG-based dataflow framework
-- [pyrealm](https://github.com/ImperialCollegeLondon/pyrealm) — SPLASH and P-Model implementations
-- [RothC-Py](https://github.com/Rothamsted-Models/RothC_Py) — Rothamsted Carbon Model
-- [xarray](https://docs.xarray.dev/) — N-D labeled arrays and datasets
-- [Typer](https://typer.tiangolo.com/) — CLI framework
-
+[pyrealm]: https://github.com/ImperialCollegeLondon/pyrealm
 [conduit]: https://github.com/NERC-CEH/conduit
-[conduit-docs]: https://github.com/NERC-CEH/conduit/tree/develop/docs
-[conduit-config]: https://github.com/NERC-CEH/conduit/blob/develop/docs/reference/configuration.md
-[conduit-byom]: https://github.com/NERC-CEH/conduit/blob/develop/docs/guides/bring-your-own-module.md
-[conduit-contracts]: https://github.com/NERC-CEH/conduit/blob/develop/docs/concepts/contracts.md
-[conduit-run]: https://github.com/NERC-CEH/conduit/blob/develop/docs/guides/run-and-visualise.md
-[conduit-scale]: https://github.com/NERC-CEH/conduit/blob/develop/docs/guides/scale-up.md
+[conduit-docs]: https://github.com/NERC-CEH/conduit/tree/main/docs
+[hamilton]: https://github.com/dagworks-inc/hamilton
+[xarray]: https://docs.xarray.dev/

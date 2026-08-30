@@ -10,10 +10,16 @@ icon: lucide/droplet
 
 SPLASH (Simple Process-led Algorithms for Simulating Habitats) is a water balance model that estimates soil moisture, actual evapotranspiration (AET) and surface water runoff for sites.[^davis2017]
 
-The model takes an initial estimate of soil moisture and then uses time series of precipitation, temperature and cloud cover to estimate how the daily water balance changes with incoming precipitation, condensation and AET. Calculations of AET and condensation are affected by soil moisture, temperature and downwelling solar radiation at the site – this requires that the elevation and latitude of the site are known.
+The model takes an initial estimate of soil moisture, then uses time series of precipitation, temperature and cloud cover to track how the daily water balance changes with incoming precipitation, condensation and AET. Soil moisture, temperature and downwelling solar radiation at the site all feed into AET and condensation, which is why the site's elevation and latitude are required inputs.
 
-We wrap the existing [NumPy-based `pyrealm` implementation](https://github.com/ImperialCollegeLondon/pyrealm) of SPLASH. 
-See the [pyrealm SPLASH documentation](https://pyrealm.readthedocs.io/en/latest/users/splash.html) for further details and as the authoritative source for model theory.
+We wrap the [NumPy-based `pyrealm` implementation](https://github.com/ImperialCollegeLondon/pyrealm) of SPLASH.
+The [pyrealm SPLASH documentation](https://pyrealm.readthedocs.io/en/latest/users/splash.html) is the authoritative source for the model theory.
+
+The DAG for a pipeline running SPLASH alone, with the dashed cluster grouping nodes by declared frequency (`D` for daily):
+
+<div class="model-graph">
+--8<-- "docs/models/_graphs/splash.svg"
+</div>
 
 ## Theory
 
@@ -31,70 +37,76 @@ where:
 - $C_{[t]}$ – condensation (mm·d⁻¹)
 - $\textrm{AET}_{[t]}$ – actual evapotranspiration (mm·d⁻¹)
 
-The calculated soil moisture is capped at the maximum soil moisture capacity ($W_m$), with excess water allocated to surface water runoff:
+Runoff is whatever that balance leaves above the maximum soil moisture capacity ($W_m$), taken before the cap is applied:
 
 $$
-\text{if } W_{n[t]} > W_m: \quad W_{n[t]} = W_m, \quad R_{[t]} = W_{n[t]} - W_m
+R_{[t]} = \max\left(W_{n[t]} - W_m,\; 0\right), \qquad W_{n[t]} \leftarrow \min\left(W_{n[t]}, W_m\right)
 $$
 
 The maximum soil moisture capacity defaults to 150 mm but can be set on a per-site basis.
 
 ### Initial soil moisture estimation
 
-SPLASH estimates initial soil moisture by iterating over a full year of climate data until the difference between year-start and year-end soil moisture falls below a specified threshold. This ensures the model starts from a quasi-equilibrium state.
+SPLASH estimates initial soil moisture by iterating over a full year of climate data until the difference between year-start and year-end soil moisture falls below a threshold, so the run starts from a quasi-equilibrium state.
+An input period shorter than a year cannot equilibrate and fails.
+
+That tolerance is evaluated over the whole block, so results shift by ~1e-4 relative when the `[blocking]` block size or the `[subset]` range changes.
 
 ## Usage
 
-### Configuration
+### Quickstart
 
-SPLASH is configured in your TOML config file:
+```sh
+satterc setup --models splash --defaults
+satterc data-gen config.toml --grid 1 1 --duration 2y --seed 42
+satterc run config.toml
+```
+
+The [quickstart](../guides/quickstart.md) walks through what each of those does, and how to point the config at your own data instead of the synthetic set.
+For calibrating `max_soil_moisture` against observations, see the [soil moisture recipe](../recipes/soil_moisture.md).
+
+### Configuration
 
 ```toml
 [splash]
-_import_path = "satterc.models.splash"
 soil_moisture_init_max_iter = 10
 soil_moisture_init_max_diff = 1.0
 ```
 
-Both parameters are optional. The defaults are:
+::: satterc.models.splash.splash_config
+    options:
+      show_root_heading: false
+      show_root_toc_entry: false
+      show_signature: false
+      show_docstring_description: false
+      show_docstring_returns: false
+      docstring_section_style: spacy
 
-| Parameter | Default | Description |
-|-----------|---------|-------------|
-| `soil_moisture_init_max_iter` | 10 | Maximum number of one-year iterations for initial soil moisture estimation |
-| `soil_moisture_init_max_diff` | 1.0 | Maximum acceptable difference (mm) between year-start and year-end soil moisture |
+### Inputs
 
-### Required inputs
-
-SPLASH requires the following daily `DataArray` inputs:
-
-| Variable | Units | Description |
-|----------|-------|-------------|
-| `sunshine_fraction_daily` | dimensionless (0–1) | Fraction of daylight hours that are sunny |
-| `temperature_daily` | °C | Air temperature |
-| `precipitation_daily` | mm·d⁻¹ | Precipitation |
-
-And the following static `DataArray` inputs:
-
-| Variable | Units | Description |
-|----------|-------|-------------|
-| `elevation` | m | Site elevation |
-| `latitude` | degrees | Site latitude |
-| `max_soil_moisture` | mm | Maximum soil moisture capacity |
+::: satterc.models.splash.splash
+    options:
+      show_root_heading: false
+      show_root_toc_entry: false
+      show_signature: false
+      show_docstring_description: false
+      show_docstring_returns: false
+      docstring_section_style: spacy
 
 ### Outputs
 
-SPLASH returns four daily `DataArray` outputs:
-
-| Variable | Units | Description |
-|----------|-------|-------------|
-| `actual_evapotranspiration_daily` | mm·d⁻¹ | Actual evapotranspiration |
-| `potential_evapotranspiration_daily` | mm·d⁻¹ | Potential evapotranspiration (Priestley-Taylor energy-limited demand) |
-| `soil_moisture_daily` | mm | Soil moisture content |
-| `runoff_daily` | mm | Surface water runoff |
+::: satterc.models.splash.SplashOut
+    options:
+      show_root_heading: false
+      show_root_toc_entry: false
+      show_docstring_description: false
+      docstring_section_style: spacy
+      show_bases: false
+      members: false
 
 ### Python API
 
-See the [API documentation](../api/satterc.models/splash.md) for full function signatures and parameter details.
+See the [API documentation](../reference/modules/satterc.models/splash.md) for full function signatures and parameter details.
 
 ## References
 

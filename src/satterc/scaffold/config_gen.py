@@ -1,7 +1,8 @@
 """Configuration generator for SatTerC.
 
-This module contains the logic for generating configuration files
-by introspecting the Hamilton driver and discovering required inputs.
+Generates a config file by introspecting the chosen model modules: which inputs
+they need, at which frequencies, and which of those another model already
+produces.
 """
 
 import inspect
@@ -23,10 +24,6 @@ from ..temporal import resample_offset
 from .bridges import Bridge, bridge_for
 
 
-#: The pandas offsets behind satterc's node-name suffixes, for the ``freq`` key
-#: that conduit's ``[[resample]]`` requires. conduit infers nothing from the
-#: ``from``/``to`` labels — they are node-name suffixes and nothing more — so
-#: the mapping from a suffix pair to an offset is satterc's convention to make.
 def _analyze_model_module(
     module: ModuleType, config: dict[str, Any], units: dict[str, str] | None = None
 ) -> tuple[list[str], list[str], list[str]]:
@@ -114,18 +111,16 @@ def _output_hints(module: ModuleType) -> dict[str, Any]:
 
 
 def _strip_suffix(name: str) -> tuple[str, str | None]:
-    """Strip frequency suffix from variable name.
+    """Strip a frequency suffix from a variable name.
+
+    The suffixes are a satterc naming convention, not framework behaviour, and
+    match the `Freq` contracts the model modules declare (see
+    `satterc.temporal`). They decide which input file a variable belongs in.
 
     Parameters
     ----------
     name : str
         Variable name (e.g., 'temperature_daily').
-
-    These four suffixes are a satterc naming convention, not framework
-    behaviour: conduit treats an input section's label as inert and infers no
-    frequency from it. They are what this generator uses to decide which file a
-    variable belongs in, and they match the `Freq` contracts the model modules
-    declare (see `satterc.temporal`).
 
     Returns
     -------
@@ -145,8 +140,18 @@ def get_builtin_models() -> list[str]:
     return [m.value for m in BuiltinModels]
 
 
-def get_model_params(model_name: str) -> dict[str, Any]:
-    """Extract keyword-only parameters with defaults from the main model function."""
+def get_model_config(model_name: str) -> dict[str, Any]:
+    """Collect a model's configurable settings and their defaults.
+
+    Every public function the module defines is read, not just the model node.
+    A module's settings are gathered into ``<node>_config`` container nodes (see
+    `satterc.models.splash.splash_config`), and a module with more than one
+    settings-bearing node has more than one such container — RothC's per-PFT
+    DPM/RPM ratios sit on `satterc.models.rothc.dpm_rpm_ratio_config`, not on
+    the model node. Scanning the module finds all of them, and the result is
+    still one flat dict because conduit merges a section's keys into one flat
+    driver config regardless of which node consumes them.
+    """
     builtin_models = get_builtin_models()
     module_path = (
         f"satterc.models.{model_name}" if model_name in builtin_models else model_name
@@ -157,17 +162,21 @@ def get_model_params(model_name: str) -> dict[str, Any]:
     except ImportError:
         return {}
 
-    func_name = model_name.split(".")[-1]
-    if hasattr(module, func_name):
-        func = getattr(module, func_name)
-        sig = inspect.signature(func)
-        return {
-            p.name: p.default
-            for p in sig.parameters.values()
-            if p.kind == inspect.Parameter.KEYWORD_ONLY
-            and p.default is not inspect.Parameter.empty
-        }
-    return {}
+    settings: dict[str, Any] = {}
+    for name, func in vars(module).items():
+        if name.startswith("_") or not inspect.isfunction(func):
+            continue
+        if func.__module__ != module.__name__:
+            continue
+        settings.update(
+            {
+                p.name: p.default
+                for p in inspect.signature(func).parameters.values()
+                if p.kind == inspect.Parameter.KEYWORD_ONLY
+                and p.default is not inspect.Parameter.empty
+            }
+        )
+    return settings
 
 
 #: Suffixes ordered fine to coarse, so an index comparison answers "can this be
@@ -330,9 +339,8 @@ def _infer_required_data(model_names: list[str]) -> dict[str, Any]:
         """Emit the units-restating node for ``base``, if a bridge supplies it.
 
         False when no bridge covers this name, when its source is not produced
-        at the frequency wanted, or when the factor cannot be established — in
-        every case the caller falls through to loading the variable from a file,
-        which is what it would have done before.
+        at the frequency wanted, or when the factor cannot be established. In
+        every case the caller falls through to loading the variable from a file.
         """
         bridge = bridge_for(base)
         if bridge is None or freq not in produced_at.get(bridge.source, set()):
@@ -465,14 +473,12 @@ def generate_config(
 
     config_data: dict[str, Any] = {}
 
-    # One flat section per model, in conduit's external-module form. There is no
-    # short-name registry to lean on: conduit resolves every non-built-in section
-    # by its dotted `_import_path`.
+    # One flat section per model, named after the model. satterc registers each
+    # model module under conduit's `conduit.modules` entry-point group (see
+    # pyproject.toml), so the section name alone resolves it and no
+    # `_import_path` is needed.
     for model in builtin_models:
-        config_data[model] = {
-            "_import_path": f"satterc.models.{model}",
-            **get_model_params(model),
-        }
+        config_data[model] = dict(get_model_config(model))
 
     # conduit names each input node `{var}{suffix}`, with the suffix defaulting to
     # `_<section label>`. That is exactly satterc's convention for the temporal
@@ -532,12 +538,13 @@ def generate_config(
     }
 
     for mod_path in custom_modules:
-        # The section label is free-form; only `_import_path` is semantic. Use the
+        # A module conduit has no registration for still needs an explicit
+        # `_import_path`, which makes the section label free-form. Use the
         # module's own last component so the config reads naturally.
         label = mod_path.rsplit(".", 1)[-1]
         config_data[label] = {
             "_import_path": mod_path,
-            **get_model_params(mod_path),
+            **get_model_config(mod_path),
         }
 
     return Config(config_data)

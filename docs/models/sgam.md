@@ -8,11 +8,13 @@ icon: lucide/layers
 
 ## Overview
 
-SGAM is a simplified plant growth and carbon allocation model that simulates how photosynthetically-fixed carbon is distributed among plant tissues. Given weekly environmental drivers — gross primary productivity (GPP), temperature, soil moisture, vapour pressure deficit (VPD), light use efficiency (LUE), and intrinsic water use efficiency (iWUE) — it tracks carbon in leaf, stem, root, litter, and removed-by-disturbance pools for four plant functional types: tree, grass, shrub, and crop.
+SGAM is a simplified plant growth and carbon allocation model that simulates how photosynthetically-fixed carbon is distributed among plant tissues. It takes weekly environmental drivers (gross primary productivity, temperature, soil moisture, vapour pressure deficit, light use efficiency and intrinsic water use efficiency) and tracks carbon in leaf, stem, root, litter and removed-by-disturbance pools, for four plant functional types: tree, grass, shrub and crop.
 
-The model accounts for dynamic allocation, autotrophic respiration, litterfall turnover, and disturbance or harvest events, enforcing strict mass balance at every timestep.
+Allocation varies with conditions, and the model also handles autotrophic respiration, litterfall turnover, and disturbance or harvest events. Mass balance is checked at every timestep.
 
-We developed SGAM ourselves as a standalone package. See the [SGAM documentation](https://satterc.github.io/sgam/science.html) for full details.
+We wrote SGAM ourselves as a standalone package. See the [SGAM documentation](https://satterc.github.io/sgam/science.html) for full details.
+
+Carbon flows through the pools like this:
 
 ```mermaid
 flowchart TD
@@ -42,9 +44,15 @@ flowchart TD
     ROOT -. "disturbance (crops)" .-> LIT
 ```
 
+The DAG for a pipeline running SGAM alone, with the dashed clusters grouping nodes by declared frequency (`7D` for weekly, `D` for daily). It is a large graph — 24 outputs — so it scrolls inside its box:
+
+<div class="model-graph">
+--8<-- "docs/models/_graphs/sgam.svg"
+</div>
+
 ## Theory
 
-### Carbon Use Efficiency
+### Carbon use efficiency
 
 The fraction of GPP retained as biomass — the Carbon Use Efficiency (CUE) — depends on LUE and iWUE, each normalised against PFT-specific maximums to produce dimensionless scores:
 
@@ -56,7 +64,7 @@ $$\text{CUE} = \text{CUE}_{\min} + \bar{s} \cdot (\text{CUE}_{\max} - \text{CUE}
 
 Net Primary Productivity is then $\text{NPP} = \text{GPP} \times \text{CUE}$, with the remainder lost as autotrophic respiration.
 
-### Drought Modifier
+### Drought modifier
 
 Water availability constrains allocation via a drought modifier $f_{\text{drought}} \in [0, 1]$, combining:
 
@@ -67,30 +75,31 @@ The combined modifier applies Liebig's Law of the Minimum:
 
 $$f_{\text{drought}} = \min(f_{\text{sm}},\; f_{\text{vpd}})$$
 
-### Dynamic Allocation
+### Dynamic allocation
 
-NPP is split among leaf, stem, and root by allocation fractions that are dynamically adjusted from P-specific base values by three modifiers:
+NPP is split among leaf, stem, and root by allocation fractions that are dynamically adjusted from PFT-specific base values by three modifiers:
 
 - **Seasonality** – sinusoidal preference for leaves peaking at the summer solstice
 - **Temperature deviation** – shifts allocation toward roots below optimum, toward leaves above
 - **Drought root bonus** – increases root allocation under water or atmospheric stress
 
 The adjusted fractions are normalised to sum to 1, with minimum floors preventing biologically unrealistic values.
+Setting `use_dynamic_allocation = false` skips all three and uses the PFT's base fractions unchanged.
 
-### Turnover and Litter
+### Turnover and litter
 
 Each pool loses biomass at a fixed first-order rate each week. Losses from leaf, stem, and root accumulate in the litter pool. Mean residence times span from ~20 weeks for crop leaves to ~5000 weeks for tree wood.
 
 ### Disturbances
 
-Disturbance events are detected from daily time series by checking simultaneous declines in GPP and LAI during the growing season (days warmer than `growing_season_limit`, 10 °C by default). Detection is per-PFT: the decline must exceed that PFT's `disturbance_threshold` (tree 0.3, shrub 0.25, grass 0.2, crop 0.1), so crops flag events that leave a tree pixel untouched. The response also differs by PFT:
+Disturbance events are detected from daily time series by checking simultaneous declines in GPP and LAI during the growing season. Detection is per-PFT: the decline must exceed that PFT's `disturbance_threshold` (tree 0.3, shrub 0.25, grass 0.2, crop 0.1), so crops flag events that leave a tree pixel untouched. The response also differs by PFT:
 
 - **Crops** – complete removal of above-ground biomass (harvest); root carbon transfers to litter
 - **Other PFTs** – partial defoliation proportional to severity (fire, grazing, pests)
 
-### Plant Functional Type Parameters
+### Plant functional type parameters
 
-Default parameter sets encode distinct ecological strategies:
+SGAM ships one parameter set per PFT. The values below are its defaults; we have not calibrated them or traced each number to a source, so treat them as a starting point rather than as recommended values.
 
 | Parameter | Tree | Grass | Shrub | Crop |
 |-----------|------|-------|-------|------|
@@ -106,143 +115,113 @@ Default parameter sets encode distinct ecological strategies:
 | Wilting point (m³ m⁻³) | 0.12 | 0.08 | 0.05 | 0.15 |
 | Field capacity (m³ m⁻³) | 0.35 | 0.30 | 0.25 | 0.40 |
 
-Trees invest heavily in long-lived structural carbon; grasses prioritise rapid leaf and root turnover; shrubs are drought-tolerant with high water-use efficiency; crops are optimised for above-ground productivity.
+The pattern in those numbers is the intended one: trees hold carbon in long-lived structure, grasses turn leaves and roots over fast, shrubs tolerate drought at high water-use efficiency, crops put carbon above ground.
 
-### Mass Balance
+These are not pipeline config: they come from the `sgam` package, keyed on each pixel's `plant_type`, via the `pft_params` node.
+
+### Mass balance
 
 At each timestep carbon is conserved across all live pools:
 
 $$P_{\text{pool}}(t) = P_{\text{pool}}(t-1) + \text{NPP}_{\text{pool}}(t) - \Delta P_{\text{pool}}^{\text{turn}}(t) - \Delta P_{\text{pool}}^{\text{dist}}(t)$$
 
-Any violation beyond a relative tolerance of $10^{-6}$ indicates a numerical error.
+A violation beyond a relative tolerance of $10^{-6}$ means something is wrong; `strict_mass_balance` decides whether that raises or warns.
 
 ## Usage
 
-### Configuration
+### Quickstart
 
-SGAM is configured in your TOML config file:
+```sh
+satterc setup --models sgam --defaults
+satterc data-gen config.toml --grid 1 1 --duration 2y --seed 42
+satterc run config.toml
+```
+
+The [quickstart](../guides/quickstart.md) walks through what each of those does, and how to point the config at your own data instead of the synthetic set.
+For tuning the per-PFT parameters against observations, see the [PFT parameters recipe](../recipes/pft_parameters.md).
+
+### Configuration
 
 ```toml
 [sgam]
-_import_path = "satterc.models.sgam"
 use_dynamic_allocation = true
 strict_mass_balance = false
 ```
 
-| Parameter | Default | Description |
-|-----------|---------|-------------|
-| `use_dynamic_allocation` | true | If true, allocation fractions vary with environmental conditions; if false, use fixed base allocations |
-| `strict_mass_balance` | false | If true, raise an error on mass balance violation; if false, issue a warning |
+::: satterc.models.sgam.sgam_config
+    options:
+      show_root_heading: false
+      show_root_toc_entry: false
+      show_signature: false
+      show_docstring_description: false
+      show_docstring_returns: false
+      docstring_section_style: spacy
 
-### Required inputs
+Disturbance detection has one setting of its own, configured as a key of the same `[sgam]` section:
 
-SGAM requires the following weekly `DataArray` inputs:
+::: satterc.models.sgam.disturbances_config
+    options:
+      show_root_heading: false
+      show_root_toc_entry: false
+      show_signature: false
+      show_docstring_description: false
+      show_docstring_returns: false
+      docstring_section_style: spacy
 
-| Variable | Units | Description |
-|----------|-------|-------------|
-| `temperature_weekly` | °C | Weekly mean air temperature |
-| `gpp_weekly` | gC m⁻² day⁻¹ | Gross primary productivity |
-| `volumetric_water_content_weekly` | m³ m⁻³ | Volumetric soil water content (*not* SPLASH's mm soil moisture — see the `volumetric_water_content_weekly` node in `examples/config.toml`) |
-| `vpd_weekly` | Pa | Vapour pressure deficit |
-| `lue_weekly` | gC MJ⁻¹ | Light use efficiency |
-| `iwue_weekly` | µmol mol⁻¹ | Intrinsic water use efficiency |
-| `disturbances_weekly` | dimensionless (0–1) | Weekly disturbance severity |
+### Inputs
 
-And the following static `DataArray` inputs:
+::: satterc.models.sgam.sgam
+    options:
+      show_root_heading: false
+      show_root_toc_entry: false
+      show_signature: false
+      show_docstring_description: false
+      show_docstring_returns: false
+      docstring_section_style: spacy
 
-| Variable | Units | Description |
-|----------|-------|-------------|
-| `plant_type` | dimensionless (0–3) | Plant functional type (0=tree, 1=grass, 2=shrub, 3=crop) |
-| `latitude` | degrees | Site latitude (determines hemisphere for seasonality) |
-| `leaf_pool_init` | gC m⁻² | Initial leaf carbon pool |
-| `stem_pool_init` | gC m⁻² | Initial stem carbon pool |
-| `root_pool_init` | gC m⁻² | Initial root carbon pool |
+Two of those inputs are produced by this module rather than loaded:
 
-Optional static inputs:
+::: satterc.models.sgam.pft_params
+    options:
+      show_root_heading: true
+      show_root_full_path: false
+      show_root_toc_entry: false
+      show_signature: false
+      separate_signature: false
+      show_docstring_returns: false
+      heading_level: 4
+      docstring_section_style: spacy
 
-| Variable | Units | Description |
-|----------|-------|-------------|
-| `litter_pool_init` | gC m⁻² | Initial litter pool (default: 0) |
-| `removed_init` | gC m⁻² | Initial removed-carbon pool (default: 0) |
+::: satterc.models.sgam.disturbances_daily
+    options:
+      show_root_heading: true
+      show_root_full_path: false
+      show_root_toc_entry: false
+      show_signature: false
+      separate_signature: false
+      show_docstring_returns: false
+      heading_level: 4
+      docstring_section_style: spacy
 
-### Disturbance detection
-
-SGAM includes helper nodes to detect disturbances from daily data:
-
-```toml
-[sgam]
-_import_path = "satterc.models.sgam"
-```
-
-The `disturbances_daily` node computes daily disturbance events from temperature, GPP, LAI and the per-pixel `pft_params` (for `disturbance_threshold`), then `disturbances_weekly` aggregates to weekly maximum severity.
+`disturbances_weekly` is the daily severity aggregated to a weekly maximum, which the generated config does with a `[[resample]]` entry.
 
 ### Outputs
 
-SGAM returns 23 weekly `DataArray` outputs:
+::: satterc.models.sgam.SgamOut
+    options:
+      show_root_heading: false
+      show_root_toc_entry: false
+      show_docstring_description: false
+      docstring_section_style: spacy
+      show_bases: false
+      members: false
 
-**Pool sizes** (gC m⁻²):
-
-| Variable | Description |
-|----------|-------------|
-| `leaf_pool_weekly` | Leaf carbon pool |
-| `stem_pool_weekly` | Stem carbon pool |
-| `root_pool_weekly` | Root carbon pool |
-| `litter_pool_weekly` | Litter carbon pool |
-| `removed_pool_weekly` | Carbon removed by disturbance (e.g., harvest) |
-
-**NPP fluxes** (gC m⁻² wk⁻¹):
-
-| Variable | Description |
-|----------|-------------|
-| `npp_leaf_weekly` | NPP allocated to leaves |
-| `npp_stem_weekly` | NPP allocated to stems |
-| `npp_root_weekly` | NPP allocated to roots |
-
-**Turnover fluxes** (gC m⁻² wk⁻¹):
-
-| Variable | Description |
-|----------|-------------|
-| `turnover_leaf_weekly` | Leaf litterfall |
-| `turnover_stem_weekly` | Stem litterfall |
-| `turnover_root_weekly` | Root litterfall |
-
-**Respiration fluxes** (gC m⁻² wk⁻¹):
-
-| Variable | Description |
-|----------|-------------|
-| `respiration_leaf_weekly` | Leaf autotrophic respiration |
-| `respiration_stem_weekly` | Stem autotrophic respiration |
-| `respiration_root_weekly` | Root autotrophic respiration |
-
-**Disturbance fluxes** (gC m⁻² wk⁻¹):
-
-| Variable | Description |
-|----------|-------------|
-| `disturbance_leaf_weekly` | Leaf carbon lost to disturbance |
-| `disturbance_stem_weekly` | Stem carbon lost to disturbance |
-| `disturbance_root_weekly` | Root carbon lost to disturbance |
-
-**Diagnostics** (dimensionless):
-
-| Variable | Description |
-|----------|-------------|
-| `cue_weekly` | Carbon use efficiency |
-| `allocation_leaf_weekly` | Fraction of NPP to leaves |
-| `allocation_stem_weekly` | Fraction of NPP to stems |
-| `allocation_root_weekly` | Fraction of NPP to roots |
-| `drought_modifier_weekly` | Drought stress modifier |
-| `lue_score_weekly` | Normalised LUE score |
-| `iwue_score_weekly` | Normalised iWUE score |
-
-### Derived outputs
-
-A helper node computes leaf area index from the leaf carbon pool:
-
-$$\text{LAI} = \frac{\text{leaf\_pool}}{\text{leaf\_carbon\_area}}$$
+Leaf area index is not one of them.
+`recipes/config.toml` derives `leaf_area_index_weekly` in a `[[node]]`, as `leaf_pool_weekly / pft_params["leaf_carbon_area"]`.
 
 ### Python API
 
-See the [API documentation](../api/satterc.models/sgam.md) for full function signatures and parameter details.
+See the [API documentation](../reference/modules/satterc.models/sgam.md) for full function signatures and parameter details.
 
 ## References
 

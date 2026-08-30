@@ -83,11 +83,27 @@ def pipeline_inputs(pipeline_config):
     return load_inputs(pipeline_config.input_specs)
 
 
+def driver_from_config(config, **kwargs):
+    """Build a Hamilton driver from a `ParsedConfig`.
+
+    Everything conduit needs to resolve a module has to be forwarded: `base` is
+    the directory a relative `.py` `_import_path` resolves against, and
+    `registered_modules` names the sections that came from an entry-point
+    registration rather than an `_import_path`. satterc's own sections are the
+    latter, so a driver built without `registered` cannot report where a failing
+    module came from.
+    """
+    return build_driver(
+        config.modules,
+        config.driver_config,
+        node_specs=config.node_specs,
+        base=config.base,
+        registered=config.registered_modules,
+        **kwargs,
+    )
+
+
 @pytest.fixture(scope="session")
 def pipeline_driver(pipeline_config):
     """Build Hamilton driver for integration tests."""
-    return build_driver(
-        pipeline_config.modules,
-        pipeline_config.driver_config,
-        node_specs=pipeline_config.node_specs,
-    )
+    return driver_from_config(pipeline_config)

@@ -4,33 +4,39 @@ build-backend = "uv_build"
 
 [project]
 name = "satterc"
-version = "0.7.0"
-description = "Carbon-cycle model modules for conduit pipelines: SPLASH, P-model, SGAM and RothC."
+version = "0.8.0"
+description = "Carbon-cycle model modules for conduit pipelines."
 authors = [
     { name = "jmarshrossney", email = "17361029+jmarshrossney@users.noreply.github.com" }
 ]
 readme = "README.md"
 license = "MIT"
 license-files = ["LICENSE"]
+classifiers = ["Development Status :: 2 - Pre-Alpha"]
 requires-python = ">=3.13"
 dependencies = [
-    "conduit[geo]",
+    "conduit[cli,geo,viz]",
     "numpy>=2.4.2",
     "xarray>=2026.2.0",
+    "xarray-annotated>=0.6.0",
     "typer>=0.24.1",
+    # pyrealm is capped below 3 in case their units change
+    "pyrealm>=2.0.0,<3",
+    "rothc-py",
+    "sgam",
 ]
-
-[project.optional-dependencies]
-viz = ["conduit[viz]"]
-# pyrealm is capped below 3: `tests/test_pyrealm_units.py` anchors satterc's
-# unit annotations to numbers recorded against a reviewed pyrealm, and a major
-# release is where that review has to happen again. Within 2.x the anchor is
-# expected to hold, so a golden failure there is real news rather than noise.
-models = ["pyrealm>=2.0.0,<3", "rothc-py", "sgam"]
-all = ["satterc[viz,models]"]
 
 [project.scripts]
 satterc = "satterc.cli:main"
+
+# Registering the model modules under conduit's entry-point group makes each one
+# addressable by a bare section name, so a config writes `[splash]` with no
+# `_import_path`. The section name and the model name are deliberately the same.
+[project.entry-points."conduit.modules"]
+splash = "satterc.models.splash"
+pmodel = "satterc.models.pmodel"
+sgam = "satterc.models.sgam"
+rothc = "satterc.models.rothc"
 
 [project.urls]
 Homepage = "https://SatTerC.github.io/satterc"
@@ -47,18 +53,17 @@ dev = [
     "rust-just>=1.46.0",
 ]
 docs = [
-    {include-group = "examples"},
-    "satterc[all]",  # examples and API docs import the model modules
+    {include-group = "recipes"},
     "marimo>=0.23.0",
     "marimo-md-export>=0.5.2",
     "mkdocstrings-python>=2.0.3",
     "zensical>=0.0.24",
+    "mkdocs-typer2[termynal]>=0.4.1",
 ]
-examples = [
+recipes = [
     "matplotlib>=3.10.8",
 ]
 test = [
-    "satterc[models]",  # the test suite imports pyrealm/sgam/rothc
     "coverage>=7.13.5",
     "pytest>=9.0.2",
     "pytest-cov>=7.1.0",
@@ -66,6 +71,7 @@ test = [
 
 [tool.uv]
 exclude-newer = "1 week"
+exclude-newer-package = { marimo-md-export = false , xarray-annotated = false , conduit = false , sgam = false , rothc-py = false }
 
 [tool.uv.sources]
 rothc-py = { git = "https://github.com/SatTerC/rothc_py.git" }
@@ -102,13 +108,13 @@ select = [
 "scripts/**" = ["D"]
 # Typer CLI modules use typer.Option() in function signatures as standard practice.
 "src/satterc/cli/**" = ["B008"]
-# Marimo notebooks use bare expressions for display output (B018),
+# Marimo recipe notebooks use bare expressions for display output (B018),
 # contain prose that naturally exceeds 88 chars (E501),
 # include academic citations with en dashes (RUF001),
 # may have unused variables from exploratory cells (F841),
 # use scientific notation with Greek letters (RUF003),
 # and are exploratory notebooks without module docstrings (D100, D401).
-"examples/**" = ["B018", "E501", "F841", "RUF001", "RUF003", "D100", "D401"]
+"recipes/**" = ["B018", "E501", "F841", "RUF001", "RUF003", "D100", "D401"]
 
 [tool.ruff.lint.pydocstyle]
 convention = "numpy"

@@ -1,20 +1,21 @@
 # /// script
 # requires-python = ">=3.13"
 # dependencies = [
-#   "satterc==0.6.0",
+#   "satterc==0.8.0",
 #   "conduit",
 #   "marimo",
 #   "matplotlib==3.10.9",
+#   "xarray-annotated",
 # ]
 #
 # [tool.uv.sources]
 # satterc = { path = ".." }
-# conduit = { git = "https://github.com/NERC-CEH/conduit", rev = "develop" }
+# conduit = { git = "https://github.com/NERC-CEH/conduit" }
 # ///
 
 import marimo
 
-__generated_with = "0.23.14"
+__generated_with = "0.24.0"
 app = marimo.App(width="medium")
 
 
@@ -37,10 +38,10 @@ def _(mo):
     ### Option A — standalone, using `uv` (recommended)
 
     [uv](https://docs.astral.sh/uv/) is a fast Python package manager and installer.
-    If you have it installed, download this file and run:
+    From the repository root, run:
 
     ```bash
-    uv run 00-getting-started-csv.py
+    uv run recipes/my_first_pipeline.py
     ```
 
     `uv` will read the dependency list embedded at the top of this file, install everything
@@ -50,10 +51,11 @@ def _(mo):
     ### Option B — using an existing Python environment
 
     If SatTerC is already installed in a Python environment (for example, the project
-    development environment), activate that environment and run:
+    development environment), activate that environment, move to the repository root,
+    and run:
 
     ```bash
-    marimo run 00-getting-started-csv.py
+    marimo run recipes/my_first_pipeline.py
     ```
     ///
     """)
@@ -67,21 +69,24 @@ def _():
 
     import marimo as mo
     import matplotlib.pyplot as plt
-    from conduit import build_driver, get_final_vars, get_outputs, load_inputs
+    from conduit import build_driver, run
     from conduit.config import Config
+    from xarray_annotated.units import set_policy
 
     from satterc.scaffold.data_gen import generate_synthetic_data
 
+    # CSV and JSON files have nowhere to record a unit, so the inputs below
+    # arrive unlabelled and conduit warns once per input that it cannot check
+    # them. See "A note on units" below.
+    set_policy(on_missing="ignore")
     return (
         Config,
         Path,
         build_driver,
         generate_synthetic_data,
-        get_final_vars,
-        get_outputs,
-        load_inputs,
         mo,
         plt,
+        run,
         tempfile,
     )
 
@@ -94,10 +99,9 @@ def _(mo):
     A SatTerC pipeline is described by a configuration file written in
     [TOML](https://toml.io/en/) — a simple, human-readable format. The config schema
     is [conduit](https://github.com/NERC-CEH/conduit)'s; SatTerC supplies the models.
-    Every section activates a pipeline component — `[splash]` loads the SPLASH
-    water-balance module by its `_import_path`, `[inputs.daily]` loads daily climate
-    data from the given path, and `[outputs.daily]` saves the named variables to disk
-    when the pipeline finishes.
+    Every section activates a pipeline component.
+    `[splash]` loads the SPLASH water-balance module, which SatTerC registers with conduit so the section name alone is enough to find it.
+    `[inputs.daily]` loads daily climate data from the given path, and `[outputs.daily]` saves the named variables to disk when the pipeline finishes.
 
     Node names are `{var}{suffix}`, with the suffix defaulting to the section label,
     so `temperature` under `[inputs.daily]` becomes the node `temperature_daily` —
@@ -107,11 +111,12 @@ def _(mo):
     return
 
 
-@app.cell
-def _():
-    config_toml = """
+@app.cell(hide_code=True)
+def _(mo):
+    import textwrap
+
+    config_toml = textwrap.dedent("""\
     [splash]
-    _import_path = "satterc.models.splash"
 
     [inputs.daily]
     path = "daily.csv"
@@ -137,8 +142,48 @@ def _():
       "soil_moisture",
       "runoff",
     ]
-    """
+    """)
+
+    mo.md("```toml\n" + config_toml + "```")
     return (config_toml,)
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""
+    ### The same config as a dictionary
+
+    TOML is only a serialisation format. `Config.loads` parses the string into an
+    ordinary Python dictionary and everything downstream works from that, so the
+    dictionary below is what conduit actually sees.
+    """)
+    return
+
+
+@app.cell
+def _(config_toml):
+    import tomllib
+
+    config_dict = tomllib.loads(config_toml)
+    config_dict
+    return
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""
+    `Config` takes that dictionary directly — `Config.loads(config_toml)` is
+    defined as `Config(tomllib.loads(config_toml))` and nothing more. So you can
+    build a config in Python if you want to: one per parameter value for a sweep,
+    or a pipeline driven by another program that already holds the settings as
+    data.
+
+    It is worth knowing what you trade away. A TOML file is one artefact you can
+    version, diff, review and pass to `satterc run`; a dictionary assembled over
+    fifty lines of Python is none of those. Write the file by default, and reach
+    for the dictionary when you are generating configs rather than authoring them.
+    """)
+    return
 
 
 @app.cell(hide_code=True)
@@ -157,36 +202,45 @@ def _(mo):
 
     > **If you have real data**, skip ahead to the *Using your own data* section at the bottom
     > of this notebook before running the pipeline.
+
+    ### A note on units
+
+    Every model input in SatTerC declares the units it expects, and conduit
+    checks the data against that declaration before the model sees it. The check
+    reads a `units` attribute on the array, which CSV and JSON have no way to
+    store: the generator labels `temperature` as `degC`, and the label is lost
+    the moment the column is written out.
+
+    conduit warns once per unlabelled input by default. The import cell above
+    turns those warnings off with `set_policy(on_missing="ignore")`, which
+    affects only the unlabelled case — a label that contradicts the declaration
+    is still an error. Write the inputs to NetCDF or Zarr instead and the labels
+    survive the round trip, so the check does its job with nothing to configure.
     """)
     return
 
 
 @app.cell
-def _(
-    Config,
-    Path,
-    config_toml,
-    generate_synthetic_data,
-    load_inputs,
-    tempfile,
-):
+def _(Config, Path, config_toml, generate_synthetic_data, tempfile):
     _tmpdir = Path(tempfile.mkdtemp())
 
     # Parse the embedded config string
     parsed_config = Config.loads(config_toml).parse()
 
-    # Redirect the input paths to files we will generate in a temporary directory
+    # Redirect every path in the config into a temporary directory: the inputs we
+    # are about to generate, and the results the run will write.
     parsed_config.input_specs["daily"].path = str(_tmpdir / "daily.csv")
     parsed_config.input_specs["static"].path = str(_tmpdir / "static.json")
+    # conduit will not create a missing output directory; it fails rather than
+    # guess. The config asks for `results/daily.csv`, so make `results/` first.
+    (_tmpdir / "results").mkdir()
+    parsed_config.output_specs["daily"].path = str(_tmpdir / "results" / "daily.csv")
 
     # Generate synthetic data — this may take a few seconds
     generate_synthetic_data(config=parsed_config, grid=(1, 1), n_days=730, seed=42)
 
-    # Load the generated data as inputs for the pipeline
-    inputs = load_inputs(parsed_config.input_specs)
-
     print(f"Synthetic data written to: {_tmpdir}")
-    return inputs, parsed_config
+    return (parsed_config,)
 
 
 @app.cell(hide_code=True)
@@ -230,23 +284,24 @@ def _(mo):
     mo.md(r"""
     ## Step 4: Run the pipeline
 
-    We run the pipeline by calling `dr.execute()`, passing the loaded inputs and naming
-    the output variables we want back.
+    `run` does the whole thing in one call: it loads the inputs, builds the DAG, computes the variables `[outputs.daily]` names, and writes them to the path that section gives.
 
-    Here we request the output variables listed in `[outputs.daily]` and merge them into
-    a single in-memory Dataset — useful for exploration and plotting without writing any files.
+    What comes back is a `RunReport`.
+    `report.outputs` holds one Dataset per output section, keyed by section name, so the results are in memory to explore and plot as well as on disk.
+    `report.written` says where each file went and how large it is.
+
+    Note that `run` takes the config, not the driver we built in step 3.
+    That step was to see the graph; running the pipeline does not need it.
     """)
     return
 
 
 @app.cell
-def _(dr, get_final_vars, get_outputs, inputs, parsed_config):
-    _results = dr.execute(
-        get_final_vars({"daily": parsed_config.output_specs["daily"]}),
-        inputs=inputs,
-    )
-    get_outputs(_results, parsed_config.output_specs)["daily"].info()
-    return
+def _(parsed_config, run):
+    report = run(parsed_config)
+
+    report.outputs["daily"].info()
+    return (report,)
 
 
 @app.cell(hide_code=True)
@@ -262,9 +317,8 @@ def _(mo):
 
 
 @app.cell
-def _(dr, inputs, plt):
-    _outputs = dr.execute(["soil_moisture_daily"], inputs=inputs)
-    soil_moisture = _outputs["soil_moisture_daily"].isel(pixel=0)
+def _(plt, report):
+    soil_moisture = report.outputs["daily"]["soil_moisture"].isel(pixel=0)
 
     fig, ax = plt.subplots(figsize=(10, 3))
     soil_moisture.plot(ax=ax)

@@ -110,7 +110,7 @@ def _validate_output_paths(
     return paths, dirs_to_create, files_to_overwrite
 
 
-@app.command()
+@app.command("data-gen")
 def generate(
     config_file: Annotated[
         Path,

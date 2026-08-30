@@ -1,0 +1,43 @@
+{% extends "_base/docstring/attributes.html.jinja" %}
+
+{#- Attributes in `spacy` style, showing the whole annotation.
+
+Model output `TypedDict`s reach this template through the
+`OutputsTableExtension` griffe extension, which gives each field the annotation
+it carries in the source. Rendering matches `parameters.html.jinja`, so inputs
+and outputs read the same way.
+-#}
+
+{% import "language.html.jinja" as lang with context %}
+{% import "docstring/_annotation.html.jinja" as annotation with context %}
+
+{% block spacy_style scoped %}
+  <table>
+    <thead>
+      <tr>
+        <th><span class="doc-section-title">{{ (section.title or lang.t("ATTRIBUTE")).rstrip(":").upper() }}</span></th>
+        <th><span>{{ lang.t("DESCRIPTION") }}</span></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for attribute in section.value %}
+        <tr class="doc-section-item">
+          <td><code>{{ attribute.name }}</code></td>
+          <td class="doc-attribute-details">
+            <div class="doc-md-description">
+              {{ attribute.description|convert_markdown(heading_level, html_id, autoref_hook=autoref_hook|default(AutorefsHook(obj[attribute.name], config))) }}
+            </div>
+            <p>
+              {% if attribute.annotation %}
+                <span class="doc-attribute-annotation">
+                  <b>ANNOTATION:</b>
+                  <code>{{ annotation.contents(attribute.annotation) }}</code>
+                </span>
+              {% endif %}
+            </p>
+          </td>
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+{% endblock spacy_style %}

@@ -4,10 +4,11 @@
 #     "marimo",
 #     "matplotlib==3.10.9",
 #     "numpy==2.4.4",
-#     "satterc==0.6.0",
+#     "satterc==0.8.0",
 #     "conduit",
 #     "scipy==1.17.1",
 #     "xarray==2026.4.0",
+#     "xarray-annotated",
 # ]
 #
 # [tool.uv.sources]
@@ -48,8 +49,15 @@ def _():
     from conduit import build_driver, load_inputs
     from conduit.config import Config
     from scipy.optimize import OptimizeResult, minimize
+    from xarray_annotated.units import set_policy
 
     from satterc.scaffold.data_gen import generate_synthetic_data
+
+    # The inputs below are written to CSV and JSON, neither of which can store a
+    # units attribute, so conduit has nothing to validate SPLASH's declared
+    # units against and warns once per input. Ignore the unlabelled case only:
+    # a label that contradicts a declaration is still an error.
+    set_policy(on_missing="ignore")
 
     return (
         Config,
@@ -80,14 +88,12 @@ def _(mo):
     return
 
 
-@app.cell
-def _(Config, tomllib):
-    # @output: config
-    from pprint import pprint
+@app.cell(hide_code=True)
+def _(mo):
+    import textwrap
 
-    _config_toml = """
+    config_toml = textwrap.dedent("""\
     [splash]
-    _import_path = "satterc.models.splash"
 
     [inputs.daily]
     path = "daily.csv"
@@ -106,9 +112,18 @@ def _(Config, tomllib):
       "max_soil_moisture",
       "plant_type",
     ]
-    """
+    """)
 
-    parsed_config = Config(tomllib.loads(_config_toml)).parse()
+    mo.md("```toml\n" + config_toml + "```")
+    return (config_toml,)
+
+
+@app.cell
+def _(Config, config_toml, tomllib):
+    # @output: config
+    from pprint import pprint
+
+    parsed_config = Config(tomllib.loads(config_toml)).parse()
     pprint(parsed_config)
     return (parsed_config,)
 

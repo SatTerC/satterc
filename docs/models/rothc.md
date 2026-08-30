@@ -8,7 +8,7 @@ icon: lucide/worm
 
 ## Overview
 
-RothC is a widely-used model for simulating the turnover of soil organic carbon (SOC) in non-waterlogged soils.[^jenkinson1990] It splits SOC into five distinct compartments – four active and one inert – and accounts for soil type (clay content), temperature, moisture, and plant cover to calculate decay rates.
+RothC simulates the turnover of soil organic carbon (SOC) in non-waterlogged soils.[^jenkinson1990] It splits SOC into five distinct compartments – four active and one inert – and accounts for soil type (clay content), temperature, moisture, and plant cover to calculate decay rates.
 
 The five pools are:
 
@@ -20,7 +20,13 @@ The five pools are:
 | HUM | Humified Organic Matter | Stable humus |
 | IOM | Inert Organic Matter | Chemically inert, does not decompose |
 
-We forked the Python implementation from [Rothamsted Research](https://github.com/Rothamsted-Models/RothC_Py/), repackaged it for pip installation, and achieved a ~20× speedup. Our fork is available at [github.com/SatTerC/RothC_Py](https://github.com/SatTerC/RothC_Py).
+We forked the Python implementation from [Rothamsted Research](https://github.com/Rothamsted-Models/RothC_Py/), repackaged it for pip installation and made it ~20× faster. Our fork is available at [github.com/SatTerC/RothC_Py](https://github.com/SatTerC/RothC_Py).
+
+The DAG for a pipeline running RothC alone, with the dashed cluster grouping nodes by declared frequency (`1ME` for monthly):
+
+<div class="model-graph">
+--8<-- "docs/models/_graphs/rothc.svg"
+</div>
 
 ## Theory
 
@@ -40,7 +46,15 @@ The decomposition rates are scaled by:
 
 ### Spin-up
 
-RothC requires initial pool sizes to begin simulation. A spin-up phase runs the model over repeated climate cycles until the pools reach equilibrium, providing consistent initial conditions.
+RothC requires initial pool sizes to begin simulation. A spin-up phase runs the model over repeated climate cycles until the pools reach equilibrium, which fixes the initial conditions.
+
+### Evapotranspiration, not open-pan evaporation
+
+RothC's own water-balance driver is open-pan evaporation, which the underlying RothC_Py scales by 0.75 to get evapotranspiration.
+SatTerC instead supplies potential evapotranspiration directly, since SPLASH computes it (Priestley-Taylor) on its way to AET.
+There is nothing to convert, so `evap_factor` defaults to 1.0.
+
+PET, not AET, is the right driver: RothC's water balance is rainfall minus evaporative *demand*, and AET is already suppressed by the soil dryness RothC is itself computing, so feeding AET in double-counts the water limitation and holds the soil systematically too wet.
 
 For full model details, see:
 
@@ -49,78 +63,109 @@ For full model details, see:
 
 ## Usage
 
-### Configuration
+### Quickstart
 
-RothC is configured in your TOML config file:
+RothC needs potential evapotranspiration, which [SPLASH](splash.md) produces, so run the two together:
+
+```sh
+satterc setup --models splash --models rothc --defaults
+satterc data-gen config.toml --grid 1 1 --duration 2y --seed 42
+satterc run config.toml
+```
+
+The [quickstart](../guides/quickstart.md) walks through what each of those does, and how to point the config at your own data instead of the synthetic set.
+
+### Configuration
 
 ```toml
 [rothc]
-_import_path = "satterc.models.rothc"
 n_years_spinup = 1
 ```
 
-| Parameter | Default | Description |
-|-----------|---------|-------------|
-| `n_years_spinup` | 1 | Number of years of climate data to use for model spin-up |
-| `evap_factor` | 1.0 | Factor applied to `potential_evapotranspiration_monthly` before the water balance |
+::: satterc.models.rothc.rothc_config
+    options:
+      show_root_heading: false
+      show_root_toc_entry: false
+      show_signature: false
+      show_docstring_description: false
+      show_docstring_returns: false
+      docstring_section_style: spacy
 
-RothC's own evaporation driver is open-pan evaporation, which the underlying
-RothC_Py scales by 0.75 to get evapotranspiration. SatTerC instead supplies
-potential evapotranspiration directly — SPLASH computes it (Priestley-Taylor) on
-its way to AET — so there is nothing to convert and `evap_factor` defaults to
-1.0. Note that PET, not AET, is the right driver: RothC's water balance is
-rainfall minus evaporative *demand*, and AET is already suppressed by the soil
-dryness RothC is itself computing, so feeding AET in double-counts the water
-limitation and holds the soil systematically too wet.
+The per-PFT DPM/RPM ratios are settings of the `dpm_rpm_ratio_monthly` bridge node below, and are configured as keys of the same `[rothc]` section:
 
-### Required inputs
+::: satterc.models.rothc.dpm_rpm_ratio_config
+    options:
+      show_root_heading: false
+      show_root_toc_entry: false
+      show_signature: false
+      show_docstring_description: false
+      show_docstring_returns: false
+      docstring_section_style: spacy
 
-RothC requires the following monthly `DataArray` inputs:
+### Inputs
 
-| Variable | Units | Description |
-|----------|-------|-------------|
-| `temperature_monthly` | °C | Monthly mean air temperature |
-| `precipitation_monthly` | mm | Monthly precipitation |
-| `potential_evapotranspiration_monthly` | mm | Monthly total potential evapotranspiration |
-| `plant_cover_monthly` | dimensionless (0–1) | Monthly plant cover (boolean: covered or bare) |
-| `dpm_rpm_ratio_monthly` | dimensionless | Ratio of decomposable to resistant plant material |
-| `soil_carbon_input_monthly` | tC·ha⁻¹ | Carbon input from litter for the month |
-| `farmyard_manure_input_monthly` | tC·ha⁻¹ | Farmyard manure input for the month |
-
-And the following static `DataArray` inputs:
-
-| Variable | Units | Description |
-|----------|-------|-------------|
-| `clay_content` | % | Soil clay content |
-| `soil_depth` | cm | Soil depth |
-| `inert_organic_matter` | tC·ha⁻¹ | Initial inert organic matter |
+::: satterc.models.rothc.rothc
+    options:
+      show_root_heading: false
+      show_root_toc_entry: false
+      show_signature: false
+      show_docstring_description: false
+      show_docstring_returns: false
+      docstring_section_style: spacy
 
 ### Bridge nodes
 
-Three of RothC's monthly inputs are produced by this module rather than loaded:
-`plant_cover_monthly`, `dpm_rpm_ratio_monthly` and
-`farmyard_manure_input_monthly`. Each builds a monthly series out of per-pixel
-static data (`plant_type`, `latitude`), which leaves them nothing to get a
-calendar from — so each also takes `temperature_monthly`, read purely for its
-time coordinate. If you supply your own version of one of these nodes, it needs a
-time-bearing input for the same reason.
+Three of those monthly inputs are produced by this module rather than loaded.
+Each builds a monthly series out of per-pixel static data, which leaves it nothing to get a calendar from — so each also takes `temperature_monthly`, read purely for its time coordinate.
+If you supply your own version of one of these nodes, it needs a time-bearing input for the same reason.
+
+::: satterc.models.rothc.plant_cover_monthly
+    options:
+      show_root_heading: true
+      show_root_full_path: false
+      show_root_toc_entry: false
+      show_signature: false
+      separate_signature: false
+      show_docstring_returns: false
+      heading_level: 4
+      docstring_section_style: spacy
+
+::: satterc.models.rothc.dpm_rpm_ratio_monthly
+    options:
+      show_root_heading: true
+      show_root_full_path: false
+      show_root_toc_entry: false
+      show_signature: false
+      separate_signature: false
+      show_docstring_returns: false
+      heading_level: 4
+      docstring_section_style: spacy
+
+::: satterc.models.rothc.farmyard_manure_input_monthly
+    options:
+      show_root_heading: true
+      show_root_full_path: false
+      show_root_toc_entry: false
+      show_signature: false
+      separate_signature: false
+      show_docstring_returns: false
+      heading_level: 4
+      docstring_section_style: spacy
 
 ### Outputs
 
-RothC returns six monthly `DataArray` outputs, all in tC·ha⁻¹:
-
-| Variable | Units | Description |
-|----------|-------|-------------|
-| `decomposable_plant_material_monthly` | tC·ha⁻¹ | DPM pool |
-| `resistant_plant_material_monthly` | tC·ha⁻¹ | RPM pool |
-| `microbial_biomass_monthly` | tC·ha⁻¹ | Microbial biomass (BIO) pool |
-| `humified_organic_matter_monthly` | tC·ha⁻¹ | HUM pool |
-| `soil_organic_carbon_monthly` | tC·ha⁻¹ | Total soil organic carbon (sum of all pools) |
-| `heterotrophic_respiration_monthly` | tC·ha⁻¹ | CO₂ released by microbial decomposition during the month |
+::: satterc.models.rothc.RothCOut
+    options:
+      show_root_heading: false
+      show_root_toc_entry: false
+      show_docstring_description: false
+      docstring_section_style: spacy
+      show_bases: false
+      members: false
 
 ### Python API
 
-See the [API documentation](../api/satterc.models/rothc.md) for full function signatures and parameter details.
+See the [API documentation](../reference/modules/satterc.models/rothc.md) for full function signatures and parameter details.
 
 ## References
 
