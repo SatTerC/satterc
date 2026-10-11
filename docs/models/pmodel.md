@@ -81,6 +81,7 @@ $$\text{GPP} = \text{LUE} \cdot \text{PPFD} \cdot f_{\text{APAR}}$$
 
 The P-model includes a soil moisture stress factor $\beta(\theta)$ that reduces GPP under dry conditions.
 The implementation in `pyrealm` uses the soil moisture parameter $\theta$ (volumetric water content) to modulate both $\chi$ and LUE.
+In satterc, $\theta$ reaches `pyrealm` only with the `lavergne20` optimal $\chi$ methods; see [method-dependent inputs](#method-dependent-inputs).
 
 ## Usage
 
@@ -121,6 +122,52 @@ method_arrhenius = "simple"
       show_root_toc_entry: false
       show_signature: false
       show_docstring_description: false
+      show_docstring_returns: false
+      docstring_section_style: spacy
+
+#### Method-dependent inputs
+
+Some methods need inputs beyond the core drivers.
+Each of `optchi_inputs`, `kphio_inputs` and `arrhenius_inputs` is defined once per set of requirements, and the configured method selects which definition the pipeline is built with, so a run only asks for the inputs its methods use.
+The defaults need none.
+
+::: satterc.models.pmodel.optchi_inputs__theta
+    options:
+      show_root_heading: true
+      show_root_toc_entry: false
+      show_root_full_path: false
+      separate_signature: false
+      heading_level: 4
+      show_docstring_returns: false
+      docstring_section_style: spacy
+
+::: satterc.models.pmodel.optchi_inputs__rootzonestress
+    options:
+      show_root_heading: true
+      show_root_toc_entry: false
+      show_root_full_path: false
+      separate_signature: false
+      heading_level: 4
+      show_docstring_returns: false
+      docstring_section_style: spacy
+
+::: satterc.models.pmodel.kphio_inputs__sandoval
+    options:
+      show_root_heading: true
+      show_root_toc_entry: false
+      show_root_full_path: false
+      separate_signature: false
+      heading_level: 4
+      show_docstring_returns: false
+      docstring_section_style: spacy
+
+::: satterc.models.pmodel.arrhenius_inputs__kattge_knorr
+    options:
+      show_root_heading: true
+      show_root_toc_entry: false
+      show_root_full_path: false
+      separate_signature: false
+      heading_level: 4
       show_docstring_returns: false
       docstring_section_style: spacy
 
