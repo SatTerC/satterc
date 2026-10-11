@@ -427,6 +427,11 @@ def mean_growth_temperature(
     The mean is taken over the whole record, not a rolling window, and over days
     above 0 degC only. A pixel that never rises above 0 degC over the record
     yields NaN, which propagates through kphio into GPP.
+
+    Parameters
+    ----------
+    temperature_daily
+        Daily mean air temperature (degrees Celsius).
     """
     # Reduce over the whole record, not per week: a winter week with no day above
     # 0 degC is an ordinary week, and windowing turned it into a NaN in GPP.

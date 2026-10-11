@@ -47,7 +47,10 @@ graph-all:
 # checking in an SVG that a signature change would silently invalidate.
 # `--clean` because zensical's incremental cache does not track the files pulled
 # in by `pymdownx.snippets`, so a freshly rendered graph is otherwise ignored.
+# Does not depend on `export-all`, which takes minutes, but refuses to build
+# while any recipe notebook lacks an export, since every link to it would break.
 docs: graph-all
+  @for nb in recipes/*.py; do md="docs/recipes/$(basename "$nb" .py).md"; [ -f "$md" ] || { echo "error: $md is missing; run \`just export-all\` first" >&2; exit 1; }; done
   zensical build --clean
 
 # Export a single recipe notebook to docs/recipes/.
