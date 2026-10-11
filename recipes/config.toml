@@ -81,6 +81,8 @@ vars = [
 # demand over supply, so above 1 is water-limited. Both accumulate over the whole
 # record, giving one value per pixel rather than a time series -- which is what
 # "climatological" means, and what the sandoval quantum-yield method expects.
+# Only that method consumes it: with the `method_kphio` above it goes unused,
+# and is here so that switching to sandoval needs no new node.
 #
 # PET, not AET: AET is what the soil actually gave up, so P/AET would be close to
 # 1 by construction wherever water limits evaporation, which is exactly the

@@ -81,9 +81,8 @@ def pmodel_inputs() -> dict[str, Any]:
         "pressure_weekly": _weekly(np.full((N_WEEKS, N_PIXELS), 101325.0)),
         "fapar_weekly": field(0.5, 0.2),
         "ppfd_weekly": field(500.0, 150.0, amplitude=100.0),
-        "mean_growth_temperature": field(15.0, 5.0),
-        "aridity_index": field(1.0, 0.3),
-        "volumetric_water_content_weekly": field(0.3, 0.1),
+        # The golden case's methods take no extra inputs.
+        "extra_inputs": {},
         **PMODEL_METHODS,
     }
 

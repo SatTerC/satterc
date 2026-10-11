@@ -81,6 +81,7 @@ $$\text{GPP} = \text{LUE} \cdot \text{PPFD} \cdot f_{\text{APAR}}$$
 
 The P-model includes a soil moisture stress factor $\beta(\theta)$ that reduces GPP under dry conditions.
 The implementation in `pyrealm` uses the soil moisture parameter $\theta$ (volumetric water content) to modulate both $\chi$ and LUE.
+In satterc, $\theta$ reaches `pyrealm` only with the `lavergne20` optimal $\chi$ methods; see [soil moisture inputs](#inputs-soil-moisture).
 
 ## Usage
 
@@ -115,6 +116,14 @@ method_arrhenius = "simple"
 
 ### Inputs
 
+Which inputs a run needs depends on the configured methods.
+The defaults need only the drivers under *Always required*.
+Each table after that applies only when its method is configured, and a run without that method never asks for those inputs.
+
+#### Always required
+
+Every run needs these, whatever the methods.
+
 ::: satterc.models.pmodel.pmodel
     options:
       show_root_heading: false
@@ -123,20 +132,78 @@ method_arrhenius = "simple"
       show_docstring_description: false
       show_docstring_returns: false
       docstring_section_style: spacy
+      extra:
+        hide_parameters: [optchi_inputs, kphio_inputs, arrhenius_inputs, pmodel_config]
 
-`mean_growth_temperature` is produced by this module rather than loaded, from daily temperature:
+#### Soil moisture, for `lavergne20` optimal χ { #inputs-soil-moisture }
+
+Required when `method_optchi` is `lavergne20_c3` or `lavergne20_c4`.
+
+::: satterc.models.pmodel.optchi_inputs__theta
+    options:
+      show_root_heading: false
+      show_root_toc_entry: false
+      show_signature: false
+      show_docstring_description: false
+      show_docstring_returns: false
+      docstring_section_style: spacy
+
+#### Root zone stress, for `rootzonestress` optimal χ
+
+Required when `method_optchi` is `prentice14_rootzonestress`, `c4_rootzonestress` or `c4_no_gamma_rootzonestress`.
+
+::: satterc.models.pmodel.optchi_inputs__rootzonestress
+    options:
+      show_root_heading: false
+      show_root_toc_entry: false
+      show_signature: false
+      show_docstring_description: false
+      show_docstring_returns: false
+      docstring_section_style: spacy
+
+#### Climatology, for `sandoval` quantum yield
+
+Required when `method_kphio = "sandoval"`.
+
+::: satterc.models.pmodel.kphio_inputs__sandoval
+    options:
+      show_root_heading: false
+      show_root_toc_entry: false
+      show_signature: false
+      show_docstring_description: false
+      show_docstring_returns: false
+      docstring_section_style: spacy
+
+The PET in `aridity_index` comes from [SPLASH](splash.md).
+`recipes/config.toml` derives the index in a `[[node]]` rather than hiding the choice of PET inside a wrapper.
+`mean_growth_temperature` is derived for you; see [below](#inputs-mean-growth-temperature).
+
+#### Growth temperature, for `kattge_knorr` Arrhenius scaling
+
+Required when `method_arrhenius = "kattge_knorr"`.
+`mean_growth_temperature` is derived for you; see [below](#inputs-mean-growth-temperature).
+
+::: satterc.models.pmodel.arrhenius_inputs__kattge_knorr
+    options:
+      show_root_heading: false
+      show_root_toc_entry: false
+      show_signature: false
+      show_docstring_description: false
+      show_docstring_returns: false
+      docstring_section_style: spacy
+
+#### Mean growth temperature { #inputs-mean-growth-temperature }
+
+`mean_growth_temperature` is not loaded but derived by this module, so a run using `sandoval` or `kattge_knorr` needs this input in its place.
 
 ::: satterc.models.pmodel.mean_growth_temperature
     options:
       show_root_heading: false
       show_root_toc_entry: false
       show_signature: false
-      separate_signature: false
+      show_docstring_description: false
       show_docstring_returns: false
       docstring_section_style: spacy
-
-`aridity_index` is not: it is PET over precipitation, both accumulated over the record, and PET comes from [SPLASH](splash.md).
-`recipes/config.toml` derives it in a `[[node]]` rather than hiding the choice of PET inside a wrapper.
 
 ### Outputs
 

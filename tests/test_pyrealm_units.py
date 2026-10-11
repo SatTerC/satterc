@@ -114,6 +114,33 @@ def bounds() -> dict:
     return data
 
 
+def declared_pmodel_inputs() -> dict[str, str]:
+    """Units declared for every P-Model input, across `pmodel` and its input nodes.
+
+    The method-dependent inputs sit on the ``<axis>_inputs`` variants, not on
+    `pmodel`. Two variants can declare the same input, and must agree on it.
+    """
+    from xarray_annotated.units import units_from_signature
+
+    from satterc.models import pmodel as pmodel_module
+
+    nodes = [
+        pmodel_module.pmodel,
+        pmodel_module.optchi_inputs__theta,
+        pmodel_module.optchi_inputs__rootzonestress,
+        pmodel_module.kphio_inputs__sandoval,
+        pmodel_module.arrhenius_inputs__kattge_knorr,
+    ]
+    declared: dict[str, str] = {}
+    for node in nodes:
+        for argument, unit in units_from_signature(node)[0].items():
+            assert declared.setdefault(argument, unit) == unit, (
+                f"{node.__name__} declares {argument!r} as {unit!r}, but another "
+                f"P-Model node declares it as {declared[argument]!r}."
+            )
+    return declared
+
+
 # Each entry maps a satterc node argument to the pyrealm variable it becomes.
 PMODEL_INPUT_UNITS = [
     ("temperature_weekly", "tc"),
@@ -123,6 +150,7 @@ PMODEL_INPUT_UNITS = [
     ("fapar_weekly", "fapar"),
     ("ppfd_weekly", "ppfd"),
     ("volumetric_water_content_weekly", "theta"),
+    ("rootzonestress_weekly", "rootzonestress"),
     ("aridity_index", "aridity_index"),
 ]
 
@@ -149,12 +177,7 @@ class TestUpstreamUnitMetadata:
 
     @pytest.mark.parametrize(("argument", "variable"), PMODEL_INPUT_UNITS)
     def test_pmodel_input_units(self, bounds, argument, variable):
-        from xarray_annotated.units import units_from_signature
-
-        from satterc.models import pmodel as pmodel_module
-
-        declared_inputs, _ = units_from_signature(pmodel_module.pmodel)
-        declared = declared_inputs[argument]
+        declared = declared_pmodel_inputs()[argument]
         expected = normalise(bounds[variable].unit)
         assert declared == expected, (
             f"pmodel declares {argument!r} as {declared!r}, but pyrealm "
@@ -190,12 +213,7 @@ class TestUpstreamUnitMetadata:
             )
 
     def test_mean_growth_temperature_follows_the_docstring(self):
-        from xarray_annotated.units import units_from_signature
-
-        from satterc.models import pmodel as pmodel_module
-
-        declared_inputs, _ = units_from_signature(pmodel_module.pmodel)
-        declared = declared_inputs["mean_growth_temperature"]
+        declared = declared_pmodel_inputs()["mean_growth_temperature"]
         assert declared == BOUNDS_DISAGREES_WITH_DOCSTRING["mean_growth_temperature"][1]
 
     @pytest.mark.parametrize(
@@ -256,7 +274,7 @@ class TestUpstreamApiNames:
         parameters = inspect.signature(pyrealm.pmodel.PModelEnvironment).parameters
         explicit = {"tc", "vpd", "co2", "patm", "fapar", "ppfd"}
         assert explicit <= set(parameters)
-        # theta / mean_growth_temperature / aridity_index arrive via **kwargs,
+        # The method-dependent inputs arrive via **kwargs,
         # so the signature cannot vouch for them; the bounds table can.
         assert any(p.kind is inspect.Parameter.VAR_KEYWORD for p in parameters.values())
 
