@@ -22,3 +22,7 @@ __marimo__/
 .claude/
 
 docs/recipes
+
+# Compiled Fortran extensions (see `just build-acm`)
+build/
+src/satterc/models/*.so

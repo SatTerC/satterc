@@ -24,6 +24,30 @@ test:
 test-cov:
   pytest --cov=satterc --cov-report=term-missing --cov-fail-under=90
 
+# ACM-GPP-ET is compiled from upstream at this commit. The repository has no
+# licence, so its source is fetched at build time rather than vendored here.
+acm_repo := "https://github.com/GCEL/ACM_GPP_ET.git"
+acm_rev := "cec43da0360d54c37b05ef39a912a68c2c1ae711"
+
+# Compile ACM-GPP-ET into the satterc.models._acm_gpp_et extension with f2py.
+# Two steps because f2py's scanner chokes on non-ASCII comments in the upstream
+# source: the signature (.pyf) is generated from our shim alone, and upstream is
+# only handed to the compiler. meson and ninja are f2py's build backend on
+# Python >= 3.12; they are needed only here, so they are not project deps.
+build-acm:
+  #!/usr/bin/env bash
+  set -euo pipefail
+  build=build/acm_gpp_et
+  mkdir -p "$build"
+  [ -d "$build/upstream" ] || git clone --quiet {{acm_repo}} "$build/upstream"
+  git -C "$build/upstream" checkout --quiet {{acm_rev}}
+  cp fortran/acm_gpp_et/acm_gpp_et_f2py.f90 "$build/"
+  cd "$build"
+  f2py="uv run --with meson --with ninja python -m numpy.f2py"
+  $f2py acm_gpp_et_f2py.f90 -m _acm_gpp_et -h _acm_gpp_et.pyf --overwrite-signature
+  $f2py -c _acm_gpp_et.pyf acm_gpp_et_f2py.f90 upstream/src/ACM_GPP_ET.f90
+  mv _acm_gpp_et.*.so ../../src/satterc/models/
+
 # Re-record the pyrealm unit anchor in tests/data/pyrealm_golden.json.
 # Only after reviewing *why* pyrealm's output changed. If a unit convention
 # moved, correct the annotation rather than the recorded numbers.

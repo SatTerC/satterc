@@ -37,6 +37,8 @@ splash = "satterc.models.splash"
 pmodel = "satterc.models.pmodel"
 sgam = "satterc.models.sgam"
 rothc = "satterc.models.rothc"
+# Needs the f2py extension built by `just build-acm`; see that module.
+acm_gpp_et = "satterc.models.acm_gpp_et"
 
 [project.urls]
 Homepage = "https://SatTerC.github.io/satterc"
