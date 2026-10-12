@@ -50,12 +50,12 @@ What the signature controls:
 - **Results match upstream's R interface.** On `inputs/ACM_GPP_ET_forest_drivers.csv`, the f2py build agrees with `racmgppet` called from R to within 1e-8 on GPP, transpiration and soil water when R's library is built with upstream's recipe (gfortran's default `-O0`), and to within 1e-13 when it is built with `-O3`, as meson does. The difference is optimisation, not the wrapping.
 - **Licence.** The upstream repository has no licence, so its source is fetched at build time rather than committed here. Redistributing a compiled wheel would need the authors' permission either way.
 
-## Choices made for the example that need a decision
+## Decisions and known limitations
 
-- **Output names.** `canopy_gpp_daily`, `surface_runoff_daily` etc. avoid colliding with `gpp_daily` (an input in `recipes/config.toml`) and SPLASH's `runoff_daily`, but are otherwise placeholders.
-- **Soil layers.** ACM-GPP-ET has four soil layers with their own clay and sand contents; satterc has one value per pixel, which is applied to all four. Upstream's R scripts pass topsoil values for layers 1–2 and subsoil values for 3–4.
-- **New inputs.** `temperature_min_daily`, `temperature_max_daily`, `shortwave_radiation_daily`, `fine_root_carbon_daily` and `sand_content` have no rows in the synthetic-data tables yet. `fine_root_carbon_daily` could come from SGAM's root pool; upstream's test uses `80 × LAI`.
-- **Per-pixel parameters.** Foliar nitrogen is a config scalar here. It is plausibly a per-pixel input.
+- **Output names.** `canopy_gpp_daily`, `surface_runoff_daily` etc. avoid colliding with `gpp_daily` (an input in `recipes/config.toml`) and SPLASH's `runoff_daily`. Kept as they are for now.
+- **Soil layers.** ACM-GPP-ET has four soil layers, each with its own clay and sand content. `clay_content` and `sand_content` are each either `(pixel,)`, applied to every layer, or `(pixel, soil_layer)` with `soil_layer` of length 1 or 4, top layer first. The two are broadcast independently, so a layered clay profile can sit alongside a single sand value. Upstream's R scripts pass topsoil values for layers 1–2 and subsoil values for 3–4.
+- **Foliar nitrogen is one value for every pixel.** It is a config setting because it is an entry of the model's `pars` vector, but it varies with vegetation and site fertility, and GPP scales directly with it. A spatially varying run needs it to become a per-pixel input; not addressed yet.
+- **New inputs.** `temperature_min_daily`, `temperature_max_daily`, `shortwave_radiation_daily`, `fine_root_carbon_daily` and `sand_content` are new to satterc. `fine_root_carbon_daily` could come from SGAM's root pool; upstream's test uses `80 × LAI`.
 - **CI.** The extension is not built in CI, so the tests skip there. `gfortran` is available on GitHub's Ubuntu runners, so adding `just build-acm` to the workflow is cheap.
 
 ## Shipping it properly

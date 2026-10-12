@@ -78,8 +78,11 @@ _ACM_OUTPUT_NAMES: tuple[str, ...] = (
     "weighted_soil_water_potential_daily",
 )
 
-# ACM-GPP-ET's soil column has four layers. satterc has one clay and one sand
-# content per pixel, so it is applied to all of them.
+#: Dimension along which soil inputs may vary by layer, top layer first.
+SOIL_LAYER_DIM = "soil_layer"
+
+# ACM-GPP-ET's soil column has four layers: two fixed topsoil layers (0-10 cm,
+# 10-30 cm), the rest of the rooting zone, and the column below it.
 _N_SOIL_LAYERS = 4
 
 _STATUS_MESSAGES = {
@@ -91,6 +94,22 @@ _STATUS_MESSAGES = {
     ),
     2: "ACM-GPP-ET's soil layer count no longer matches the f2py shim.",
 }
+
+
+def _soil_layers(values: float | NDArray[np.float64], name: str) -> NDArray[np.float64]:
+    """Broadcast one pixel's soil property onto ACM-GPP-ET's four layers.
+
+    Accepts a scalar or a length-1 array (one value for the whole column) or a
+    length-4 array (one value per layer).
+    """
+    values = np.asarray(values, dtype=np.float64)
+    try:
+        return np.array(np.broadcast_to(values, (_N_SOIL_LAYERS,)))
+    except ValueError:
+        raise ValueError(
+            f"{name} has {values.size} values along {SOIL_LAYER_DIM!r}; "
+            f"ACM-GPP-ET needs 1 (applied to every layer) or {_N_SOIL_LAYERS}."
+        ) from None
 
 
 def _acm_gpp_et_1px(
@@ -105,8 +124,8 @@ def _acm_gpp_et_1px(
     lai: NDArray[np.float64],
     fine_root_carbon: NDArray[np.float64],
     latitude: float,
-    clay_content: float,
-    sand_content: float,
+    clay_content: float | NDArray[np.float64],
+    sand_content: float | NDArray[np.float64],
     *,
     run_day: NDArray[np.float64],
     day_of_year: NDArray[np.float64],
@@ -115,7 +134,8 @@ def _acm_gpp_et_1px(
     """Run ACM-GPP-ET for a single pixel.
 
     The driver arguments are 1D ``(time,)`` arrays for one pixel; ``latitude``
-    and the soil contents are per-pixel scalars. ``run_day``, ``day_of_year``
+    is a scalar, and the soil contents are scalars or ``(soil_layer,)`` arrays,
+    see `_soil_layers`. ``run_day``, ``day_of_year``
     and ``pars`` are pixel-invariant and passed through unchanged. Returns one
     ``(time,)`` array per output, ordered as `_ACM_OUTPUT_NAMES`.
     """
@@ -144,8 +164,8 @@ def _acm_gpp_et_1px(
         met,
         pars,
         float(latitude),
-        np.full(_N_SOIL_LAYERS, float(clay_content)),
-        np.full(_N_SOIL_LAYERS, float(sand_content)),
+        _soil_layers(clay_content, "clay_content"),
+        _soil_layers(sand_content, "sand_content"),
     )
     if status != 0:
         raise RuntimeError(_STATUS_MESSAGES[status])
@@ -178,7 +198,9 @@ def _acm_gpp_et(
 
     The same `xarray.apply_ufunc` seam as `satterc.models.rothc`: ``time`` is
     the core dimension, ``pixel`` is mapped, and ``vectorize=True`` loops over
-    pixels in Python because the Fortran runs one pixel per call.
+    pixels in Python because the Fortran runs one pixel per call. A soil input
+    with a ``soil_layer`` dimension gets it as a second core dimension, so the
+    kernel receives that pixel's whole profile.
 
     The extension keeps state in Fortran module variables, so it must never run
     two pixels at once in one process. That holds today because an f2py wrapper
@@ -213,7 +235,12 @@ def _acm_gpp_et(
         latitude,
         clay_content,
         sand_content,
-        input_core_dims=[["time"]] * 10 + [[]] * 3,
+        input_core_dims=[["time"]] * 10
+        + [[]]
+        + [
+            [SOIL_LAYER_DIM] if SOIL_LAYER_DIM in da.dims else []
+            for da in (clay_content, sand_content)
+        ],
         output_core_dims=[["time"]] * len(_ACM_OUTPUT_NAMES),
         kwargs={
             "run_day": np.arange(1, n_days + 1, dtype=np.float64),
@@ -270,6 +297,10 @@ def acm_gpp_et_config(
     ----------
     foliar_nitrogen
         Foliar nitrogen per unit leaf area (grams of nitrogen per square metre).
+        One value for every pixel, although it varies with vegetation type and
+        site fertility, and GPP is directly proportional to it through the
+        nitrogen-use efficiency. A spatially varying run needs this to become a
+        per-pixel input.
     min_leaf_water_potential
         Minimum leaf water potential, below which stomata close (megapascals).
     root_biomass_half_depth
@@ -345,9 +376,12 @@ def acm_gpp_et(
     latitude
         Latitude (degrees north).
     clay_content
-        Soil clay content, applied to every soil layer (percent).
+        Soil clay content (percent). Either one value per pixel, applied to
+        every soil layer, or one per layer along a ``soil_layer`` dimension of
+        length 4, top layer first.
     sand_content
-        Soil sand content, applied to every soil layer (percent).
+        Soil sand content (percent). Shaped as `clay_content`, independently of
+        it.
     acm_gpp_et_config
         Model settings; see `acm_gpp_et_config`.
 

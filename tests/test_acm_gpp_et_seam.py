@@ -17,6 +17,7 @@ pytest.importorskip("satterc.models._acm_gpp_et")
 from satterc.models._acm_gpp_et import acm_pixel
 from satterc.models.acm_gpp_et import (
     _ACM_OUTPUT_NAMES,
+    SOIL_LAYER_DIM,
     _acm_gpp_et,
     _acm_gpp_et_1px,
     acm_gpp_et_config,
@@ -132,6 +133,48 @@ class TestSeam:
         again = _acm_gpp_et(**acm_inputs)
         for name in _ACM_OUTPUT_NAMES:
             np.testing.assert_array_equal(again[name].values, seam_result[name].values)
+
+
+class TestSoilLayers:
+    @staticmethod
+    def _layered(values: np.ndarray) -> xr.DataArray:
+        return xr.DataArray(
+            values, dims=["pixel", SOIL_LAYER_DIM], coords={"pixel": PIXELS}
+        )
+
+    def test_uniform_profile_matches_single_value(self, acm_inputs, seam_result):
+        layered = dict(acm_inputs)
+        layered["clay_content"] = self._layered(np.repeat(CLAY[:, None], 4, axis=1))
+        result = _acm_gpp_et(**layered)
+        for name in _ACM_OUTPUT_NAMES:
+            np.testing.assert_array_equal(result[name].values, seam_result[name].values)
+
+    def test_length_one_layer_dim_broadcasts(self, acm_inputs, seam_result):
+        layered = dict(acm_inputs)
+        layered["sand_content"] = self._layered(SAND[:, None])
+        result = _acm_gpp_et(**layered)
+        np.testing.assert_array_equal(
+            result["canopy_gpp_daily"].values, seam_result["canopy_gpp_daily"].values
+        )
+
+    def test_profile_is_used(self, acm_inputs, seam_result):
+        # Clay only in the subsoil layers changes the water balance.
+        layered = dict(acm_inputs)
+        profile = np.repeat(CLAY[:, None], 4, axis=1)
+        profile[:, 2:] = 45.0
+        layered["clay_content"] = self._layered(profile)
+        result = _acm_gpp_et(**layered)
+        assert result["canopy_gpp_daily"].dims == ("time", "pixel")
+        assert not np.array_equal(
+            result["weighted_soil_water_potential_daily"].values,
+            seam_result["weighted_soil_water_potential_daily"].values,
+        )
+
+    def test_wrong_layer_count_is_refused(self, acm_inputs):
+        layered = dict(acm_inputs)
+        layered["clay_content"] = self._layered(np.repeat(CLAY[:, None], 3, axis=1))
+        with pytest.raises(ValueError, match="needs 1"):
+            _acm_gpp_et(**layered)
 
 
 def test_different_length_is_refused(acm_inputs, seam_result):
