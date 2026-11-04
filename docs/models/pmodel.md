@@ -216,7 +216,7 @@ Required when `method_arrhenius = "kattge_knorr"`.
       show_bases: false
       members: false
 
-None of these are the units SGAM consumes.
+GPP and LUE are not in the units SGAM consumes.
 `recipes/config.toml` defines `gpp_weekly` and `lue_weekly` as bridge nodes for that purpose, where the conversion factor is visible rather than buried in a wrapper.
 iWUE needs no bridge, because `pyrealm` and SGAM agree on µmol mol⁻¹.
 

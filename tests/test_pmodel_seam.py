@@ -26,7 +26,7 @@ import pyrealm.pmodel
 import pytest
 import xarray as xr
 
-from satterc.models.pmodel import _pmodel
+from satterc.models.pmodel import _OUTPUT_ATTRIBUTES, _pmodel
 
 N_WEEKS = 52
 N_PIXELS = 3
@@ -127,11 +127,7 @@ def _reference_loop(inputs: dict) -> dict[str, np.ndarray]:
         for name, da in inputs["extra_inputs"].items()
     }
 
-    per_pixel: dict[str, list] = {
-        "gpp_flux_weekly": [],
-        "lue_photon_weekly": [],
-        "iwue_weekly": [],
-    }
+    per_pixel: dict[str, list] = {name: [] for name in _OUTPUT_ATTRIBUTES}
     for i in range(N_PIXELS):
         env = pyrealm.pmodel.PModelEnvironment(
             tc=col("temperature_weekly", i),
@@ -149,9 +145,8 @@ def _reference_loop(inputs: dict) -> dict[str, np.ndarray]:
             method_arrhenius=inputs["method_arrhenius"],
             method_jmaxlim=inputs["method_jmaxlim"],
         )
-        per_pixel["gpp_flux_weekly"].append(np.nan_to_num(model.gpp, nan=0.0))
-        per_pixel["lue_photon_weekly"].append(np.nan_to_num(model.lue, nan=0.0))
-        per_pixel["iwue_weekly"].append(np.nan_to_num(model.iwue, nan=0.0))
+        for name, attribute in _OUTPUT_ATTRIBUTES.items():
+            per_pixel[name].append(getattr(model, attribute))
 
     return {name: np.column_stack(cols) for name, cols in per_pixel.items()}
 
@@ -167,9 +162,7 @@ class TestRegression:
     def reference(self, pmodel_inputs) -> dict:
         return _reference_loop(pmodel_inputs)
 
-    @pytest.mark.parametrize(
-        "name", ["gpp_flux_weekly", "lue_photon_weekly", "iwue_weekly"]
-    )
+    @pytest.mark.parametrize("name", _OUTPUT_ATTRIBUTES)
     def test_matches_reference_loop(self, seam_result, reference, name):
         np.testing.assert_allclose(
             seam_result[name].transpose("time", "pixel").values, reference[name]
@@ -208,7 +201,7 @@ class TestStrategyCStaysOpen:
         chunked_inputs = {key: chunk(val) for key, val in pmodel_inputs.items()}
         chunked = _pmodel(**chunked_inputs)
 
-        for name in ["gpp_flux_weekly", "lue_photon_weekly", "iwue_weekly"]:
+        for name in _OUTPUT_ATTRIBUTES:
             out = chunked[name].compute().transpose("time", "pixel").values
             np.testing.assert_allclose(
                 out, eager[name].transpose("time", "pixel").values

@@ -52,7 +52,7 @@ from pyrealm_cases import (
     summarize,
 )
 
-from satterc.models.pmodel import PModelOut, _pmodel
+from satterc.models.pmodel import _OUTPUT_ATTRIBUTES, PModelOut, _pmodel
 from satterc.models.splash import SplashOut, _splash
 
 GOLDEN_PATH = Path(__file__).parent / "data" / "pyrealm_golden.json"
@@ -216,14 +216,13 @@ class TestUpstreamUnitMetadata:
         declared = declared_pmodel_inputs()["mean_growth_temperature"]
         assert declared == BOUNDS_DISAGREES_WITH_DOCSTRING["mean_growth_temperature"][1]
 
-    @pytest.mark.parametrize(
-        ("field", "variable"),
-        [
-            ("gpp_flux_weekly", "gpp"),
-            ("lue_photon_weekly", "lue"),
-            ("iwue_weekly", "iwue"),
-        ],
-    )
+    def test_pmodel_returns_every_declared_output(self):
+        """An output pyrealm adds upstream fails here until the wrapper returns it."""
+        declared = {name for name, _ in pyrealm.pmodel.PModel._data_attributes}
+        assert set(_OUTPUT_ATTRIBUTES.values()) == declared
+        assert set(_OUTPUT_ATTRIBUTES) == set(declared_units(PModelOut))
+
+    @pytest.mark.parametrize(("field", "variable"), _OUTPUT_ATTRIBUTES.items())
     def test_pmodel_output_units(self, field, variable):
         """The check that catches an upstream output-unit change outright."""
         attributes = getattr(pyrealm.pmodel.PModel, "_data_attributes", None)
@@ -523,9 +522,7 @@ class TestGoldenValues:
                 f"and not a bug in satterc. {REGENERATE_HINT}"
             )
 
-    @pytest.mark.parametrize(
-        "field", ["gpp_flux_weekly", "lue_photon_weekly", "iwue_weekly"]
-    )
+    @pytest.mark.parametrize("field", _OUTPUT_ATTRIBUTES)
     @pytest.mark.parametrize("statistic", ["mean", "std", "min", "max"])
     def test_pmodel_outputs(self, golden, pmodel_result, field, statistic):
         expected = golden["pmodel"]["outputs"][field][statistic]

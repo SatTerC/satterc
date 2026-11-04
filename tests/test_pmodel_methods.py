@@ -18,7 +18,7 @@ from pyrealm.pmodel.optimal_chi import OPTIMAL_CHI_CLASS_REGISTRY
 from pyrealm.pmodel.quantum_yield import QUANTUM_YIELD_CLASS_REGISTRY
 from xarray_annotated import unwrap_annotated
 
-from satterc.models.pmodel import pmodel_config
+from satterc.models.pmodel import _OUTPUT_ATTRIBUTES, pmodel_config
 
 MODULE = "satterc.models.pmodel"
 
@@ -151,6 +151,23 @@ def test_defaults_need_no_extra_inputs():
 
     dr = build_driver([MODULE], {})
     assert _required_inputs(dr) == CORE_INPUTS
+
+
+def test_arrhenius_method_changes_only_the_standard_temperature_rates():
+    """``method_arrhenius`` reaches `vcmax25_weekly` and `jmax25_weekly`, nothing else."""
+
+    def run(method):
+        dr = build_driver([MODULE], {"method_arrhenius": method})
+        inputs = {name: INPUTS[name] for name in _required_inputs(dr)}
+        return dr.execute(  # type: ignore[reportArgumentType]
+            list(_OUTPUT_ATTRIBUTES), inputs=inputs
+        )
+
+    simple, kattge_knorr = run("simple"), run("kattge_knorr")
+    scaled = {"vcmax25_weekly", "jmax25_weekly"}
+    for name in _OUTPUT_ATTRIBUTES:
+        same = np.allclose(simple[name].values, kattge_knorr[name].values)
+        assert same == (name not in scaled), name
 
 
 @pytest.mark.parametrize("method", list(JMAX_LIMITATION_CLASS_REGISTRY))

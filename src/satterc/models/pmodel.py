@@ -1,9 +1,10 @@
 """
 Satterc-compatable interface to PyRealm's 'P-model'.
 
-This module provides the pmodel node, which wraps the pyrealm P-Model
-to calculate gross primary productivity (GPP), light use efficiency (LUE),
-and intrinsic water use efficiency (IWUE) from environmental inputs.
+This module provides the pmodel node, which wraps the pyrealm P-Model and returns
+every output pyrealm declares: gross primary productivity (GPP), light use efficiency
+(LUE), intrinsic water use efficiency (IWUE), Vcmax and Jmax at growth and standard
+temperature, and stomatal conductance.
 
 Some of pyrealm's methods need inputs beyond the core drivers. Each method axis
 that has any such method gets an ``<axis>_inputs`` node, defined once per set of
@@ -49,6 +50,35 @@ class PModelOut(TypedDict):
 
     pyrealm computes ``(5/8)(ca - ci) / P`` with the partial pressures in Pa and
     ``P`` in megapascals, so this is a mixing ratio rather than a pressure."""
+    vcmax_weekly: Annotated[DataArray, "umol m-2 s-1", WEEKLY]
+    """Maximum rate of carboxylation at the growth temperature."""
+    vcmax25_weekly: Annotated[DataArray, "umol m-2 s-1", WEEKLY]
+    """Maximum rate of carboxylation at 25 degC, scaled from Vcmax by
+    ``method_arrhenius``."""
+    jmax_weekly: Annotated[DataArray, "umol m-2 s-1", WEEKLY]
+    """Maximum rate of electron transport at the growth temperature."""
+    jmax25_weekly: Annotated[DataArray, "umol m-2 s-1", WEEKLY]
+    """Maximum rate of electron transport at 25 degC, scaled from Jmax by
+    ``method_arrhenius``."""
+    gs_weekly: Annotated[DataArray, "umol m-2 s-1", WEEKLY]
+    """Stomatal conductance, NaN where VPD is 0 or ``ca - ci`` is not positive.
+
+    The units are the ones pyrealm declares. pyrealm computes this as
+    ``A_c / (ca - ci)`` with the partial pressures in Pa, which is dimensionally
+    also per pascal."""
+
+
+#: `PModelOut` field -> the `pyrealm.pmodel.PModel` attribute holding it.
+_OUTPUT_ATTRIBUTES = {
+    "gpp_flux_weekly": "gpp",
+    "lue_photon_weekly": "lue",
+    "iwue_weekly": "iwue",
+    "vcmax_weekly": "vcmax",
+    "vcmax25_weekly": "vcmax25",
+    "jmax_weekly": "jmax",
+    "jmax25_weekly": "jmax25",
+    "gs_weekly": "gs",
+}
 
 
 def _pmodel_block(
@@ -64,7 +94,7 @@ def _pmodel_block(
     method_jmaxlim: str,
     method_kphio: str,
     method_arrhenius: str,
-) -> tuple[NDArray, NDArray, NDArray]:
+) -> tuple[NDArray, ...]:
     """Run the P-Model on a whole numpy block (element-wise over every cell).
 
     pyrealm's P-Model is vectorised over the spatial axis, so this kernel runs on the
@@ -72,9 +102,9 @@ def _pmodel_block(
     ``extra_values`` are the method-dependent inputs, passed positionally because
     `xarray.apply_ufunc` only maps over positional arguments, and named by
     ``extra_names`` in the same order.
-    Returns ``(gpp, lue, iwue)`` arrays matching the input shape, ordered as the fields
-    of `PModelOut`, in pyrealm's own units. Nothing is rescaled here. This is the
-    unit mapped over the block by `_pmodel` via `xarray.apply_ufunc`.
+    Returns one array per entry of `_OUTPUT_ATTRIBUTES`, in that order, matching the
+    input shape, in pyrealm's own units. Nothing is rescaled here. This is the unit
+    mapped over the block by `_pmodel` via `xarray.apply_ufunc`.
     """
     # Typed `Any` because pyrealm takes these through `**kwargs`, alongside
     # keyword arguments of other types that a `dict[str, NDArray]` would clash with.
@@ -98,7 +128,7 @@ def _pmodel_block(
         method_jmaxlim=method_jmaxlim,
     )
 
-    return model.gpp, model.lue, model.iwue
+    return tuple(getattr(model, name) for name in _OUTPUT_ATTRIBUTES.values())
 
 
 def _pmodel(
@@ -136,7 +166,8 @@ def _pmodel(
         extra_inputs[name].broadcast_like(temperature_weekly) for name in extra_names
     ]
 
-    gpp, lue, iwue = xr.apply_ufunc(
+    n_outputs = len(_OUTPUT_ATTRIBUTES)
+    outputs = xr.apply_ufunc(
         _pmodel_block,
         temperature_weekly,
         vpd_weekly,
@@ -152,18 +183,11 @@ def _pmodel(
             "method_kphio": method_kphio,
             "method_arrhenius": method_arrhenius,
         },
-        output_core_dims=[[], [], []],
+        output_core_dims=[[]] * n_outputs,
         dask="parallelized",
-        output_dtypes=[float, float, float],
+        output_dtypes=[float] * n_outputs,
     )
-    return cast(
-        PModelOut,
-        {
-            "gpp_flux_weekly": gpp,
-            "lue_photon_weekly": lue,
-            "iwue_weekly": iwue,
-        },
-    )
+    return cast(PModelOut, dict(zip(_OUTPUT_ATTRIBUTES, outputs, strict=True)))
 
 
 class PModelConfig(TypedDict):
@@ -214,7 +238,8 @@ def pmodel_config(
         ``temperature``, ``fixed`` or ``sandoval``. ``sandoval`` needs
         climatological inputs; see `kphio_inputs__sandoval`.
     method_arrhenius
-        Arrhenius temperature scaling: ``simple`` or ``kattge_knorr``.
+        Arrhenius temperature scaling of ``vcmax25_weekly`` and ``jmax25_weekly``,
+        the only outputs it affects: ``simple`` or ``kattge_knorr``.
         ``kattge_knorr`` needs the mean growth temperature; see
         `arrhenius_inputs__kattge_knorr`.
 
@@ -246,7 +271,7 @@ def pmodel(
     arrhenius_inputs: dict[str, DataArray],
     pmodel_config: PModelConfig,
 ) -> PModelOut:
-    """Run the P-Model to calculate GPP, LUE, and IWUE.
+    """Run the P-Model, returning every output pyrealm declares.
 
     Parameters
     ----------
@@ -283,6 +308,11 @@ def pmodel(
         - lue_photon_weekly: light use efficiency (grams of carbon per mole of
           absorbed photons)
         - iwue_weekly: intrinsic water use efficiency (micromoles per mole)
+        - vcmax_weekly, vcmax25_weekly: maximum carboxylation rate at the growth
+          temperature and at 25 degC (micromoles per square metre per second)
+        - jmax_weekly, jmax25_weekly: maximum electron transport rate at the growth
+          temperature and at 25 degC (micromoles per square metre per second)
+        - gs_weekly: stomatal conductance
 
         See `PModelOut` for per-output detail.
     """
@@ -426,7 +456,8 @@ def mean_growth_temperature(
 
     The mean is taken over the whole record, not a rolling window, and over days
     above 0 degC only. A pixel that never rises above 0 degC over the record
-    yields NaN, which propagates through kphio into GPP.
+    yields NaN. Under ``sandoval`` that propagates through kphio into GPP; under
+    ``kattge_knorr`` it reaches only ``vcmax25`` and ``jmax25``.
 
     Parameters
     ----------

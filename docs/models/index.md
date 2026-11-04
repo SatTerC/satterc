@@ -19,7 +19,7 @@ soil_moisture_init_max_iter = 10
 | Model | Description | Temporal resolution |
 |-------|-------------|---------------------|
 | [SPLASH](splash.md) | Semi-empirical water-balance model that computes actual evapotranspiration, soil moisture, and runoff from daily climate data | Daily |
-| [P-model](pmodel.md) | Optimality-based photosynthesis model that computes gross primary production (GPP), light-use efficiency and intrinsic water-use efficiency from environmental drivers | Weekly |
+| [P-model](pmodel.md) | Optimality-based photosynthesis model that computes gross primary production (GPP), light-use efficiency, intrinsic water-use efficiency, photosynthetic capacity (Vcmax, Jmax) and stomatal conductance from environmental drivers | Weekly |
 | [SGAM](sgam.md) | Simplified Growth and Allocation Model: tracks carbon pools (leaf, stem, root, litter) over time | Weekly |
 | [RothC](rothc.md) | Soil carbon decomposition model that simulates the turnover of organic matter in soil, producing soil organic carbon stocks | Monthly |
 
