@@ -1,10 +1,10 @@
 """Every pyrealm P-Model method gets exactly the extra inputs it declares.
 
 `satterc.models.pmodel` selects an ``<axis>_inputs`` variant per configured method,
-from a hand-written grouping of methods by what they need. pyrealm declares the same
-thing on each method class (``requires``, or ``required_env_variables`` for the
-Arrhenius classes). These tests hold the grouping to those declarations, so a method
-added or changed upstream fails here instead of in a pipeline run.
+grouping methods by what pyrealm declares they need on each method class (``requires``,
+or ``required_env_variables`` for the Arrhenius classes). A new method with a known
+requirement set joins its group by itself. These tests catch one whose set has no
+variant, so that fails here instead of in a pipeline run.
 """
 
 import subprocess

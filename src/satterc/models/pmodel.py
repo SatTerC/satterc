@@ -14,6 +14,7 @@ extra inputs keyed by their pyrealm ``PModelEnvironment`` argument names, and
 `pmodel` passes the union through.
 """
 
+from collections.abc import Mapping
 from typing import Annotated, Any, TypedDict, cast
 
 import pyrealm.pmodel
@@ -21,6 +22,9 @@ import xarray as xr
 from conduit.io import sole_time_dim
 from hamilton.function_modifiers import config, extract_fields
 from numpy.typing import NDArray
+from pyrealm.pmodel.arrhenius import ARRHENIUS_METHOD_REGISTRY
+from pyrealm.pmodel.optimal_chi import OPTIMAL_CHI_CLASS_REGISTRY
+from pyrealm.pmodel.quantum_yield import QUANTUM_YIELD_CLASS_REGISTRY
 from xarray import DataArray
 from xarray_annotated.temporal import declare_freq
 from xarray_annotated.units import declare_units
@@ -342,20 +346,38 @@ def pmodel(
     )
 
 
-# Methods that need inputs beyond the core drivers, grouped by what they need.
-# A method in none of these gets the empty `<axis>_inputs__none` variant, and so
-# does an unset key: the config's defaults live on `pmodel_config`, which
-# `config.when` cannot see, so this only holds while every default method needs
-# nothing extra. `tests/test_pmodel_methods.py` checks these groups against
-# pyrealm's own `requires` declarations, and checks that invariant.
-_OPTCHI_THETA = ("lavergne20_c3", "lavergne20_c4")
-_OPTCHI_ROOTZONESTRESS = (
-    "prentice14_rootzonestress",
-    "c4_rootzonestress",
-    "c4_no_gamma_rootzonestress",
+def _methods_requiring(
+    registry: Mapping[str, type], attribute: str, *requirements: str
+) -> tuple[str, ...]:
+    """Select the methods in a pyrealm registry declaring exactly these requirements."""
+    # No getattr default: if pyrealm renames the attribute, fail on import rather
+    # than read every method as needing nothing.
+    return tuple(
+        method
+        for method, cls in registry.items()
+        if getattr(cls, attribute) == list(requirements)
+    )
+
+
+# Methods that need inputs beyond the core drivers, grouped by what they need, as
+# pyrealm declares it. A method in none of these gets the empty
+# `<axis>_inputs__none` variant, and so does an unset key: the config's defaults live
+# on `pmodel_config`, which `config.when` cannot see, so this only holds while every
+# default method needs nothing extra. `tests/test_pmodel_methods.py` checks that
+# invariant, and fails on a requirement set that has no variant here.
+_OPTCHI_THETA = _methods_requiring(OPTIMAL_CHI_CLASS_REGISTRY, "requires", "theta")
+_OPTCHI_ROOTZONESTRESS = _methods_requiring(
+    OPTIMAL_CHI_CLASS_REGISTRY, "requires", "rootzonestress"
 )
-_KPHIO_SANDOVAL = ("sandoval",)
-_ARRHENIUS_KATTGE_KNORR = ("kattge_knorr",)
+_KPHIO_SANDOVAL = _methods_requiring(
+    QUANTUM_YIELD_CLASS_REGISTRY,
+    "requires",
+    "aridity_index",
+    "mean_growth_temperature",
+)
+_ARRHENIUS_KATTGE_KNORR = _methods_requiring(
+    ARRHENIUS_METHOD_REGISTRY, "required_env_variables", "mean_growth_temperature"
+)
 
 
 @config.when_not_in(method_optchi=[*_OPTCHI_THETA, *_OPTCHI_ROOTZONESTRESS])
