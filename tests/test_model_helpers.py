@@ -433,10 +433,8 @@ class TestPmodelDriverExecution:
         # 364 days = exactly 52 weeks: ensures the daily→weekly resample produces
         # 52 time steps matching the provided weekly arrays.
         n_weeks = 52
-        n_days = 364
         n_pixels = 1
         time_weekly = pd.date_range("2020-01-01", periods=n_weeks, freq="7D")
-        time_daily = pd.date_range("2020-01-01", periods=n_days, freq="D")
         pixel = np.arange(n_pixels)
 
         def _wda(v):
@@ -459,18 +457,11 @@ class TestPmodelDriverExecution:
             ["gpp_flux_weekly", "lue_photon_weekly", "iwue_weekly"],
             inputs={
                 "temperature_weekly": _wda(15.0),
-                "temperature_daily": xr.DataArray(
-                    np.full((n_days, n_pixels), 15.0),
-                    dims=["time", "pixel"],
-                    coords={"time": time_daily, "pixel": pixel},
-                ),
                 "vpd_weekly": _wda(1000.0),
                 "co2_weekly": _wda(400.0),
                 "pressure_weekly": _wda(101325.0),
                 "fapar_weekly": _wda(0.5),
                 "ppfd_weekly": _wda(500.0),
-                "aridity_index": _wda(0.5),
-                "volumetric_water_content_weekly": _wda(0.3),
             },
         )
         gpp = result["gpp_flux_weekly"]
