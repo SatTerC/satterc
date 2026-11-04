@@ -93,6 +93,9 @@ _OUTPUT_FIELDS = (
     *_FLUX_ATTRIBUTES,
 )
 
+#: Elevations beyond these are not land surface, so are likely an undeclared fill value.
+_PLAUSIBLE_ELEVATION_M = (-500.0, 9000.0)
+
 #: How many pixels an error or warning lists before truncating.
 _MAX_PIXELS_NAMED = 10
 
@@ -248,6 +251,16 @@ def _splash_block(
     valid = ~masked
     if not valid.any():
         return tuple(outputs)
+
+    low, high = _PLAUSIBLE_ELEVATION_M
+    implausible = valid & ((statics[0] < low) | (statics[0] > high))
+    if implausible.any():
+        warnings.warn(
+            f"Elevation is outside {low:g} to {high:g} m in "
+            f"{_describe_pixels(pixel_labels[implausible])}, which suggests an "
+            "undeclared fill value. SPLASH will still use these values.",
+            stacklevel=2,
+        )
 
     sf, tc, pn = climate[:, :, valid]
     elv, lat, capacity = statics[:3, valid]
@@ -461,7 +474,8 @@ def splash(
     precipitation_daily
         Precipitation (millimetres per day).
     elevation
-        Elevation of the site (metres).
+        Elevation of the site (metres). Values outside -500 to 9000 warn, as they
+        suggest an undeclared fill value.
     latitude
         Latitude of the site (degrees).
     max_soil_moisture

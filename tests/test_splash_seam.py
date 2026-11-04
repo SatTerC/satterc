@@ -450,6 +450,19 @@ class TestInvalidPixels:
         with pytest.raises(RuntimeError, match="did not converge"):
             _splash(**inputs)
 
+    def test_fill_value_elevation_warns_naming_the_pixel(self, splash_inputs):
+        inputs = dict(splash_inputs)
+        inputs["elevation"] = _static(np.array([50.0, -9999.0, 2000.0]))
+        with pytest.warns(UserWarning, match=r"Elevation.*1 pixel\(s\) \(1\)"):
+            _splash(**inputs)
+
+    @pytest.mark.parametrize("elevation", [-430.0, 0.0, 8800.0])
+    def test_real_elevations_do_not_warn(self, splash_inputs, elevation, recwarn):
+        inputs = dict(splash_inputs)
+        inputs["elevation"] = _static(np.full(N_PIXELS, elevation))
+        _splash(**inputs)
+        assert not [w for w in recwarn if "Elevation" in str(w.message)]
+
 
 class TestConsecutiveDays:
     """pyrealm steps by position, so a gap in the calendar must not reach it."""
