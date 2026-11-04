@@ -174,6 +174,7 @@ def get_model_config(model_name: str) -> dict[str, Any]:
                 for p in inspect.signature(func).parameters.values()
                 if p.kind == inspect.Parameter.KEYWORD_ONLY
                 and p.default is not inspect.Parameter.empty
+                and p.default is not None  # TOML has no null; unset means default
             }
         )
     return settings

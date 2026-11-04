@@ -52,7 +52,7 @@ from pyrealm_cases import (
     summarize,
 )
 
-from satterc.models.pmodel import PModelOut, _pmodel
+from satterc.models.pmodel import _OUTPUT_ATTRIBUTES, PModelOut, _pmodel
 from satterc.models.splash import SplashOut, _splash
 
 GOLDEN_PATH = Path(__file__).parent / "data" / "pyrealm_golden.json"
@@ -114,6 +114,33 @@ def bounds() -> dict:
     return data
 
 
+def declared_pmodel_inputs() -> dict[str, str]:
+    """Units declared for every P-Model input, across `pmodel` and its input nodes.
+
+    The method-dependent inputs sit on the ``<axis>_inputs`` variants, not on
+    `pmodel`. Two variants can declare the same input, and must agree on it.
+    """
+    from xarray_annotated.units import units_from_signature
+
+    from satterc.models import pmodel as pmodel_module
+
+    nodes = [
+        pmodel_module.pmodel,
+        pmodel_module.optchi_inputs__theta,
+        pmodel_module.optchi_inputs__rootzonestress,
+        pmodel_module.kphio_inputs__sandoval,
+        pmodel_module.arrhenius_inputs__kattge_knorr,
+    ]
+    declared: dict[str, str] = {}
+    for node in nodes:
+        for argument, unit in units_from_signature(node)[0].items():
+            assert declared.setdefault(argument, unit) == unit, (
+                f"{node.__name__} declares {argument!r} as {unit!r}, but another "
+                f"P-Model node declares it as {declared[argument]!r}."
+            )
+    return declared
+
+
 # Each entry maps a satterc node argument to the pyrealm variable it becomes.
 PMODEL_INPUT_UNITS = [
     ("temperature_weekly", "tc"),
@@ -123,6 +150,7 @@ PMODEL_INPUT_UNITS = [
     ("fapar_weekly", "fapar"),
     ("ppfd_weekly", "ppfd"),
     ("volumetric_water_content_weekly", "theta"),
+    ("rootzonestress_weekly", "rootzonestress"),
     ("aridity_index", "aridity_index"),
 ]
 
@@ -149,12 +177,7 @@ class TestUpstreamUnitMetadata:
 
     @pytest.mark.parametrize(("argument", "variable"), PMODEL_INPUT_UNITS)
     def test_pmodel_input_units(self, bounds, argument, variable):
-        from xarray_annotated.units import units_from_signature
-
-        from satterc.models import pmodel as pmodel_module
-
-        declared_inputs, _ = units_from_signature(pmodel_module.pmodel)
-        declared = declared_inputs[argument]
+        declared = declared_pmodel_inputs()[argument]
         expected = normalise(bounds[variable].unit)
         assert declared == expected, (
             f"pmodel declares {argument!r} as {declared!r}, but pyrealm "
@@ -190,22 +213,16 @@ class TestUpstreamUnitMetadata:
             )
 
     def test_mean_growth_temperature_follows_the_docstring(self):
-        from xarray_annotated.units import units_from_signature
-
-        from satterc.models import pmodel as pmodel_module
-
-        declared_inputs, _ = units_from_signature(pmodel_module.pmodel)
-        declared = declared_inputs["mean_growth_temperature"]
+        declared = declared_pmodel_inputs()["mean_growth_temperature"]
         assert declared == BOUNDS_DISAGREES_WITH_DOCSTRING["mean_growth_temperature"][1]
 
-    @pytest.mark.parametrize(
-        ("field", "variable"),
-        [
-            ("gpp_flux_weekly", "gpp"),
-            ("lue_photon_weekly", "lue"),
-            ("iwue_weekly", "iwue"),
-        ],
-    )
+    def test_pmodel_returns_every_declared_output(self):
+        """An output pyrealm adds upstream fails here until the wrapper returns it."""
+        declared = {name for name, _ in pyrealm.pmodel.PModel._data_attributes}
+        assert set(_OUTPUT_ATTRIBUTES.values()) == declared
+        assert set(_OUTPUT_ATTRIBUTES) == set(declared_units(PModelOut))
+
+    @pytest.mark.parametrize(("field", "variable"), _OUTPUT_ATTRIBUTES.items())
     def test_pmodel_output_units(self, field, variable):
         """The check that catches an upstream output-unit change outright."""
         attributes = getattr(pyrealm.pmodel.PModel, "_data_attributes", None)
@@ -256,7 +273,7 @@ class TestUpstreamApiNames:
         parameters = inspect.signature(pyrealm.pmodel.PModelEnvironment).parameters
         explicit = {"tc", "vpd", "co2", "patm", "fapar", "ppfd"}
         assert explicit <= set(parameters)
-        # theta / mean_growth_temperature / aridity_index arrive via **kwargs,
+        # The method-dependent inputs arrive via **kwargs,
         # so the signature cannot vouch for them; the bounds table can.
         assert any(p.kind is inspect.Parameter.VAR_KEYWORD for p in parameters.values())
 
@@ -505,9 +522,7 @@ class TestGoldenValues:
                 f"and not a bug in satterc. {REGENERATE_HINT}"
             )
 
-    @pytest.mark.parametrize(
-        "field", ["gpp_flux_weekly", "lue_photon_weekly", "iwue_weekly"]
-    )
+    @pytest.mark.parametrize("field", _OUTPUT_ATTRIBUTES)
     @pytest.mark.parametrize("statistic", ["mean", "std", "min", "max"])
     def test_pmodel_outputs(self, golden, pmodel_result, field, statistic):
         expected = golden["pmodel"]["outputs"][field][statistic]

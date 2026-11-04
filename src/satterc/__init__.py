@@ -33,13 +33,6 @@ warnings.filterwarnings(
 #    method_kphio so the default does not affect our results.
 warnings.filterwarnings(
     "ignore",
-    message=".*Pyrealm 2\\.0\\.0 uses a new default.*",
+    message="\\s*Pyrealm 2\\.0\\.0 uses a new default",
     category=UserWarning,
-)
-# 3. ExperimentalFeatureWarning — we knowingly use QuantumYieldSandoval (method_kphio
-#    = "sandoval") and accept the experimental API risk.
-warnings.filterwarnings(
-    "ignore",
-    category=Warning,
-    module="pyrealm",
 )

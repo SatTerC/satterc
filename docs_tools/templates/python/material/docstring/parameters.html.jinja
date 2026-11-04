@@ -7,6 +7,10 @@ reads ``Annotated[DataArray, 'mm d-1', DAILY]``. This unwraps it to
 ``DataArray, mm d-1, DAILY`` and relabels the line, which is otherwise the
 stock block. Only the `spacy` style is overridden, so the API reference pages
 keep their `list` rendering.
+
+A page can drop rows by listing parameter names under
+``extra: {hide_parameters: [...]}``, for parameters that are pipeline wiring
+rather than inputs a user supplies.
 -#}
 
 {% import "language.html.jinja" as lang with context %}
@@ -21,7 +25,7 @@ keep their `list` rendering.
       </tr>
     </thead>
     <tbody>
-      {% for parameter in section.value %}
+      {% for parameter in section.value if parameter.name not in config.extra.get("hide_parameters", []) %}
         <tr class="doc-section-item">
           <td><code>{{ parameter.name }}</code></td>
           <td class="doc-param-details">

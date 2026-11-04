@@ -154,6 +154,10 @@ class TestGenerateConfigBuiltinModels:
         assert "pmodel" in config._data
         assert "_import_path" not in config._data["pmodel"]
 
+    def test_unset_settings_stay_out_of_the_config(self):
+        # TOML has no null, so a setting defaulting to None cannot be written.
+        assert "reference_kphio" not in get_model_config("pmodel")
+
     def test_static_input_section_opts_out_of_suffix(self):
         # Static variables are consumed under bare names, so the generated
         # section must override conduit's default `_<label>` node-name suffix.

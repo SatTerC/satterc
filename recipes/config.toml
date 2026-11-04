@@ -81,6 +81,8 @@ vars = [
 # demand over supply, so above 1 is water-limited. Both accumulate over the whole
 # record, giving one value per pixel rather than a time series -- which is what
 # "climatological" means, and what the sandoval quantum-yield method expects.
+# Only that method consumes it: with the `method_kphio` above it goes unused,
+# and is here so that switching to sandoval needs no new node.
 #
 # PET, not AET: AET is what the soil actually gave up, so P/AET would be close to
 # 1 by construction wherever water limits evaporation, which is exactly the
@@ -95,9 +97,9 @@ expression = """(
 )"""
 units = "1"  # ratio of two mm totals -> dimensionless
 
-# Both the P-model (as pyrealm's `theta`) and SGAM (against the PFT's
-# `wilting_point`/`field_capacity`) want volumetric water content (m3 m-3): the
-# fraction of soil volume that is water. SPLASH reports something different -- a
+# SGAM (against the PFT's `wilting_point`/`field_capacity`) wants volumetric water
+# content (m3 m-3): the fraction of soil volume that is water. So does the P-model
+# (as pyrealm's `theta`), but only with a `lavergne20` `method_optchi`. SPLASH reports something different -- a
 # depth of water, in mm, held in a bucket of capacity `max_soil_moisture`. So
 # soil_moisture / max_soil_moisture is relative saturation (0-1), and multiplying
 # by porosity turns that into a volume fraction.

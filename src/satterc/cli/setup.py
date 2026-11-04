@@ -260,7 +260,7 @@ def setup(
         help="Use default values without interactive prompting.",
     ),
 ) -> None:
-    """Generate a configuration file for SatTerC."""
+    """Generate a configuration file for SatTerC (experimental)."""
     if defaults and models is None:
         raise typer.BadParameter("--defaults requires --models to be specified")
 
