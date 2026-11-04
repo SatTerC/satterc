@@ -226,7 +226,9 @@ def pmodel_config(
     Each setting selects one of pyrealm's alternative formulations; the
     accepted values are pyrealm's, and the
     [pyrealm P-model documentation](https://pyrealm.readthedocs.io/en/latest/users/pmodel/module_overview.html)
-    is the authoritative list.
+    is the authoritative list. pyrealm's own warnings reach you unfiltered: it
+    warns that some of these methods are experimental, and recommends ``simple``
+    over the other ``method_arrhenius`` choices.
 
     Parameters
     ----------

@@ -7,6 +7,8 @@ Arrhenius classes). These tests hold the grouping to those declarations, so a me
 added or changed upstream fails here instead of in a pipeline run.
 """
 
+import subprocess
+import sys
 from typing import Any
 
 import numpy as np
@@ -208,6 +210,40 @@ def test_reference_kphio_reaches_pyrealm(method_kphio):
 
     default = pyrealm.pmodel.PModel(env=env, method_kphio=method_kphio)
     assert not np.allclose(direct.gpp, default.gpp)
+
+
+@pytest.mark.parametrize(
+    ("kwargs", "env_extra", "expected"),
+    [
+        (
+            'method_arrhenius="kattge_knorr"',
+            "mean_growth_temperature=one * 15.0",
+            "strongly recommend",
+        ),
+        (
+            'method_optchi="prentice14_rootzonestress"',
+            "rootzonestress=one * 0.7",
+            "ExperimentalFeatureWarning",
+        ),
+    ],
+)
+def test_pyrealm_warnings_survive_importing_satterc(kwargs, env_extra, expected):
+    """Run outside pytest, which replaces the filters `satterc` installs on import."""
+    script = f"""
+import numpy as np
+import satterc
+from pyrealm.pmodel import PModel, PModelEnvironment
+one = np.ones(2)
+env = PModelEnvironment(
+    tc=one * 15, vpd=one * 1000, co2=one * 400, patm=one * 101325, {env_extra}
+)
+PModel(env, {kwargs})
+"""
+    result = subprocess.run(
+        [sys.executable, "-c", script], capture_output=True, text=True, check=True
+    )
+    assert expected in result.stderr
+    assert "Pyrealm 2.0.0" not in result.stderr
 
 
 @pytest.mark.parametrize("method", list(JMAX_LIMITATION_CLASS_REGISTRY))
