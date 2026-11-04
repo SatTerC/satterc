@@ -680,9 +680,9 @@ class TestSplashExecution:
         assert isinstance(splash_result, dict)
 
     def test_output_keys(self, splash_result):
-        assert "actual_evapotranspiration_daily" in splash_result
-        assert "soil_moisture_daily" in splash_result
-        assert "runoff_daily" in splash_result
+        from satterc.models.splash import SplashOut
+
+        assert set(splash_result) == set(SplashOut.__annotations__)
 
     def test_aet_is_dataarray(self, splash_result):
         assert isinstance(

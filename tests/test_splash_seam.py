@@ -20,6 +20,8 @@ parameters.
    matches the uncached one.
 """
 
+from operator import attrgetter
+
 import numpy as np
 import pandas as pd
 import pyrealm.core.calendar
@@ -27,7 +29,7 @@ import pyrealm.splash.splash
 import pytest
 import xarray as xr
 
-from satterc.models.splash import _splash
+from satterc.models.splash import _FLUX_ATTRIBUTES, _OUTPUT_FIELDS, _splash
 
 N_DAYS = 366  # 2020 is a leap year; SPLASH needs a full year for spin-up
 N_PIXELS = 3
@@ -104,14 +106,8 @@ def _reference_block(inputs: dict) -> dict[str, np.ndarray]:
         "actual_evapotranspiration_daily": aet,
         "soil_moisture_daily": moisture,
         "runoff_daily": runoff,
+        **{name: attrgetter(a)(model) for name, a in _FLUX_ATTRIBUTES.items()},
     }
-
-
-_OUTPUT_NAMES = (
-    "actual_evapotranspiration_daily",
-    "soil_moisture_daily",
-    "runoff_daily",
-)
 
 
 class TestRegression:
@@ -125,7 +121,7 @@ class TestRegression:
     def reference(self, splash_inputs) -> dict:
         return _reference_block(splash_inputs)
 
-    @pytest.mark.parametrize("name", _OUTPUT_NAMES)
+    @pytest.mark.parametrize("name", _OUTPUT_FIELDS)
     def test_matches_reference(self, seam_result, reference, name):
         np.testing.assert_allclose(
             seam_result[name].transpose("time", "pixel").values, reference[name]
@@ -247,7 +243,7 @@ class TestStrategyCStaysOpen:
                 chunked_inputs[key] = val.chunk({"pixel": 1})
         chunked = _splash(**chunked_inputs)
 
-        for name in _OUTPUT_NAMES:
+        for name in _OUTPUT_FIELDS:
             out = chunked[name].compute().transpose("time", "pixel").values
             np.testing.assert_allclose(
                 out, eager[name].transpose("time", "pixel").values
