@@ -454,6 +454,13 @@ def arrhenius_inputs__kattge_knorr(
     return {"mean_growth_temperature": mean_growth_temperature}
 
 
+@config(
+    lambda cfg: (
+        cfg.get("method_kphio") in _KPHIO_SANDOVAL
+        or cfg.get("method_arrhenius") in _ARRHENIUS_KATTGE_KNORR
+    ),
+    config_used=["method_kphio", "method_arrhenius"],
+)
 @declare_units
 def mean_growth_temperature(
     temperature_daily: Annotated[DataArray, "degC", DAILY],

@@ -158,6 +158,22 @@ def test_defaults_need_no_extra_inputs():
     assert _required_inputs(dr) == CORE_INPUTS
 
 
+@pytest.mark.parametrize(
+    ("config", "derived"),
+    [
+        ({}, False),
+        ({"method_kphio": "sandoval"}, True),
+        ({"method_arrhenius": "kattge_knorr"}, True),
+        ({"method_kphio": "fixed", "method_arrhenius": "simple"}, False),
+    ],
+)
+def test_mean_growth_temperature_exists_only_for_its_consumers(config, derived):
+    """Without a consumer the node, and the daily input behind it, leave the DAG."""
+    names = {v.name for v in build_driver([MODULE], config).list_available_variables()}
+    assert ("mean_growth_temperature" in names) == derived
+    assert ("temperature_daily" in names) == derived
+
+
 def test_arrhenius_method_changes_only_the_standard_temperature_rates():
     """``method_arrhenius`` reaches `vcmax25_weekly` and `jmax25_weekly`, nothing else."""
 
