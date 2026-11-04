@@ -30,6 +30,13 @@ To skip the prompts:
 satterc setup --models splash --defaults
 ```
 
+/// admonition | `setup` is experimental
+    type: warning
+
+The command and the configs it generates may change. See the
+[CLI reference](../reference/cli.md#satterc-setup) for its current limitations.
+///
+
 This creates a `config.toml` file that looks like:
 
 ```toml
