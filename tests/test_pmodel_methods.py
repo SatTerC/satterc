@@ -7,8 +7,11 @@ Arrhenius classes). These tests hold the grouping to those declarations, so a me
 added or changed upstream fails here instead of in a pipeline run.
 """
 
+from typing import Any
+
 import numpy as np
 import pandas as pd
+import pyrealm.pmodel
 import pytest
 import xarray as xr
 from conduit import build_driver
@@ -168,6 +171,43 @@ def test_arrhenius_method_changes_only_the_standard_temperature_rates():
     for name in _OUTPUT_ATTRIBUTES:
         same = np.allclose(simple[name].values, kattge_knorr[name].values)
         assert same == (name not in scaled), name
+
+
+@pytest.mark.parametrize("method_kphio", ["temperature", "fixed", "sandoval"])
+def test_reference_kphio_reaches_pyrealm(method_kphio):
+    """The wrapper matches a direct pyrealm run given the same reference value."""
+    reference_kphio = 0.05
+    config = {"method_kphio": method_kphio, "reference_kphio": reference_kphio}
+    dr = build_driver([MODULE], config)
+    inputs = {name: INPUTS[name] for name in _required_inputs(dr)}
+    wrapped = dr.execute(  # type: ignore[reportArgumentType]
+        ["gpp_flux_weekly"], inputs=inputs
+    )["gpp_flux_weekly"]
+
+    extras: dict[str, Any] = (
+        {
+            "aridity_index": np.full((N_WEEKS, N_PIXELS), 1.0),
+            "mean_growth_temperature": np.full((N_WEEKS, N_PIXELS), 15.0),
+        }
+        if method_kphio == "sandoval"
+        else {}
+    )
+    env = pyrealm.pmodel.PModelEnvironment(
+        tc=INPUTS["temperature_weekly"].values,
+        vpd=INPUTS["vpd_weekly"].values,
+        co2=INPUTS["co2_weekly"].values,
+        patm=INPUTS["pressure_weekly"].values,
+        fapar=INPUTS["fapar_weekly"].values,
+        ppfd=INPUTS["ppfd_weekly"].values,
+        **extras,
+    )
+    direct = pyrealm.pmodel.PModel(
+        env=env, method_kphio=method_kphio, reference_kphio=reference_kphio
+    )
+    np.testing.assert_allclose(wrapped.values, direct.gpp)
+
+    default = pyrealm.pmodel.PModel(env=env, method_kphio=method_kphio)
+    assert not np.allclose(direct.gpp, default.gpp)
 
 
 @pytest.mark.parametrize("method", list(JMAX_LIMITATION_CLASS_REGISTRY))

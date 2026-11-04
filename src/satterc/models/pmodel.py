@@ -94,6 +94,7 @@ def _pmodel_block(
     method_jmaxlim: str,
     method_kphio: str,
     method_arrhenius: str,
+    reference_kphio: float | None = None,
 ) -> tuple[NDArray, ...]:
     """Run the P-Model on a whole numpy block (element-wise over every cell).
 
@@ -126,6 +127,7 @@ def _pmodel_block(
         method_kphio=method_kphio,
         method_arrhenius=method_arrhenius,
         method_jmaxlim=method_jmaxlim,
+        reference_kphio=reference_kphio,
     )
 
     return tuple(getattr(model, name) for name in _OUTPUT_ATTRIBUTES.values())
@@ -143,6 +145,7 @@ def _pmodel(
     method_jmaxlim: str,
     method_kphio: str,
     method_arrhenius: str,
+    reference_kphio: float | None = None,
 ) -> PModelOut:
     """Apply the P-Model to a ``(time, pixel)`` block via `xarray.apply_ufunc`.
 
@@ -182,6 +185,7 @@ def _pmodel(
             "method_jmaxlim": method_jmaxlim,
             "method_kphio": method_kphio,
             "method_arrhenius": method_arrhenius,
+            "reference_kphio": reference_kphio,
         },
         output_core_dims=[[]] * n_outputs,
         dask="parallelized",
@@ -201,6 +205,7 @@ class PModelConfig(TypedDict):
     method_jmaxlim: str
     method_kphio: str
     method_arrhenius: str
+    reference_kphio: float | None
 
 
 def pmodel_config(
@@ -209,6 +214,7 @@ def pmodel_config(
     method_jmaxlim: str = "wang17",
     method_kphio: str = "temperature",
     method_arrhenius: str = "simple",
+    reference_kphio: float | None = None,
 ) -> PModelConfig:
     """Collect the P-model settings from the pipeline config.
 
@@ -242,6 +248,9 @@ def pmodel_config(
         the only outputs it affects: ``simple`` or ``kattge_knorr``.
         ``kattge_knorr`` needs the mean growth temperature; see
         `arrhenius_inputs__kattge_knorr`.
+    reference_kphio
+        Reference value of the quantum yield efficiency, as one number for the
+        whole run. Unset, ``method_kphio`` uses pyrealm's default for that method.
 
     Returns
     -------
@@ -253,6 +262,7 @@ def pmodel_config(
         method_jmaxlim=method_jmaxlim,
         method_kphio=method_kphio,
         method_arrhenius=method_arrhenius,
+        reference_kphio=reference_kphio,
     )
 
 
