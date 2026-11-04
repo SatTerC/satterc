@@ -201,7 +201,6 @@ Required when `method_arrhenius = "kattge_knorr"`.
       show_root_heading: false
       show_root_toc_entry: false
       show_signature: false
-      show_docstring_description: false
       show_docstring_returns: false
       docstring_section_style: spacy
 
