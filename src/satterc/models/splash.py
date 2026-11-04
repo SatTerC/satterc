@@ -371,7 +371,8 @@ def splash(
     latitude
         Latitude of the site (degrees).
     max_soil_moisture
-        Maximum soil moisture capacity (millimetres).
+        Maximum soil moisture capacity (millimetres). Sets the runoff threshold and
+        scales the rate at which the soil supplies water for evaporation.
     soil_moisture_init_inputs
         Extra inputs for the configured ``soil_moisture_init_method``.
     splash_config

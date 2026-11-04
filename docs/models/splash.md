@@ -10,7 +10,7 @@ icon: lucide/droplet
 
 SPLASH (Simple Process-led Algorithms for Simulating Habitats) is a water balance model that estimates soil moisture, actual evapotranspiration (AET) and surface water runoff for sites.[^davis2017]
 
-The model takes an initial estimate of soil moisture, then uses time series of precipitation, temperature and cloud cover to track how the daily water balance changes with incoming precipitation, condensation and AET. Soil moisture, temperature and downwelling solar radiation at the site all feed into AET and condensation, which is why the site's elevation and latitude are required inputs.
+The model takes an initial estimate of soil moisture, then uses time series of precipitation, temperature and sunshine fraction to track how the daily water balance changes with incoming precipitation, condensation and AET. Soil moisture, temperature and downwelling solar radiation at the site all feed into AET and condensation, which is why the site's elevation and latitude are required inputs.
 
 We wrap the [NumPy-based `pyrealm` implementation](https://github.com/ImperialCollegeLondon/pyrealm) of SPLASH.
 The [pyrealm SPLASH documentation](https://pyrealm.readthedocs.io/en/latest/users/splash.html) is the authoritative source for the model theory.
@@ -43,7 +43,15 @@ $$
 R_{[t]} = \max\left(W_{n[t]} - W_m,\; 0\right), \qquad W_{n[t]} \leftarrow \min\left(W_{n[t]}, W_m\right)
 $$
 
-The maximum soil moisture capacity defaults to 150 mm but can be set on a per-site basis.
+The capacity also limits how fast the soil can supply water for evaporation, with supply rate $S_w = S_c W_{n[t-1]} / W_m$, where $S_c$ is 1.05 mm·h⁻¹.
+$W_m$ comes from the required `max_soil_moisture` input, so it can vary per pixel.
+
+/// admonition | Results differ from pyrealm 2.0.0 called directly
+    type: note
+
+pyrealm 2.0.0 uses the configured capacity for runoff but a fixed 150 mm for the supply rate.
+This wrapper applies the configured capacity to both, as the equation above and Davis et al. (2017) specify, so its results differ from a direct pyrealm call wherever capacity is not 150 mm.
+///
 
 ### Initial soil moisture estimation
 
