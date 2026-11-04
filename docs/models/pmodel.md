@@ -141,6 +141,9 @@ Required when `method_optchi` is `lavergne20_c3` or `lavergne20_c4`.
 
 ::: satterc.models.pmodel.optchi_inputs__theta
     options:
+      show_root_full_path: false
+      separate_signature: false
+      heading_level: 4
       show_root_heading: false
       show_root_toc_entry: false
       show_signature: false
@@ -154,6 +157,9 @@ Required when `method_optchi` is `prentice14_rootzonestress`, `c4_rootzonestress
 
 ::: satterc.models.pmodel.optchi_inputs__rootzonestress
     options:
+      show_root_full_path: false
+      separate_signature: false
+      heading_level: 4
       show_root_heading: false
       show_root_toc_entry: false
       show_signature: false
@@ -167,6 +173,9 @@ Required when `method_kphio = "sandoval"`.
 
 ::: satterc.models.pmodel.kphio_inputs__sandoval
     options:
+      show_root_full_path: false
+      separate_signature: false
+      heading_level: 4
       show_root_heading: false
       show_root_toc_entry: false
       show_signature: false
@@ -185,6 +194,9 @@ Required when `method_arrhenius = "kattge_knorr"`.
 
 ::: satterc.models.pmodel.arrhenius_inputs__kattge_knorr
     options:
+      show_root_full_path: false
+      separate_signature: false
+      heading_level: 4
       show_root_heading: false
       show_root_toc_entry: false
       show_signature: false
@@ -198,6 +210,9 @@ Required when `method_arrhenius = "kattge_knorr"`.
 
 ::: satterc.models.pmodel.mean_growth_temperature
     options:
+      show_root_full_path: false
+      separate_signature: false
+      heading_level: 4
       show_root_heading: false
       show_root_toc_entry: false
       show_signature: false
