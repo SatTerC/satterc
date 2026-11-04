@@ -245,3 +245,40 @@ class TestCachingIntact:
             cached["gpp_flux_weekly"].values, uncached["gpp_flux_weekly"].values
         )
         assert (tmp_path / "cache").exists()
+
+    def test_changing_an_extra_input_invalidates_the_cache(self, tmp_path):
+        """An extra input reaches `pmodel`'s cache key through its `<axis>_inputs` node."""
+        from conduit import CacheSpec, build_driver
+
+        def _mda(v: float) -> xr.DataArray:
+            return xr.DataArray(
+                np.full((N_WEEKS, N_PIXELS), float(v)),
+                dims=["time", "pixel"],
+                coords={"time": WEEKLY_DATES, "pixel": PIXELS},
+            )
+
+        spec = CacheSpec(path=str(tmp_path / "cache"))
+
+        def run(theta: float) -> np.ndarray:
+            dr = build_driver(
+                ["satterc.models.pmodel"],
+                {"method_optchi": "lavergne20_c3"},
+                cache=spec,
+            )
+            result = dr.execute(  # type: ignore[reportArgumentType]
+                ["gpp_flux_weekly"],
+                inputs={
+                    "temperature_weekly": _mda(15.0),
+                    "vpd_weekly": _mda(1000.0),
+                    "co2_weekly": _mda(400.0),
+                    "pressure_weekly": _mda(101325.0),
+                    "fapar_weekly": _mda(0.5),
+                    "ppfd_weekly": _mda(500.0),
+                    "volumetric_water_content_weekly": _mda(theta),
+                },
+            )
+            return result["gpp_flux_weekly"].values
+
+        dry = run(0.1)
+        np.testing.assert_array_equal(run(0.1), dry)  # warm cache
+        assert not np.allclose(run(0.4), dry)

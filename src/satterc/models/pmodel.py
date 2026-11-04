@@ -365,6 +365,10 @@ def _methods_requiring(
 # on `pmodel_config`, which `config.when` cannot see, so this only holds while every
 # default method needs nothing extra. `tests/test_pmodel_methods.py` checks that
 # invariant, and fails on a requirement set that has no variant here.
+#
+# The `<axis>_inputs` nodes re-hash and re-store their arrays under a result cache,
+# and must: `@cache(behavior="ignore")` would drop them from `pmodel`'s cache key and
+# serve stale results, and `"disable"` would make `pmodel` miss on every run.
 _OPTCHI_THETA = _methods_requiring(OPTIMAL_CHI_CLASS_REGISTRY, "requires", "theta")
 _OPTCHI_ROOTZONESTRESS = _methods_requiring(
     OPTIMAL_CHI_CLASS_REGISTRY, "requires", "rootzonestress"
