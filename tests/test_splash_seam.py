@@ -32,6 +32,7 @@ import xarray as xr
 from satterc.models.splash import (
     _FLUX_ATTRIBUTES,
     _OUTPUT_FIELDS,
+    _describe_pixels,
     _splash,
     splash_config,
 )
@@ -290,11 +291,6 @@ class TestPrescribedInitialState:
         with pytest.raises(ValueError, match="between 0 and kWm"):
             _splash(**splash_inputs, initial_soil_moisture=initial)
 
-    def test_all_nan_state_names_the_cause(self, splash_inputs):
-        initial = _static(np.full(N_PIXELS, np.nan))
-        with pytest.raises(ValueError, match=r"no valid pixels.*all 3 are NaN"):
-            _splash(**splash_inputs, initial_soil_moisture=initial)
-
     def _driver(self, **settings):
         from conduit import build_driver
 
@@ -334,32 +330,116 @@ class TestPrescribedInitialState:
 
 
 class TestInvalidPixels:
-    """NaN is kept per pixel, and a block with no valid pixels stops with a clear error."""
+    """A pixel's outcome comes from its own inputs, whatever else is in its block."""
 
-    def test_all_nan_block_names_the_cause(self, splash_inputs):
+    @staticmethod
+    def _with_nan(inputs: dict, name: str, *where) -> dict:
+        changed = dict(inputs)
+        changed[name] = inputs[name].copy()
+        changed[name][where] = np.nan
+        return changed
+
+    @staticmethod
+    def _masked(inputs: dict, pixel: int) -> dict:
+        return {
+            key: value.where(value.pixel != pixel)
+            if key.endswith("_daily") and isinstance(value, xr.DataArray)
+            else value
+            for key, value in inputs.items()
+        }
+
+    @staticmethod
+    def _pixels(inputs: dict, pixels: list[int]) -> dict:
+        return {
+            key: value.isel(pixel=pixels) if isinstance(value, xr.DataArray) else value
+            for key, value in inputs.items()
+        }
+
+    def test_masked_pixel_is_nan_and_leaves_the_others_alone(self, splash_inputs):
+        result = _splash(**self._masked(splash_inputs, 1))
+        alone = _splash(**self._pixels(splash_inputs, [0, 2]))
+        for name in _OUTPUT_FIELDS:
+            assert result[name].sel(pixel=1).isnull().all()
+            np.testing.assert_array_equal(
+                result[name].sel(pixel=[0, 2]).values, alone[name].values
+            )
+
+    @pytest.mark.parametrize("static", ["elevation", "latitude", "max_soil_moisture"])
+    def test_nan_static_masks_the_pixel(self, splash_inputs, static, recwarn):
+        result = _splash(**self._with_nan(splash_inputs, static, 1))
+        assert result["soil_moisture_daily"].sel(pixel=1).isnull().all()
+        assert result["soil_moisture_daily"].sel(pixel=[0, 2]).notnull().all()
+        assert not [w for w in recwarn if "SPLASH" in str(w.message)]
+
+    def test_nan_initial_state_masks_the_pixel(self, splash_inputs):
+        initial = _static(np.array([10.0, np.nan, 170.0]))
+        result = _splash(**splash_inputs, initial_soil_moisture=initial)
+        assert result["soil_moisture_daily"].sel(pixel=1).isnull().all()
+        assert result["soil_moisture_daily"].sel(pixel=[0, 2]).notnull().all()
+
+    @pytest.mark.parametrize("pixels", [[0, 1, 2], [1], [1, 2]])
+    def test_masked_pixels_do_not_raise_whatever_the_block(self, splash_inputs, pixels):
+        inputs = self._pixels(self._masked(splash_inputs, 1), pixels)
+        result = _splash(**inputs)
+        assert result["soil_moisture_daily"].sel(pixel=1).isnull().all()
+
+    def test_fully_masked_block_keeps_the_output_shape(self, splash_inputs):
+        inputs: dict = {
+            key: value * np.nan if key.endswith("_daily") else value
+            for key, value in splash_inputs.items()
+            if key != "dates_daily"
+        }
+        result = xr.Dataset(_splash(**inputs, dates_daily=DAILY_DATES))
+        assert set(result.data_vars) == set(_OUTPUT_FIELDS)
+        assert dict(result.sizes) == {"time": N_DAYS, "pixel": N_PIXELS}
+        assert result.to_array().isnull().all()
+
+    @pytest.mark.parametrize("pixels", [[0, 1, 2], [1], [1, 2]])
+    @pytest.mark.parametrize("day", [100, 365])
+    def test_gap_raises_naming_the_pixel_whatever_the_block(
+        self, splash_inputs, pixels, day
+    ):
+        inputs = self._with_nan(splash_inputs, "precipitation_daily", day, 1)
+        with pytest.raises(ValueError, match=r"missing values in 1 pixel\(s\) \(1\)"):
+            _splash(**self._pixels(inputs, pixels))
+
+    def test_one_variable_with_no_data_is_a_gap_not_a_mask(self, splash_inputs):
         inputs = dict(splash_inputs)
         inputs["temperature_daily"] = inputs["temperature_daily"] * np.nan
-        with pytest.raises(ValueError, match=r"no valid pixels.*all 3 are NaN"):
+        with pytest.raises(ValueError, match=r"missing values in 3 pixel\(s\)"):
             _splash(**inputs)
 
-    def test_one_pixel_block_with_a_first_year_gap_names_the_cause(self, splash_inputs):
-        inputs: dict = {
-            key: value.isel(pixel=[0]) if isinstance(value, xr.DataArray) else value
-            for key, value in splash_inputs.items()
+    def test_many_pixels_are_truncated_in_the_message(self):
+        labels = np.arange(25)
+        assert (
+            _describe_pixels(labels)
+            == "25 pixel(s) (0, 1, 2, 3, 4, 5, 6, 7, 8, 9, ...)"
+        )
+
+    def test_gap_uses_the_pixel_label_not_the_position(self, splash_inputs):
+        inputs = self._with_nan(splash_inputs, "precipitation_daily", 100, 2)
+        relabelled: dict = {
+            key: value.assign_coords(pixel=[70, 71, 72])
+            if isinstance(value, xr.DataArray)
+            else value
+            for key, value in inputs.items()
         }
-        inputs["precipitation_daily"] = inputs["precipitation_daily"].copy()
-        inputs["precipitation_daily"][100, 0] = np.nan
-        with pytest.raises(ValueError, match=r"no valid pixels.*all 1 are NaN"):
-            _splash(**inputs)
+        with pytest.raises(ValueError, match=r"\(72\)"):
+            _splash(**relabelled)
 
-    def test_first_year_gap_in_a_larger_block_loses_only_that_pixel(
-        self, splash_inputs
-    ):
+    @pytest.mark.parametrize("pixels", [[0, 1], [1]])
+    def test_model_failure_warns_and_keeps_going(self, splash_inputs, pixels):
+        """Fails once pyrealm clips ``hi_pre`` at -1, when this pixel stops being NaN."""
         inputs = dict(splash_inputs)
-        inputs["precipitation_daily"] = inputs["precipitation_daily"].copy()
-        inputs["precipitation_daily"][100, 1] = np.nan
-        missing = _splash(**inputs)["soil_moisture_daily"].isnull().sum("time")
-        np.testing.assert_array_equal(missing.values, [0, N_DAYS, 0])
+        inputs["latitude"] = _static(np.array([51.5, -80.0, 10.0]))
+        with pytest.warns(
+            UserWarning, match=r"NaN soil moisture for 1 pixel\(s\) \(1\)"
+        ):
+            result = _splash(**self._pixels(inputs, pixels))
+        moisture = result["soil_moisture_daily"]
+        assert moisture.sel(pixel=1).isnull().all()
+        if 0 in pixels:
+            assert moisture.sel(pixel=0).notnull().all()
 
     def test_real_non_convergence_keeps_pyrealm_error(self, splash_inputs):
         inputs = {
@@ -374,21 +454,33 @@ class TestInvalidPixels:
 class TestStrategyCStaysOpen:
     """Chunked (dask-backed) ``pixel`` inputs give identical results to eager numpy."""
 
+    @staticmethod
+    def _chunked(inputs: dict) -> dict:
+        return {
+            key: value.chunk({"pixel": 1})
+            if isinstance(value, xr.DataArray) and "pixel" in value.dims
+            else value
+            for key, value in inputs.items()
+        }
+
     def test_chunked_pixel_equivalence(self, splash_inputs):
         pytest.importorskip("dask")
         eager = _splash(**splash_inputs)
-
-        chunked_inputs = dict(splash_inputs)
-        for key, val in splash_inputs.items():
-            if isinstance(val, xr.DataArray) and "pixel" in val.dims:
-                chunked_inputs[key] = val.chunk({"pixel": 1})
-        chunked = _splash(**chunked_inputs)
+        chunked = _splash(**self._chunked(splash_inputs))
 
         for name in _OUTPUT_FIELDS:
             out = chunked[name].compute().transpose("time", "pixel").values
             np.testing.assert_allclose(
                 out, eager[name].transpose("time", "pixel").values
             )
+
+    def test_chunked_gap_names_the_pixel_label(self, splash_inputs):
+        pytest.importorskip("dask")
+        inputs = dict(splash_inputs)
+        inputs["precipitation_daily"] = inputs["precipitation_daily"].copy()
+        inputs["precipitation_daily"][100, 2] = np.nan
+        with pytest.raises(ValueError, match=r"1 pixel\(s\) \(2\)"):
+            _splash(**self._chunked(inputs))["soil_moisture_daily"].compute()
 
 
 class TestCachingIntact:

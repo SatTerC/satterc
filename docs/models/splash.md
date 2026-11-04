@@ -67,14 +67,20 @@ That skips the spin-up, so the year minimum and the dependence on block size no 
 
 ### Missing values
 
-Soil moisture carries over from one day to the next, so a missing value stays in that pixel's results:
+Each pixel's outcome comes from its own inputs, so it does not depend on the block size:
 
-- A missing value in a pixel's first year makes the whole pixel NaN, because the spin-up cannot finish.
-- A missing value after the first year makes the pixel NaN from that day on.
+| Pixel | Example | Outcome |
+|---|---|---|
+| Masked | All climate inputs NaN, or a NaN in `elevation`, `latitude`, `max_soil_moisture` or `initial_soil_moisture` | NaN outputs, with no error or warning |
+| Gap | Some climate values NaN, including one variable with no data while the others have some | The run stops with an error naming the pixels |
+| Model failure | Complete inputs, but pyrealm returns NaN | NaN outputs, with a warning naming the pixels |
 
-Neither case raises an error while the block has another valid pixel.
-A block in which every pixel is NaN stops the run with an error naming the cause, so a block of masked pixels needs leaving out.
-Whether a gap raises can therefore depend on the block size.
+A gap stops the run because soil moisture carries over from one day to the next, so everything after it would be lost.
+Fill gaps in a `[[node]]` before SPLASH, or mask the pixel.
+
+A misconfigured input that makes every climate variable NaN is indistinguishable from a masked block, so that run finishes with NaN outputs and no error.
+
+Model failures come from pyrealm 2.0.0, whose AET calculation can return NaN at high latitudes.
 
 ## Usage
 
