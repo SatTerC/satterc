@@ -6,6 +6,7 @@ calculate actual evapotranspiration (AET), soil moisture, and runoff from climat
 inputs, and returns the physical fluxes pyrealm computes along the way.
 """
 
+import warnings
 from operator import attrgetter
 from typing import Annotated, TypedDict, cast
 
@@ -93,6 +94,41 @@ _OUTPUT_FIELDS = (
 )
 
 
+def _no_valid_pixels(n_pixels: int) -> ValueError:
+    """Build the error for a block where SPLASH has no valid pixel."""
+    return ValueError(
+        f"SPLASH has no valid pixels in this block: all {n_pixels} are NaN. One "
+        "missing input value in a pixel's first year makes that whole pixel NaN, so "
+        "check the inputs for gaps, or leave out blocks that are entirely masked, "
+        "such as open ocean."
+    )
+
+
+def _spin_up(
+    model: pyrealm.splash.splash.SplashModel, max_iter: int, max_diff: float
+) -> NDArray[np.float64]:
+    """Estimate initial soil moisture, naming the cause if every pixel is NaN.
+
+    pyrealm's convergence test ignores NaN pixels until there is nothing else left, and
+    then reports that it failed to converge with a difference of NaN. Inputs alone
+    cannot predict this, because pyrealm's own calculation can also produce NaN at high
+    latitudes, so the check runs on the result, and only once spin-up has failed.
+    """
+    try:
+        return model.estimate_initial_soil_moisture(
+            max_iter=max_iter, max_diff=max_diff, verbose=False
+        )
+    except RuntimeError as err:
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            one_year = model.estimate_initial_soil_moisture(
+                max_iter=1, return_convergence=True
+            )
+        if np.isnan(one_year).all():
+            raise _no_valid_pixels(one_year.size) from err
+        raise
+
+
 def _splash_block(
     sunshine_fraction: NDArray[np.float64],
     temperature: NDArray[np.float64],
@@ -136,11 +172,7 @@ def _splash_block(
     # the supply rate in AET using a capacity of 150 mm whatever is configured.
     model.evap.kWm = model.kWm
 
-    init_moisture = model.estimate_initial_soil_moisture(
-        max_iter=max_iter,
-        max_diff=max_diff,
-        verbose=False,
-    )
+    init_moisture = _spin_up(model, max_iter=max_iter, max_diff=max_diff)
     aet, moisture, runoff = model.calculate_soil_moisture(init_moisture)
 
     fluxes = (attrgetter(name)(model) for name in _FLUX_ATTRIBUTES.values())
@@ -228,7 +260,8 @@ def splash_config(
     ----------
     soil_moisture_init_max_iter
         Maximum number of one-year iterations used to estimate initial soil
-        moisture.
+        moisture. If any non-NaN pixel in a block has not converged by then, the
+        run stops with an error.
     soil_moisture_init_max_diff
         Maximum acceptable difference between year-start and year-end soil
         moisture (millimetres).

@@ -52,6 +52,19 @@ An input period shorter than a year cannot equilibrate and fails.
 
 That tolerance is evaluated over the whole block, so results shift by ~1e-4 relative when the `[blocking]` block size or the `[subset]` range changes.
 
+If any valid pixel in a block has not converged within `soil_moisture_init_max_iter` iterations, the run stops with an error.
+
+### Missing values
+
+Soil moisture carries over from one day to the next, so a missing value stays in that pixel's results:
+
+- A missing value in a pixel's first year makes the whole pixel NaN, because the spin-up cannot finish.
+- A missing value after the first year makes the pixel NaN from that day on.
+
+Neither case raises an error while the block has another valid pixel.
+A block in which every pixel is NaN stops the run with an error naming the cause, so a block of masked pixels needs leaving out.
+Whether a gap raises can therefore depend on the block size.
+
 ## Usage
 
 ### Quickstart

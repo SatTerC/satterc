@@ -230,6 +230,44 @@ class TestCapacityReachesAET:
         np.testing.assert_array_equal(direct.evap.kWm, [150.0])
 
 
+class TestInvalidPixels:
+    """NaN is kept per pixel, and a block with no valid pixels stops with a clear error."""
+
+    def test_all_nan_block_names_the_cause(self, splash_inputs):
+        inputs = dict(splash_inputs)
+        inputs["temperature_daily"] = inputs["temperature_daily"] * np.nan
+        with pytest.raises(ValueError, match=r"no valid pixels.*all 3 are NaN"):
+            _splash(**inputs)
+
+    def test_one_pixel_block_with_a_first_year_gap_names_the_cause(self, splash_inputs):
+        inputs: dict = {
+            key: value.isel(pixel=[0]) if isinstance(value, xr.DataArray) else value
+            for key, value in splash_inputs.items()
+        }
+        inputs["precipitation_daily"] = inputs["precipitation_daily"].copy()
+        inputs["precipitation_daily"][100, 0] = np.nan
+        with pytest.raises(ValueError, match=r"no valid pixels.*all 1 are NaN"):
+            _splash(**inputs)
+
+    def test_first_year_gap_in_a_larger_block_loses_only_that_pixel(
+        self, splash_inputs
+    ):
+        inputs = dict(splash_inputs)
+        inputs["precipitation_daily"] = inputs["precipitation_daily"].copy()
+        inputs["precipitation_daily"][100, 1] = np.nan
+        missing = _splash(**inputs)["soil_moisture_daily"].isnull().sum("time")
+        np.testing.assert_array_equal(missing.values, [0, N_DAYS, 0])
+
+    def test_real_non_convergence_keeps_pyrealm_error(self, splash_inputs):
+        inputs = {
+            **splash_inputs,
+            "soil_moisture_init_max_iter": 1,
+            "soil_moisture_init_max_diff": 1e-12,
+        }
+        with pytest.raises(RuntimeError, match="did not converge"):
+            _splash(**inputs)
+
+
 class TestStrategyCStaysOpen:
     """Chunked (dask-backed) ``pixel`` inputs give identical results to eager numpy."""
 
