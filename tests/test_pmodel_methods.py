@@ -264,8 +264,13 @@ PModel(env, {kwargs})
 
 @pytest.mark.parametrize("method", list(JMAX_LIMITATION_CLASS_REGISTRY))
 def test_jmax_limitation_needs_no_extra_inputs(method):
-    """`method_jmaxlim` has no `<axis>_inputs` node, which holds while no method
-    declares requirements."""
-    cls = JMAX_LIMITATION_CLASS_REGISTRY[method]
-    assert not getattr(cls, "requires", None)
-    assert not getattr(cls, "required_env_variables", None)
+    """`method_jmaxlim` has no `<axis>_inputs` node, so every method must run on the
+    core drivers alone."""
+    dr = build_driver([MODULE], {"method_jmaxlim": method})
+    assert _required_inputs(dr) == CORE_INPUTS
+
+    inputs = {name: INPUTS[name] for name in CORE_INPUTS}
+    result = dr.execute(  # type: ignore[reportArgumentType]
+        ["gpp_flux_weekly"], inputs=inputs
+    )
+    assert np.isfinite(result["gpp_flux_weekly"].values).all()
