@@ -429,6 +429,8 @@ def splash_raw():
         dates=pyrealm.core.calendar.Calendar(inputs["dates_daily"].values),
         kWm=inputs["max_soil_moisture"].values,
     )
+    # The capacity pyrealm 2.0.0 leaves out; see `TestCapacityReachesAET`.
+    model.evap.kWm = model.kWm
     initial = model.estimate_initial_soil_moisture(
         max_iter=SPLASH_MAX_ITER, max_diff=SPLASH_MAX_DIFF, verbose=False
     )

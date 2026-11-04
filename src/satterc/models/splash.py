@@ -85,6 +85,9 @@ def _splash_block(
         dates=dates,
         kWm=np.asarray(max_soil_moisture, dtype=float).ravel(),
     )
+    # pyrealm 2.0.0 does not pass kWm on to its evaporative fluxes, which would leave
+    # the supply rate in AET using a capacity of 150 mm whatever is configured.
+    model.evap.kWm = model.kWm
 
     init_moisture = model.estimate_initial_soil_moisture(
         max_iter=max_iter,

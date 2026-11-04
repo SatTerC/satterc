@@ -94,6 +94,8 @@ def _reference_block(inputs: dict) -> dict[str, np.ndarray]:
         dates=calendar,
         kWm=inputs["max_soil_moisture"].values,
     )
+    # The capacity pyrealm 2.0.0 leaves out; see `TestCapacityReachesAET`.
+    model.evap.kWm = model.kWm
     init = model.estimate_initial_soil_moisture(
         max_iter=MAX_ITER, max_diff=MAX_DIFF, verbose=False
     )
@@ -174,6 +176,62 @@ class TestPerPixelStaticsThreaded:
         )
         sm = result["soil_moisture_daily"].transpose("time", "pixel").values
         assert not np.allclose(sm[:, 0], sm[:, 1])
+
+
+class TestCapacityReachesAET:
+    """``max_soil_moisture`` sets the supply rate in AET, not only the cap and runoff."""
+
+    def _pair(self, capacities: list[float]) -> dict:
+        """Two pixels with identical sites and climate, differing only in capacity."""
+        n = len(capacities)
+        px = np.arange(n)
+
+        def md(v):
+            return xr.DataArray(
+                v, dims=["time", "pixel"], coords={"time": DAILY_DATES, "pixel": px}
+            )
+
+        def sd(v):
+            return xr.DataArray(
+                np.asarray(v, dtype=float), dims=["pixel"], coords={"pixel": px}
+            )
+
+        # Dry half the year, so moisture never reaches either capacity at that point.
+        rain = np.clip(3.0 * np.sin(2 * np.pi * _DAY / 365 + np.pi), 0.0, None)
+        return dict(
+            sunshine_fraction_daily=md(np.full((N_DAYS, n), 0.5)),
+            temperature_daily=md(np.tile((15.0 + 8.0 * _SEASON)[:, None], (1, n))),
+            precipitation_daily=md(np.tile(rain[:, None], (1, n))),
+            elevation=sd([100.0] * n),
+            latitude=sd([40.0] * n),
+            max_soil_moisture=sd(capacities),
+            dates_daily=DAILY_DATES,
+            soil_moisture_init_max_iter=MAX_ITER,
+            soil_moisture_init_max_diff=MAX_DIFF,
+        )
+
+    def test_unreached_capacity_still_changes_soil_moisture(self):
+        # Neither pixel fills, so the cap and runoff play no part: only the supply
+        # rate can separate them. With a fixed 150 mm in the supply rate they tie.
+        result = _splash(**self._pair([800.0, 1600.0]))
+        moisture = result["soil_moisture_daily"].values
+        assert moisture.max() < 800.0
+        assert result["runoff_daily"].values.max() == 0.0
+        assert moisture[:, 1].mean() > 1.2 * moisture[:, 0].mean()
+
+    def test_workaround_is_still_needed(self):
+        """Fails once pyrealm passes kWm on, when the workaround should be deleted."""
+        inputs = self._pair([50.0, 400.0])
+        direct = pyrealm.splash.splash.SplashModel(
+            lat=inputs["latitude"].values[None, :],
+            elv=inputs["elevation"].values[None, :],
+            sf=inputs["sunshine_fraction_daily"].values,
+            tc=inputs["temperature_daily"].values,
+            pn=inputs["precipitation_daily"].values,
+            dates=pyrealm.core.calendar.Calendar(inputs["dates_daily"].values),
+            kWm=inputs["max_soil_moisture"].values,
+        )
+        np.testing.assert_array_equal(direct.evap.kWm, [150.0])
 
 
 class TestStrategyCStaysOpen:
