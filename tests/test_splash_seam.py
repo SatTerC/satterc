@@ -283,6 +283,8 @@ class TestPrescribedInitialState:
             **inputs,
             dates_daily=DAILY_DATES[:30],
             initial_soil_moisture=_static(np.full(N_PIXELS, 50.0)),
+            soil_moisture_init_max_iter=MAX_ITER,
+            soil_moisture_init_max_diff=MAX_DIFF,
         )
         assert result["soil_moisture_daily"].sizes["time"] == 30
 
@@ -491,7 +493,11 @@ class TestConsecutiveDays:
 
 
 class TestStrategyCStaysOpen:
-    """Chunked (dask-backed) ``pixel`` inputs give identical results to eager numpy."""
+    """Chunked (dask-backed) ``pixel`` inputs match eager numpy, within the partition effect.
+
+    Chunking changes the block that spin-up's convergence test sees, so ``rtol`` allows
+    for the ~1e-4 that AGENTS.md documents rather than asserting bit-identical results.
+    """
 
     @staticmethod
     def _chunked(inputs: dict) -> dict:
@@ -510,7 +516,7 @@ class TestStrategyCStaysOpen:
         for name in _OUTPUT_FIELDS:
             out = chunked[name].compute().transpose("time", "pixel").values
             np.testing.assert_allclose(
-                out, eager[name].transpose("time", "pixel").values
+                out, eager[name].transpose("time", "pixel").values, rtol=1e-3
             )
 
     def test_chunked_gap_names_the_pixel_label(self, splash_inputs):

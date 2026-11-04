@@ -300,9 +300,9 @@ def _splash(
     max_soil_moisture: DataArray,
     dates_daily: DatetimeIndex,
     *,
+    soil_moisture_init_max_iter: int,
+    soil_moisture_init_max_diff: float,
     initial_soil_moisture: DataArray | None = None,
-    soil_moisture_init_max_iter: int = 10,
-    soil_moisture_init_max_diff: float = 1.0,
 ) -> SplashOut:
     """Apply SPLASH over the ``(time, pixel)`` block via `xarray.apply_ufunc`.
 
