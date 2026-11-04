@@ -29,7 +29,12 @@ import pyrealm.splash.splash
 import pytest
 import xarray as xr
 
-from satterc.models.splash import _FLUX_ATTRIBUTES, _OUTPUT_FIELDS, _splash
+from satterc.models.splash import (
+    _FLUX_ATTRIBUTES,
+    _OUTPUT_FIELDS,
+    _splash,
+    splash_config,
+)
 
 N_DAYS = 366  # 2020 is a leap year; SPLASH needs a full year for spin-up
 N_PIXELS = 3
@@ -228,6 +233,104 @@ class TestCapacityReachesAET:
             kWm=inputs["max_soil_moisture"].values,
         )
         np.testing.assert_array_equal(direct.evap.kWm, [150.0])
+
+
+class TestPrescribedInitialState:
+    """``initial_soil_moisture`` replaces the spin-up as the run's starting state."""
+
+    def test_first_day_starts_from_the_given_state(self, splash_inputs):
+        initial = _static(np.array([10.0, 60.0, 170.0]))
+        result = _splash(**splash_inputs, initial_soil_moisture=initial)
+        first_day = result["soil_moisture_daily"].isel(time=0)
+        balance = (
+            initial
+            + splash_inputs["precipitation_daily"].isel(time=0)
+            + result["condensation_daily"].isel(time=0)
+            - result["actual_evapotranspiration_daily"].isel(time=0)
+            - result["runoff_daily"].isel(time=0)
+        )
+        np.testing.assert_allclose(first_day.values, balance.values)
+
+    def test_equilibrated_state_reproduces_the_default_run(self, splash_inputs):
+        """Given what the spin-up would find, prescribing it changes nothing."""
+        model = pyrealm.splash.splash.SplashModel(
+            lat=splash_inputs["latitude"].values[None, :],
+            elv=splash_inputs["elevation"].values[None, :],
+            sf=splash_inputs["sunshine_fraction_daily"].values,
+            tc=splash_inputs["temperature_daily"].values,
+            pn=splash_inputs["precipitation_daily"].values,
+            dates=pyrealm.core.calendar.Calendar(DAILY_DATES.values),
+            kWm=splash_inputs["max_soil_moisture"].values,
+        )
+        model.evap.kWm = model.kWm
+        spun_up = model.estimate_initial_soil_moisture(
+            max_iter=MAX_ITER, max_diff=MAX_DIFF
+        )
+        default = _splash(**splash_inputs)["soil_moisture_daily"]
+        prescribed = _splash(**splash_inputs, initial_soil_moisture=_static(spun_up))[
+            "soil_moisture_daily"
+        ]
+        np.testing.assert_allclose(prescribed.values, default.values)
+
+    def test_shorter_than_a_year_runs_without_a_spin_up(self, splash_inputs):
+        inputs: dict = {
+            key: value.isel(time=slice(30)) if "time" in value.dims else value
+            for key, value in splash_inputs.items()
+            if isinstance(value, xr.DataArray)
+        }
+        result = _splash(
+            **inputs,
+            dates_daily=DAILY_DATES[:30],
+            initial_soil_moisture=_static(np.full(N_PIXELS, 50.0)),
+        )
+        assert result["soil_moisture_daily"].sizes["time"] == 30
+
+    def test_state_above_capacity_is_rejected(self, splash_inputs):
+        initial = _static(MAX_SM + 1.0)
+        with pytest.raises(ValueError, match="between 0 and kWm"):
+            _splash(**splash_inputs, initial_soil_moisture=initial)
+
+    def test_all_nan_state_names_the_cause(self, splash_inputs):
+        initial = _static(np.full(N_PIXELS, np.nan))
+        with pytest.raises(ValueError, match=r"no valid pixels.*all 3 are NaN"):
+            _splash(**splash_inputs, initial_soil_moisture=initial)
+
+    def _driver(self, **settings):
+        from conduit import build_driver
+
+        return build_driver(["satterc.models.splash"], settings)
+
+    def test_equilibrate_needs_no_initial_state(self):
+        names = {v.name for v in self._driver().list_available_variables()}
+        assert "initial_soil_moisture" not in names
+
+    def test_prescribed_requires_the_input(self):
+        variables = self._driver(
+            soil_moisture_init_method="prescribed"
+        ).list_available_variables()
+        needed = {v.name for v in variables if v.is_external_input}
+        assert "initial_soil_moisture" in needed
+
+    def test_pipeline_uses_the_prescribed_state(self, splash_inputs):
+        inputs = {
+            key: value
+            for key, value in splash_inputs.items()
+            if isinstance(value, xr.DataArray)
+        }
+        initial = _static(np.array([10.0, 60.0, 170.0]))
+        dr = self._driver(soil_moisture_init_method="prescribed")
+        piped = dr.execute(
+            ["soil_moisture_daily"],
+            inputs={**inputs, "initial_soil_moisture": initial},
+        )  # type: ignore[reportArgumentType]
+        direct = _splash(**splash_inputs, initial_soil_moisture=initial)
+        np.testing.assert_allclose(
+            piped["soil_moisture_daily"].values, direct["soil_moisture_daily"].values
+        )
+
+    def test_misspelt_method_is_rejected(self):
+        with pytest.raises(ValueError, match="Unknown soil_moisture_init_method"):
+            splash_config(soil_moisture_init_method="prescibed")
 
 
 class TestInvalidPixels:

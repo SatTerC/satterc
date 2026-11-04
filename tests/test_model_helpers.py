@@ -731,6 +731,7 @@ class TestSplashExecution:
             elevation=_static_da(np.array([50.0])),
             latitude=_static_da(np.array([51.5])),
             max_soil_moisture=_static_da(np.array([150.0])),
+            soil_moisture_init_inputs={},
             splash_config=splash_config(),
         )
         assert isinstance(result, dict)

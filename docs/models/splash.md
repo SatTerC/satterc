@@ -54,6 +54,9 @@ That tolerance is evaluated over the whole block, so results shift by ~1e-4 rela
 
 If any valid pixel in a block has not converged within `soil_moisture_init_max_iter` iterations, the run stops with an error.
 
+To start from a measured state, or to continue an earlier run, set `soil_moisture_init_method = "prescribed"` and supply `initial_soil_moisture`.
+That skips the spin-up, so the year minimum and the dependence on block size no longer apply.
+
 ### Missing values
 
 Soil moisture carries over from one day to the next, so a missing value stays in that pixel's results:
@@ -82,6 +85,7 @@ For calibrating `max_soil_moisture` against observations, see the [soil moisture
 
 ```toml
 [splash]
+soil_moisture_init_method = "equilibrate"
 soil_moisture_init_max_iter = 10
 soil_moisture_init_max_diff = 1.0
 ```
@@ -97,8 +101,28 @@ soil_moisture_init_max_diff = 1.0
 
 ### Inputs
 
+#### Always required
+
 ::: satterc.models.splash.splash
     options:
+      show_root_heading: false
+      show_root_toc_entry: false
+      show_signature: false
+      show_docstring_description: false
+      show_docstring_returns: false
+      docstring_section_style: spacy
+      extra:
+        hide_parameters: [soil_moisture_init_inputs, splash_config]
+
+#### Initial state, for `prescribed` initialisation
+
+Required when `soil_moisture_init_method` is `prescribed`.
+
+::: satterc.models.splash.soil_moisture_init_inputs__prescribed
+    options:
+      show_root_full_path: false
+      separate_signature: false
+      heading_level: 4
       show_root_heading: false
       show_root_toc_entry: false
       show_signature: false

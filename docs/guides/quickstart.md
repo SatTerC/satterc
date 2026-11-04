@@ -41,6 +41,7 @@ This creates a `config.toml` file that looks like:
 
 ```toml
 [splash]
+soil_moisture_init_method = "equilibrate"
 soil_moisture_init_max_iter = 10
 soil_moisture_init_max_diff = 1.0
 

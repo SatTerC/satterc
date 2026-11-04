@@ -14,7 +14,7 @@ import numpy as np
 import pyrealm.core.calendar
 import pyrealm.splash.splash
 import xarray as xr
-from hamilton.function_modifiers import extract_fields
+from hamilton.function_modifiers import config, extract_fields
 from numpy.typing import NDArray
 from pandas import DatetimeIndex
 from xarray import DataArray
@@ -136,6 +136,7 @@ def _splash_block(
     elevation: NDArray[np.float64],
     latitude: NDArray[np.float64],
     max_soil_moisture: NDArray[np.float64],
+    initial_soil_moisture: NDArray[np.float64] | None = None,
     *,
     dates: pyrealm.core.calendar.Calendar,
     max_iter: int,
@@ -153,7 +154,8 @@ def _splash_block(
     shape). Outputs are returned as ``(pixel, time)`` (core dim last) for
     ``apply_ufunc``, in the order of `_OUTPUT_FIELDS`. This whole-block kernel
     replaces a former per-pixel-0 indexing bug, where every pixel silently received
-    pixel 0's latitude/elevation/capacity.
+    pixel 0's latitude/elevation/capacity. With ``initial_soil_moisture``, in
+    ``(pixel,)`` layout, the run starts from that state and skips the spin-up.
     """
     sf = np.moveaxis(np.asarray(sunshine_fraction, dtype=float), -1, 0)
     tc = np.moveaxis(np.asarray(temperature, dtype=float), -1, 0)
@@ -172,8 +174,13 @@ def _splash_block(
     # the supply rate in AET using a capacity of 150 mm whatever is configured.
     model.evap.kWm = model.kWm
 
-    init_moisture = _spin_up(model, max_iter=max_iter, max_diff=max_diff)
+    if initial_soil_moisture is None:
+        init_moisture = _spin_up(model, max_iter=max_iter, max_diff=max_diff)
+    else:
+        init_moisture = np.asarray(initial_soil_moisture, dtype=float).ravel()
     aet, moisture, runoff = model.calculate_soil_moisture(init_moisture)
+    if np.isnan(moisture).all():
+        raise _no_valid_pixels(moisture.shape[1])
 
     fluxes = (attrgetter(name)(model) for name in _FLUX_ATTRIBUTES.values())
     return tuple(np.moveaxis(out, 0, -1) for out in (aet, moisture, runoff, *fluxes))
@@ -188,6 +195,7 @@ def _splash(
     max_soil_moisture: DataArray,
     dates_daily: DatetimeIndex,
     *,
+    initial_soil_moisture: DataArray | None = None,
     soil_moisture_init_max_iter: int = 10,
     soil_moisture_init_max_diff: float = 1.0,
 ) -> SplashOut:
@@ -198,7 +206,9 @@ def _splash(
     ``pixel`` the broadcast (mapped) dim. ``vectorize`` is left ``False`` so the whole
     pixel-block reaches pyrealm in one call and is vectorised internally; with
     ``dask="parallelized"`` a future dask backend can still chunk over ``pixel``.
+    Unset, ``initial_soil_moisture`` means the initial state comes from the spin-up.
     """
+    prescribed = [] if initial_soil_moisture is None else [initial_soil_moisture]
     calendar = pyrealm.core.calendar.Calendar(dates_daily.values)
 
     n_outputs = len(_OUTPUT_FIELDS)
@@ -210,7 +220,8 @@ def _splash(
         elevation,
         latitude,
         max_soil_moisture,
-        input_core_dims=[["time"]] * 3 + [[]] * 3,
+        *prescribed,
+        input_core_dims=[["time"]] * 3 + [[]] * (3 + len(prescribed)),
         output_core_dims=[["time"]] * n_outputs,
         kwargs={
             "dates": calendar,
@@ -233,6 +244,9 @@ def _splash(
     )
 
 
+_INIT_METHODS = ("equilibrate", "prescribed")
+
+
 class SplashConfig(TypedDict):
     """Settings for the `splash` node, as returned by `splash_config`.
 
@@ -240,12 +254,14 @@ class SplashConfig(TypedDict):
     pipeline config populates.
     """
 
+    soil_moisture_init_method: str
     soil_moisture_init_max_iter: int
     soil_moisture_init_max_diff: float
 
 
 def splash_config(
     *,
+    soil_moisture_init_method: str = "equilibrate",
     soil_moisture_init_max_iter: int = 10,
     soil_moisture_init_max_diff: float = 1.0,
 ) -> SplashConfig:
@@ -258,23 +274,62 @@ def splash_config(
 
     Parameters
     ----------
+    soil_moisture_init_method
+        Where the initial soil moisture comes from: ``equilibrate`` repeats the
+        first year until soil moisture stabilises, and ``prescribed`` takes it
+        from the ``initial_soil_moisture`` input; see
+        `soil_moisture_init_inputs__prescribed`.
     soil_moisture_init_max_iter
         Maximum number of one-year iterations used to estimate initial soil
         moisture. If any non-NaN pixel in a block has not converged by then, the
-        run stops with an error.
+        run stops with an error. Only used by ``equilibrate``.
     soil_moisture_init_max_diff
         Maximum acceptable difference between year-start and year-end soil
-        moisture (millimetres).
+        moisture (millimetres). Only used by ``equilibrate``.
 
     Returns
     -------
     SplashConfig
-        The settings, ready to unpack into the model call.
+        The settings for the model call.
+
+    Raises
+    ------
+    ValueError
+        If ``soil_moisture_init_method`` is not a known method. Without this a
+        misspelt ``prescribed`` would silently select ``equilibrate``.
     """
+    if soil_moisture_init_method not in _INIT_METHODS:
+        raise ValueError(
+            f"Unknown soil_moisture_init_method {soil_moisture_init_method!r}; "
+            f"expected one of {', '.join(map(repr, _INIT_METHODS))}."
+        )
     return SplashConfig(
+        soil_moisture_init_method=soil_moisture_init_method,
         soil_moisture_init_max_iter=soil_moisture_init_max_iter,
         soil_moisture_init_max_diff=soil_moisture_init_max_diff,
     )
+
+
+@config.when_not_in(soil_moisture_init_method=["prescribed"])
+def soil_moisture_init_inputs__equilibrate() -> dict[str, DataArray]:
+    """No extra inputs, for ``soil_moisture_init_method = "equilibrate"``."""
+    return {}
+
+
+@config.when_in(soil_moisture_init_method=["prescribed"])
+@declare_units
+def soil_moisture_init_inputs__prescribed(
+    initial_soil_moisture: Annotated[DataArray, "mm"],
+) -> dict[str, DataArray]:
+    """Supply the starting state, for ``soil_moisture_init_method = "prescribed"``.
+
+    Parameters
+    ----------
+    initial_soil_moisture
+        Soil moisture on the day before the first date (millimetres), one value
+        per pixel, between 0 and ``max_soil_moisture``.
+    """
+    return {"initial_soil_moisture": initial_soil_moisture}
 
 
 @extract_fields()
@@ -295,6 +350,7 @@ def splash(
     # tests/test_pyrealm_units.py.
     latitude: DataArray,
     max_soil_moisture: Annotated[DataArray, "mm"],
+    soil_moisture_init_inputs: dict[str, DataArray],
     splash_config: SplashConfig,
 ) -> SplashOut:
     """Run the SPLASH water balance model.
@@ -316,6 +372,8 @@ def splash(
         Latitude of the site (degrees).
     max_soil_moisture
         Maximum soil moisture capacity (millimetres).
+    soil_moisture_init_inputs
+        Extra inputs for the configured ``soil_moisture_init_method``.
     splash_config
         Model settings; see `splash_config`.
 
@@ -347,5 +405,7 @@ def splash(
         latitude=latitude,
         max_soil_moisture=max_soil_moisture,
         dates_daily=time_index(temperature_daily, "temperature_daily"),
-        **splash_config,
+        initial_soil_moisture=soil_moisture_init_inputs.get("initial_soil_moisture"),
+        soil_moisture_init_max_iter=splash_config["soil_moisture_init_max_iter"],
+        soil_moisture_init_max_diff=splash_config["soil_moisture_init_max_diff"],
     )
