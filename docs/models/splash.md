@@ -82,6 +82,8 @@ A misconfigured input that makes every climate variable NaN is indistinguishable
 
 Model failures come from pyrealm 2.0.0, whose AET calculation can return NaN at high latitudes.
 
+The input dates must also be consecutive days, and a missing date stops the run with an error, because pyrealm steps through days by position.
+
 ## Usage
 
 ### Quickstart

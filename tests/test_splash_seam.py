@@ -451,6 +451,32 @@ class TestInvalidPixels:
             _splash(**inputs)
 
 
+class TestConsecutiveDays:
+    """pyrealm steps by position, so a gap in the calendar must not reach it."""
+
+    def _run(self, inputs: dict, dates: pd.DatetimeIndex) -> xr.Dataset:
+        kept: dict = {
+            key: value.sel(time=dates)
+            if isinstance(value, xr.DataArray) and "time" in value.dims
+            else value
+            for key, value in inputs.items()
+            if key != "dates_daily"
+        }
+        return xr.Dataset(_splash(**kept, dates_daily=dates))
+
+    def test_missing_day_raises_naming_it(self, splash_inputs):
+        dates = DAILY_DATES.delete(100)
+        with pytest.raises(ValueError, match=r"1 break.*2020-04-09 to 2020-04-11"):
+            self._run(splash_inputs, dates)
+
+    def test_consecutive_subset_runs(self, splash_inputs):
+        initial = _static(np.full(N_PIXELS, 50.0))
+        result = self._run(
+            {**splash_inputs, "initial_soil_moisture": initial}, DAILY_DATES[10:40]
+        )
+        assert result.sizes["time"] == 30
+
+
 class TestStrategyCStaysOpen:
     """Chunked (dask-backed) ``pixel`` inputs give identical results to eager numpy."""
 

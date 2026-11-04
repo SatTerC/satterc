@@ -104,6 +104,21 @@ def _describe_pixels(labels: NDArray) -> str:
     return f"{labels.size} pixel(s) ({named}{more})"
 
 
+def _require_consecutive_days(dates: DatetimeIndex) -> None:
+    """Raise if ``dates`` is not one sample per day without gaps.
+
+    pyrealm takes its time steps by position, so it would run across a gap in the
+    calendar as if the days on either side were adjacent.
+    """
+    breaks = np.flatnonzero(np.diff(dates.values) != np.timedelta64(1, "D"))
+    if breaks.size:
+        before, after = dates[breaks[0] : breaks[0] + 2].strftime("%Y-%m-%d")
+        raise ValueError(
+            f"SPLASH needs one input per day with no gaps, but found {breaks.size} "
+            f"break(s), the first from {before} to {after}."
+        )
+
+
 def _spin_up(
     model: pyrealm.splash.splash.SplashModel, max_iter: int, max_diff: float
 ) -> NDArray[np.float64]:
@@ -285,6 +300,7 @@ def _splash(
     ``dask="parallelized"`` a future dask backend can still chunk over ``pixel``.
     Unset, ``initial_soil_moisture`` means the initial state comes from the spin-up.
     """
+    _require_consecutive_days(dates_daily)
     prescribed = [] if initial_soil_moisture is None else [initial_soil_moisture]
     calendar = pyrealm.core.calendar.Calendar(dates_daily.values)
 
@@ -434,7 +450,7 @@ def splash(
     """Run the SPLASH water balance model.
 
     The daily calendar SPLASH needs is read off ``temperature_daily``'s time
-    coordinate.
+    coordinate, and must have no missing days.
 
     Parameters
     ----------
