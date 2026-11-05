@@ -28,6 +28,7 @@ Four layers, each failing differently on purpose:
    agree, so the two halves of layer 2 cannot drift apart independently.
 """
 
+import dataclasses
 import json
 from pathlib import Path
 from typing import Any
@@ -39,13 +40,14 @@ import pyrealm.core.calendar
 import pyrealm.pmodel
 import pyrealm.splash.splash
 import pytest
+from pyrealm.constants import CoreConst
+from pyrealm.splash.evap import DailyEvapFluxes
+from pyrealm.splash.solar import DailySolarFluxes
 from pyrealm_cases import (
     LATITUDE,
     MAX_SOIL_MOISTURE,
     N_PIXELS,
     PMODEL_METHODS,
-    SPLASH_MAX_DIFF,
-    SPLASH_MAX_ITER,
     declared_units,
     pmodel_inputs,
     splash_inputs,
@@ -53,7 +55,7 @@ from pyrealm_cases import (
 )
 
 from satterc.models.pmodel import _OUTPUT_ATTRIBUTES, PModelOut, _pmodel
-from satterc.models.splash import SplashOut, _splash
+from satterc.models.splash import _FLUX_ATTRIBUTES, SplashOut, _splash
 
 GOLDEN_PATH = Path(__file__).parent / "data" / "pyrealm_golden.json"
 
@@ -293,9 +295,37 @@ class TestUpstreamApiNames:
         parameters = inspect.signature(pyrealm.splash.splash.SplashModel).parameters
         assert {"lat", "elv", "sf", "tc", "pn", "dates", "kWm"} <= set(parameters)
 
-    def test_splash_exposes_pet(self, splash_raw):
-        model, _, _, _, _ = splash_raw
-        assert hasattr(model.evap, "pet_d")
+    @pytest.mark.parametrize(
+        ("prefix", "cls"), [("evap", DailyEvapFluxes), ("solar", DailySolarFluxes)]
+    )
+    def test_splash_fluxes_are_all_classified(self, prefix, cls):
+        """A flux pyrealm adds must be returned or named as an intermediate."""
+        computed = {f"{prefix}.{f.name}" for f in dataclasses.fields(cls) if not f.init}
+        returned = set(_FLUX_ATTRIBUTES.values())
+        assert computed == {
+            name for name in returned | SPLASH_INTERMEDIATES if name.startswith(prefix)
+        }
+
+
+#: pyrealm attributes `splash` deliberately does not return: orbital geometry, terms
+#: of the equations, and physical properties of air and water at each temperature.
+SPLASH_INTERMEDIATES = {
+    "solar.nu",
+    "solar.lambda_",
+    "solar.distance_factor",
+    "solar.declination",
+    "solar.ru",
+    "solar.rv",
+    "solar.rw",
+    "solar.sunset_hour_angle",
+    "solar.crossover_hour_angle",
+    "evap.sat",
+    "evap.lv",
+    "evap.pw",
+    "evap.psy",
+    "evap.econ",
+    "evap.rx",
+}
 
 
 @pytest.fixture(scope="module")
@@ -416,50 +446,49 @@ class TestPModelInvariants:
         np.testing.assert_allclose(doubled.gpp, 2.0 * base.gpp, rtol=1e-12)
 
 
-@pytest.fixture(scope="module")
-def splash_raw():
-    """pyrealm's SPLASH run directly, exposing the internals the balance needs."""
-    inputs = splash_inputs()
-    model = pyrealm.splash.splash.SplashModel(
-        lat=inputs["latitude"].values[None, :],
-        elv=inputs["elevation"].values[None, :],
-        sf=inputs["sunshine_fraction_daily"].values,
-        tc=inputs["temperature_daily"].values,
-        pn=inputs["precipitation_daily"].values,
-        dates=pyrealm.core.calendar.Calendar(inputs["dates_daily"].values),
-        kWm=inputs["max_soil_moisture"].values,
-    )
-    initial = model.estimate_initial_soil_moisture(
-        max_iter=SPLASH_MAX_ITER, max_diff=SPLASH_MAX_DIFF, verbose=False
-    )
-    aet, moisture, runoff = model.calculate_soil_moisture(initial)
-    return model, initial, aet, moisture, runoff
-
-
 class TestSplashInvariants:
     """SPLASH's outputs are a water budget, and the budget has to balance in mm."""
 
-    def test_daily_water_balance_closes(self, splash_raw):
+    def test_daily_water_balance_closes(self, splash_result):
         """dSM = P + condensation - AET - runoff, every day, every pixel.
 
         The strongest check here. It ties ``mm`` (soil moisture, runoff) to
         ``mm d-1`` (precipitation, AET) in a single identity, and breaks if
         runoff becomes a rate, if AET's interval changes, or if soil moisture
-        becomes a volumetric fraction.
+        becomes a volumetric fraction. It runs on the wrapper's outputs, which is
+        why condensation has to be one of them. The first day is left out because
+        its previous state is the spin-up result, which is not an output.
         """
-        model, initial, aet, moisture, runoff = splash_raw
-        previous = np.vstack([initial[None, :], moisture[:-1, :]])
-        change = moisture - previous
-        supply = model.pn + model.evap.cond - aet - runoff
+        change = (
+            splash_result["soil_moisture_daily"].values[1:]
+            - (splash_result["soil_moisture_daily"].values[:-1])
+        )
+        supply = (
+            splash_inputs()["precipitation_daily"].values[1:]
+            + splash_result["condensation_daily"].values[1:]
+            - splash_result["actual_evapotranspiration_daily"].values[1:]
+            - splash_result["runoff_daily"].values[1:]
+        )
         np.testing.assert_allclose(change, supply, atol=1e-9)
 
-    def test_annual_balance_closes(self, splash_raw):
-        """The same budget aggregated over the year, as an independent check."""
-        model, initial, aet, moisture, runoff = splash_raw
-        rainfall = model.pn.sum(axis=0) + model.evap.cond.sum(axis=0)
-        losses = aet.sum(axis=0) + runoff.sum(axis=0)
-        storage = moisture[-1, :] - initial
-        np.testing.assert_allclose(rainfall - losses, storage, atol=1e-6)
+    def test_condensation_is_a_material_part_of_the_balance(self, splash_result):
+        """The balance test above would prove little if condensation were tiny."""
+        assert splash_result["condensation_daily"].values.mean() > 0.1
+
+    def test_pet_is_scaled_equilibrium_evapotranspiration(self, splash_result):
+        np.testing.assert_allclose(
+            splash_result["potential_evapotranspiration_daily"].values,
+            (1.0 + CoreConst().k_w)
+            * splash_result["equilibrium_evapotranspiration_daily"].values,
+        )
+
+    def test_ppfd_is_a_daily_total_in_moles(self, splash_result):
+        """Tens of mol m-2 d-1. As a rate in umol m-2 s-1 it would be hundreds."""
+        assert 5.0 < float(splash_result["estimated_ppfd_daily"].max()) < 80.0
+
+    def test_nighttime_net_radiation_is_negative(self, splash_result):
+        assert float(splash_result["nighttime_net_radiation_daily"].max()) < 0.0
+        assert float(splash_result["daytime_net_radiation_daily"].min()) > 0.0
 
     def test_soil_moisture_is_a_depth_bounded_by_capacity(self, splash_result):
         """0 <= SM <= kWm pins soil moisture to mm, on capacity's own scale."""
@@ -484,17 +513,20 @@ class TestSplashInvariants:
         assert 0.1 < float(np.nanmax(pet)) < 15.0
 
     def test_elevation_is_metres(self):
-        """Elevation enters through atmospheric pressure, so PET must respond.
+        """Transmissivity scales as ``1 + f * z``, with ``f`` per metre.
 
-        Read as kilometres or feet, the same numbers would move PET by a
-        different amount. Ignored entirely, they would not move it at all.
+        Pins the scale, so elevation read as kilometres or feet fails, as well as
+        elevation being ignored.
         """
         inputs = splash_inputs()
         sea_level = _splash(**{**inputs, "elevation": inputs["elevation"] * 0.0})
         high = _splash(**{**inputs, "elevation": inputs["elevation"] * 0.0 + 3000.0})
-        low_pet = float(sea_level["potential_evapotranspiration_daily"].mean())
-        high_pet = float(high["potential_evapotranspiration_daily"].mean())
-        assert not np.isclose(low_pet, high_pet, rtol=1e-3)
+        _, _, per_metre = CoreConst().transmissivity_coef
+        np.testing.assert_allclose(
+            high["transmissivity_daily"].values
+            / sea_level["transmissivity_daily"].values,
+            1.0 + per_metre * 3000.0,
+        )
 
 
 class TestGoldenValues:
@@ -537,15 +569,7 @@ class TestGoldenValues:
             ),
         )
 
-    @pytest.mark.parametrize(
-        "field",
-        [
-            "actual_evapotranspiration_daily",
-            "soil_moisture_daily",
-            "runoff_daily",
-            "potential_evapotranspiration_daily",
-        ],
-    )
+    @pytest.mark.parametrize("field", SplashOut.__annotations__)
     @pytest.mark.parametrize("statistic", ["mean", "std", "min", "max"])
     def test_splash_outputs(self, golden, splash_result, field, statistic):
         expected = golden["splash"]["outputs"][field][statistic]

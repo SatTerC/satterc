@@ -41,6 +41,7 @@ This creates a `config.toml` file that looks like:
 
 ```toml
 [splash]
+soil_moisture_init_method = "equilibrate"
 soil_moisture_init_max_iter = 10
 soil_moisture_init_max_diff = 1.0
 
@@ -91,12 +92,13 @@ satterc data-gen config.toml --grid 1 1 --duration 2y --seed 42
 
 This writes NetCDF files at the input paths named in the config.
 
-/// admonition | SPLASH needs more than a year
+/// admonition | SPLASH needs a full calendar year
     type: note
 
-SPLASH estimates its initial soil moisture by iterating over a full year, so
-`--duration 1y` fails with "Cannot equilibrate - less than one year of data".
-Use `2y` or more.
+SPLASH estimates its initial soil moisture by iterating over the first calendar
+year from the start date. `--duration 1y` generates 365 days, and the default
+start date falls in a leap year, so it fails with "Cannot equilibrate - less than
+one year of data". Use `2y` or more.
 ///
 
 ## Step 3: check the pipeline before running it
