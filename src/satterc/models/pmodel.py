@@ -19,15 +19,14 @@ from typing import Annotated, Any, TypedDict, cast
 
 import pyrealm.pmodel
 import xarray as xr
-from conduit.io import sole_time_dim
+from catena.io import sole_time_dim
 from hamilton.function_modifiers import config, extract_fields
 from numpy.typing import NDArray
 from pyrealm.pmodel.arrhenius import ARRHENIUS_METHOD_REGISTRY
 from pyrealm.pmodel.optimal_chi import OPTIMAL_CHI_CLASS_REGISTRY
 from pyrealm.pmodel.quantum_yield import QUANTUM_YIELD_CLASS_REGISTRY
 from xarray import DataArray
-from xarray_annotated.temporal import declare_freq
-from xarray_annotated.units import declare_units
+from xarray_annotated import Unit, enforce
 
 from ..temporal import DAILY, WEEKLY
 
@@ -35,36 +34,36 @@ from ..temporal import DAILY, WEEKLY
 class PModelOut(TypedDict):
     """Outputs of the `pmodel` node, at weekly resolution."""
 
-    gpp_flux_weekly: Annotated[DataArray, "ug m-2 s-1", WEEKLY]
+    gpp_flux_weekly: Annotated[DataArray, Unit("ug m-2 s-1"), WEEKLY]
     """Carbon fixed by photosynthesis, as the instantaneous flux pyrealm reports
     (micrograms of carbon per square metre per second).
 
     Not a daily rate. A consumer wanting ``g m-2 d-1`` multiplies by 0.0864
     (86400 s d-1 x 1e-6 g ug-1). The example config does that in its
     ``gpp_weekly`` node."""
-    lue_photon_weekly: Annotated[DataArray, "g mol-1", WEEKLY]
+    lue_photon_weekly: Annotated[DataArray, Unit("g mol-1"), WEEKLY]
     """Light use efficiency, as carbon fixed per *mole of absorbed photons*
     (grams of carbon per mole).
 
     pyrealm defines LUE against PPFD, a photon flux, so the denominator counts
     photons rather than energy. SGAM wants ``g MJ-1`` instead, and the two differ
     by the energy content of PAR, roughly 4.57 mol MJ-1."""
-    iwue_weekly: Annotated[DataArray, "umol mol-1", WEEKLY]
+    iwue_weekly: Annotated[DataArray, Unit("umol mol-1"), WEEKLY]
     """Intrinsic water use efficiency (micromoles of CO2 per mole of air).
 
     pyrealm computes ``(5/8)(ca - ci) / P`` with the partial pressures in Pa and
     ``P`` in megapascals, so this is a mixing ratio rather than a pressure."""
-    vcmax_weekly: Annotated[DataArray, "umol m-2 s-1", WEEKLY]
+    vcmax_weekly: Annotated[DataArray, Unit("umol m-2 s-1"), WEEKLY]
     """Maximum rate of carboxylation at the growth temperature."""
-    vcmax25_weekly: Annotated[DataArray, "umol m-2 s-1", WEEKLY]
+    vcmax25_weekly: Annotated[DataArray, Unit("umol m-2 s-1"), WEEKLY]
     """Maximum rate of carboxylation at 25 degC, scaled from Vcmax by
     ``method_arrhenius``."""
-    jmax_weekly: Annotated[DataArray, "umol m-2 s-1", WEEKLY]
+    jmax_weekly: Annotated[DataArray, Unit("umol m-2 s-1"), WEEKLY]
     """Maximum rate of electron transport at the growth temperature."""
-    jmax25_weekly: Annotated[DataArray, "umol m-2 s-1", WEEKLY]
+    jmax25_weekly: Annotated[DataArray, Unit("umol m-2 s-1"), WEEKLY]
     """Maximum rate of electron transport at 25 degC, scaled from Jmax by
     ``method_arrhenius``."""
-    gs_weekly: Annotated[DataArray, "umol m-2 s-1", WEEKLY]
+    gs_weekly: Annotated[DataArray, Unit("umol m-2 s-1"), WEEKLY]
     """Stomatal conductance, NaN where VPD is 0 or ``ca - ci`` is not positive.
 
     The units are the ones pyrealm declares. pyrealm computes this as
@@ -82,6 +81,20 @@ _OUTPUT_ATTRIBUTES = {
     "jmax_weekly": "jmax",
     "jmax25_weekly": "jmax25",
     "gs_weekly": "gs",
+}
+
+#: `PModelOut` field -> the unit pyrealm returns it in. pyrealm computes on bare
+#: numbers, so this is where the unit is stated; `tests/test_pyrealm_units.py`
+#: holds it to pyrealm's documented units.
+_OUTPUT_UNITS = {
+    "gpp_flux_weekly": "ug m-2 s-1",
+    "lue_photon_weekly": "g mol-1",
+    "iwue_weekly": "umol mol-1",
+    "vcmax_weekly": "umol m-2 s-1",
+    "vcmax25_weekly": "umol m-2 s-1",
+    "jmax_weekly": "umol m-2 s-1",
+    "jmax25_weekly": "umol m-2 s-1",
+    "gs_weekly": "umol m-2 s-1",
 }
 
 
@@ -195,7 +208,13 @@ def _pmodel(
         dask="parallelized",
         output_dtypes=[float] * n_outputs,
     )
-    return cast(PModelOut, dict(zip(_OUTPUT_ATTRIBUTES, outputs, strict=True)))
+    return cast(
+        PModelOut,
+        {
+            name: out.assign_attrs(units=_OUTPUT_UNITS[name])
+            for name, out in zip(_OUTPUT_ATTRIBUTES, outputs, strict=True)
+        },
+    )
 
 
 class PModelConfig(TypedDict):
@@ -223,7 +242,7 @@ def pmodel_config(
     """Collect the P-model settings from the pipeline config.
 
     Grouping the settings into one node keeps them out of `pmodel`'s data
-    inputs. It does not namespace them: conduit merges every module section's
+    inputs. It does not namespace them: catena merges every module section's
     params into one flat driver config, so these are still configured as
     top-level keys of ``[pmodel]``.
 
@@ -273,15 +292,14 @@ def pmodel_config(
 
 
 @extract_fields()
-@declare_units
-@declare_freq
+@enforce
 def pmodel(
-    temperature_weekly: Annotated[DataArray, "degC", WEEKLY],
-    vpd_weekly: Annotated[DataArray, "Pa", WEEKLY],
-    co2_weekly: Annotated[DataArray, "ppm", WEEKLY],
-    pressure_weekly: Annotated[DataArray, "Pa", WEEKLY],
-    fapar_weekly: Annotated[DataArray, "1", WEEKLY],
-    ppfd_weekly: Annotated[DataArray, "umol m-2 s-1", WEEKLY],
+    temperature_weekly: Annotated[DataArray, Unit("degC"), WEEKLY],
+    vpd_weekly: Annotated[DataArray, Unit("Pa"), WEEKLY],
+    co2_weekly: Annotated[DataArray, Unit("ppm"), WEEKLY],
+    pressure_weekly: Annotated[DataArray, Unit("Pa"), WEEKLY],
+    fapar_weekly: Annotated[DataArray, Unit("1"), WEEKLY],
+    ppfd_weekly: Annotated[DataArray, Unit("umol m-2 s-1"), WEEKLY],
     optchi_inputs: dict[str, DataArray],
     kphio_inputs: dict[str, DataArray],
     arrhenius_inputs: dict[str, DataArray],
@@ -391,10 +409,9 @@ def optchi_inputs__none() -> dict[str, DataArray]:
 
 
 @config.when_in(method_optchi=list(_OPTCHI_THETA))
-@declare_units
-@declare_freq
+@enforce
 def optchi_inputs__theta(
-    volumetric_water_content_weekly: Annotated[DataArray, "m3 m-3", WEEKLY],
+    volumetric_water_content_weekly: Annotated[DataArray, Unit("m3 m-3"), WEEKLY],
 ) -> dict[str, DataArray]:
     """Soil moisture, for ``method_optchi = "lavergne20_c3"`` or ``"lavergne20_c4"``.
 
@@ -411,10 +428,9 @@ def optchi_inputs__theta(
 
 
 @config.when_in(method_optchi=list(_OPTCHI_ROOTZONESTRESS))
-@declare_units
-@declare_freq
+@enforce
 def optchi_inputs__rootzonestress(
-    rootzonestress_weekly: Annotated[DataArray, "1", WEEKLY],
+    rootzonestress_weekly: Annotated[DataArray, Unit("1"), WEEKLY],
 ) -> dict[str, DataArray]:
     """Root zone stress, for the ``*_rootzonestress`` ``method_optchi`` choices.
 
@@ -434,10 +450,10 @@ def kphio_inputs__none() -> dict[str, DataArray]:
 
 
 @config.when_in(method_kphio=list(_KPHIO_SANDOVAL))
-@declare_units
+@enforce
 def kphio_inputs__sandoval(
-    aridity_index: Annotated[DataArray, "1"],
-    mean_growth_temperature: Annotated[DataArray, "degC"],
+    aridity_index: Annotated[DataArray, Unit("1")],
+    mean_growth_temperature: Annotated[DataArray, Unit("degC")],
 ) -> dict[str, DataArray]:
     """Climatological inputs, for ``method_kphio = "sandoval"``.
 
@@ -465,9 +481,9 @@ def arrhenius_inputs__none() -> dict[str, DataArray]:
 
 
 @config.when_in(method_arrhenius=list(_ARRHENIUS_KATTGE_KNORR))
-@declare_units
+@enforce
 def arrhenius_inputs__kattge_knorr(
-    mean_growth_temperature: Annotated[DataArray, "degC"],
+    mean_growth_temperature: Annotated[DataArray, Unit("degC")],
 ) -> dict[str, DataArray]:
     """Mean growth temperature, for ``method_arrhenius = "kattge_knorr"``.
 
@@ -487,10 +503,10 @@ def arrhenius_inputs__kattge_knorr(
     ),
     config_used=["method_kphio", "method_arrhenius"],
 )
-@declare_units
+@enforce
 def mean_growth_temperature(
-    temperature_daily: Annotated[DataArray, "degC", DAILY],
-) -> Annotated[DataArray, "degC"]:
+    temperature_daily: Annotated[DataArray, Unit("degC"), DAILY],
+) -> Annotated[DataArray, Unit("degC")]:
     """Mean temperature over the growing days of the record, one value per pixel.
 
     pyrealm consumes this as an *acclimation* quantity: the ``sandoval`` quantum

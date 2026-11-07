@@ -212,7 +212,7 @@ class TestCachingIntact:
     """The cached pmodel node matches the uncached one (seam is internal to the node)."""
 
     def test_cached_run_matches_uncached(self, tmp_path):
-        from conduit import CacheSpec, build_driver
+        from catena import CacheSpec, build_driver
 
         def _mda(v: float) -> xr.DataArray:
             return xr.DataArray(
@@ -248,7 +248,7 @@ class TestCachingIntact:
 
     def test_changing_an_extra_input_invalidates_the_cache(self, tmp_path):
         """An extra input reaches `pmodel`'s cache key through its `<axis>_inputs` node."""
-        from conduit import CacheSpec, build_driver
+        from catena import CacheSpec, build_driver
 
         def _mda(v: float) -> xr.DataArray:
             return xr.DataArray(

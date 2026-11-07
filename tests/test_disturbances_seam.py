@@ -194,7 +194,7 @@ class TestCachingIntact:
     """The cached disturbances node matches the uncached one (seam is node-internal)."""
 
     def test_cached_run_matches_uncached(self, tmp_path, disturbance_inputs):
-        from conduit import CacheSpec, build_driver
+        from catena import CacheSpec, build_driver
 
         # disturbances_daily depends on the pft_params node, which the driver builds
         # from plant_type.

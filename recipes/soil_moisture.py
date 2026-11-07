@@ -5,7 +5,7 @@
 #     "matplotlib==3.10.9",
 #     "numpy==2.4.4",
 #     "satterc==0.8.0",
-#     "conduit",
+#     "ukceh-catena",
 #     "scipy==1.17.1",
 #     "xarray==2026.4.0",
 #     "xarray-annotated",
@@ -13,7 +13,7 @@
 #
 # [tool.uv.sources]
 # satterc = { path = ".." }
-# conduit = { git = "https://github.com/NERC-CEH/conduit", rev = "develop" }
+# ukceh-catena = { git = "https://github.com/NERC-CEH/catena", rev = "develop" }
 # ///
 
 import marimo
@@ -46,18 +46,11 @@ def _():
     import matplotlib.pyplot as plt
     import numpy as np
     import xarray as xr
-    from conduit import build_driver, load_inputs
-    from conduit.config import Config
+    from catena import build_driver, load_inputs
+    from catena.config import Config
     from scipy.optimize import OptimizeResult, minimize
-    from xarray_annotated.units import set_policy
 
     from satterc.scaffold.data_gen import generate_synthetic_data
-
-    # The inputs below are written to CSV and JSON, neither of which can store a
-    # units attribute, so conduit has nothing to validate SPLASH's declared
-    # units against and warns once per input. Ignore the unlabelled case only:
-    # a label that contradicts a declaration is still an error.
-    set_policy(on_missing="ignore")
 
     return (
         Config,
@@ -96,7 +89,7 @@ def _(mo):
     [splash]
 
     [inputs.daily]
-    path = "daily.csv"
+    path = "daily.nc"
     vars = [
       "precipitation",
       "sunshine_fraction",
@@ -104,11 +97,10 @@ def _(mo):
     ]
 
     [inputs.static]
-    path = "static.json"
+    path = "static.nc"
     suffix = ""
     vars = [
       "elevation",
-      "latitude",
       "max_soil_moisture",
       "plant_type",
     ]
@@ -132,8 +124,8 @@ def _(Config, config_toml, tomllib):
 def _(Path, generate_synthetic_data, load_inputs, parsed_config, tempfile):
     _tmpdir = Path(tempfile.mkdtemp())
 
-    parsed_config.input_specs["daily"].path = str(_tmpdir / "daily.csv")
-    parsed_config.input_specs["static"].path = str(_tmpdir / "static.json")
+    parsed_config.input_specs["daily"].path = str(_tmpdir / "daily.nc")
+    parsed_config.input_specs["static"].path = str(_tmpdir / "static.nc")
 
     generate_synthetic_data(config=parsed_config, grid=(1, 1), n_days=730, seed=42)
 
@@ -190,7 +182,9 @@ def _(np, xr):
     def objective_function(params, dr, observations, n_pixels, inputs):
         max_sm = params[0]
 
-        max_sm_grid = xr.DataArray(np.ones(n_pixels) * max_sm, dims=["pixel"])
+        max_sm_grid = xr.DataArray(
+            np.ones(n_pixels) * max_sm, dims=["pixel"], attrs={"units": "mm"}
+        )
 
         outputs = dr.execute(
             final_vars=["soil_moisture_daily"],

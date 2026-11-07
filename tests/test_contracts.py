@@ -14,8 +14,8 @@ executes it with validation turned on.
 from pathlib import Path
 
 import pytest
-from conduit import ParsedConfig, get_final_vars, load_config, load_inputs
-from conduit.specs import AnnotationPolicySpec
+import xarray_annotated as xra
+from catena import ParsedConfig, get_final_vars, load_config, load_inputs
 from conftest import driver_from_config
 
 from satterc.scaffold.data_gen import generate_synthetic_data
@@ -43,31 +43,16 @@ def validated_config(tmp_path_factory) -> ParsedConfig:
 
 @pytest.fixture
 def strict_contracts():
-    """Turn contract validation on, and put it back afterwards.
+    """Turn contract validation on for the test, overriding `conftest`'s switch.
 
-    `AnnotationPolicySpec.apply` writes to xarray-annotated's *process-global*
-    policy, so this has to be restored or it leaks into whatever runs next.
-
-    ``on_inexact`` stays at ``"convert"`` rather than ``"error"``: the example
-    config relies on pint converting SGAM's ``g m-2`` pools into RothC's
-    ``t ha-1``, which is by design. Converting *correctly labelled* units is
-    right, so a row whose values are simply mislabelled is beyond what any
-    contract check can catch. What this does catch is a unit that is not
-    dimensionally convertible to the declared one, a missing unit, and data
-    written at the wrong frequency — the three ways a new table row realistically
-    goes wrong.
+    Every failed check raises, and nothing is converted between nodes, so this
+    catches a unit that differs from the declared one, a missing unit, and data
+    written at the wrong frequency: the ways a new table row realistically goes
+    wrong. A row whose values are simply mislabelled is beyond what any contract
+    check can catch.
     """
-    AnnotationPolicySpec(
-        enabled=True,
-        on_missing="error",
-        on_inexact="convert",
-        on_mismatch="error",
-        on_uninferable="error",
-    ).apply()
-    try:
+    with xra.enabled(True):
         yield
-    finally:
-        AnnotationPolicySpec(enabled=False).apply()
 
 
 @pytest.mark.usefixtures("strict_contracts")

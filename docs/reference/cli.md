@@ -5,9 +5,9 @@ icon: lucide/square-terminal
 
 # CLI
 
-The `satterc` command is mostly [conduit][conduit-cli]'s.
+The `satterc` command is mostly [catena][catena-cli]'s.
 `run`, `graph` and `gridded` are mounted unchanged, so that a pipeline is driven from one entry point rather than two.
-They are documented below as they appear under `satterc`, but the behaviour is conduit's and so is the explanation of it: see [conduit's CLI reference][conduit-cli] for what the options mean, and [scale up][conduit-scale] for the workflow `gridded` belongs to.
+They are documented below as they appear under `satterc`, but the behaviour is catena's and so is the explanation of it: see [catena's CLI reference][catena-cli] for what the options mean, and [scale up][catena-scale] for the workflow `gridded` belongs to.
 
 Only `setup` and `data-gen` are satterc's own.
 Both exist to get a pipeline running before there is any real data to run it on: `setup` writes the config, `data-gen` fills the input files it names.
@@ -89,5 +89,5 @@ They bracket a set of independent `[subset]` runs: create the shared store once,
     :width: 80
     :prompt: ❯
 
-[conduit-cli]: https://nerc-ceh.github.io/conduit/reference/cli.html
-[conduit-scale]: https://nerc-ceh.github.io/conduit/guides/run/scale-up.html
+[catena-cli]: https://nerc-ceh.github.io/catena/reference/cli.html
+[catena-scale]: https://nerc-ceh.github.io/catena/guides/run/scale-up.html

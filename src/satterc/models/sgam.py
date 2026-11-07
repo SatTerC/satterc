@@ -9,39 +9,41 @@ from hamilton.function_modifiers import extract_fields
 from numpy.typing import NDArray
 from sgam import Disturbances, Sgam
 from sgam.pft import PftParams, PlantFunctionalType, get_default_pft_params
-from xarray_annotated.temporal import declare_freq
-from xarray_annotated.units import declare_units
+from xarray_annotated import Unit, enforce
 
 from ..temporal import DAILY, WEEKLY, time_index
 
 # SGAM output node names, in the order they are returned by `_sgam_1px` and mapped
 # onto the DAG node names below.
-_SGAM_OUTPUT_NAMES: tuple[str, ...] = (
-    "leaf_pool_weekly",
-    "stem_pool_weekly",
-    "root_pool_weekly",
-    "litter_pool_weekly",
-    "removed_pool_weekly",
-    "npp_leaf_weekly",
-    "npp_stem_weekly",
-    "npp_root_weekly",
-    "turnover_leaf_weekly",
-    "turnover_stem_weekly",
-    "turnover_root_weekly",
-    "respiration_leaf_weekly",
-    "respiration_stem_weekly",
-    "respiration_root_weekly",
-    "disturbance_leaf_weekly",
-    "disturbance_stem_weekly",
-    "disturbance_root_weekly",
-    "cue_weekly",
-    "allocation_leaf_weekly",
-    "allocation_stem_weekly",
-    "allocation_root_weekly",
-    "drought_modifier_weekly",
-    "lue_score_weekly",
-    "iwue_score_weekly",
-)
+#: `SgamOut` field -> the unit sgam returns it in, ordered as `_sgam_1px` returns
+#: them. sgam computes on bare numbers, so this is where the unit is stated.
+_SGAM_OUTPUT_UNITS: dict[str, str] = {
+    "leaf_pool_weekly": "g m-2",
+    "stem_pool_weekly": "g m-2",
+    "root_pool_weekly": "g m-2",
+    "litter_pool_weekly": "g m-2",
+    "removed_pool_weekly": "g m-2",
+    "npp_leaf_weekly": "g m-2",
+    "npp_stem_weekly": "g m-2",
+    "npp_root_weekly": "g m-2",
+    "turnover_leaf_weekly": "g m-2",
+    "turnover_stem_weekly": "g m-2",
+    "turnover_root_weekly": "g m-2",
+    "respiration_leaf_weekly": "g m-2",
+    "respiration_stem_weekly": "g m-2",
+    "respiration_root_weekly": "g m-2",
+    "disturbance_leaf_weekly": "g m-2",
+    "disturbance_stem_weekly": "g m-2",
+    "disturbance_root_weekly": "g m-2",
+    "cue_weekly": "1",
+    "allocation_leaf_weekly": "1",
+    "allocation_stem_weekly": "1",
+    "allocation_root_weekly": "1",
+    "drought_modifier_weekly": "1",
+    "lue_score_weekly": "1",
+    "iwue_score_weekly": "1",
+}
+_SGAM_OUTPUT_NAMES: tuple[str, ...] = tuple(_SGAM_OUTPUT_UNITS)
 
 
 class SgamOut(TypedDict):
@@ -54,77 +56,77 @@ class SgamOut(TypedDict):
     dimensionless.
     """
 
-    leaf_pool_weekly: Annotated[xr.DataArray, "g m-2", WEEKLY]
+    leaf_pool_weekly: Annotated[xr.DataArray, Unit("g m-2"), WEEKLY]
     """Standing leaf carbon pool (grams of carbon per square metre)."""
-    stem_pool_weekly: Annotated[xr.DataArray, "g m-2", WEEKLY]
+    stem_pool_weekly: Annotated[xr.DataArray, Unit("g m-2"), WEEKLY]
     """Standing stem carbon pool (grams of carbon per square metre)."""
-    root_pool_weekly: Annotated[xr.DataArray, "g m-2", WEEKLY]
+    root_pool_weekly: Annotated[xr.DataArray, Unit("g m-2"), WEEKLY]
     """Standing root carbon pool (grams of carbon per square metre)."""
-    litter_pool_weekly: Annotated[xr.DataArray, "g m-2", WEEKLY]
+    litter_pool_weekly: Annotated[xr.DataArray, Unit("g m-2"), WEEKLY]
     """Litter carbon pool, fed by turnover and (for non-crop disturbance)
     disturbance losses; accumulate-only, since decomposition is RothC's role
     (grams of carbon per square metre)."""
-    removed_pool_weekly: Annotated[xr.DataArray, "g m-2", WEEKLY]
+    removed_pool_weekly: Annotated[xr.DataArray, Unit("g m-2"), WEEKLY]
     """Cumulative carbon removed from the system by disturbance/harvest
     (grams of carbon per square metre)."""
-    npp_leaf_weekly: Annotated[xr.DataArray, "g m-2", WEEKLY]
+    npp_leaf_weekly: Annotated[xr.DataArray, Unit("g m-2"), WEEKLY]
     """Net primary productivity directed to the leaf pool, as the weekly growth
     flux (grams of carbon per square metre per week)."""
-    npp_stem_weekly: Annotated[xr.DataArray, "g m-2", WEEKLY]
+    npp_stem_weekly: Annotated[xr.DataArray, Unit("g m-2"), WEEKLY]
     """Net primary productivity directed to the stem pool, as the weekly growth
     flux (grams of carbon per square metre per week)."""
-    npp_root_weekly: Annotated[xr.DataArray, "g m-2", WEEKLY]
+    npp_root_weekly: Annotated[xr.DataArray, Unit("g m-2"), WEEKLY]
     """Net primary productivity directed to the root pool, as the weekly growth
     flux (grams of carbon per square metre per week)."""
-    turnover_leaf_weekly: Annotated[xr.DataArray, "g m-2", WEEKLY]
+    turnover_leaf_weekly: Annotated[xr.DataArray, Unit("g m-2"), WEEKLY]
     """Leaf litterfall flux to the litter pool (grams of carbon per square metre
     per week)."""
-    turnover_stem_weekly: Annotated[xr.DataArray, "g m-2", WEEKLY]
+    turnover_stem_weekly: Annotated[xr.DataArray, Unit("g m-2"), WEEKLY]
     """Stem litterfall flux to the litter pool (grams of carbon per square metre
     per week)."""
-    turnover_root_weekly: Annotated[xr.DataArray, "g m-2", WEEKLY]
+    turnover_root_weekly: Annotated[xr.DataArray, Unit("g m-2"), WEEKLY]
     """Root litterfall flux to the litter pool (grams of carbon per square metre
     per week)."""
-    respiration_leaf_weekly: Annotated[xr.DataArray, "g m-2", WEEKLY]
+    respiration_leaf_weekly: Annotated[xr.DataArray, Unit("g m-2"), WEEKLY]
     """Autotrophic respiration attributed to the leaf pool (grams of carbon per
     square metre per week)."""
-    respiration_stem_weekly: Annotated[xr.DataArray, "g m-2", WEEKLY]
+    respiration_stem_weekly: Annotated[xr.DataArray, Unit("g m-2"), WEEKLY]
     """Autotrophic respiration attributed to the stem pool (grams of carbon per
     square metre per week)."""
-    respiration_root_weekly: Annotated[xr.DataArray, "g m-2", WEEKLY]
+    respiration_root_weekly: Annotated[xr.DataArray, Unit("g m-2"), WEEKLY]
     """Autotrophic respiration attributed to the root pool (grams of carbon per
     square metre per week)."""
-    disturbance_leaf_weekly: Annotated[xr.DataArray, "g m-2", WEEKLY]
+    disturbance_leaf_weekly: Annotated[xr.DataArray, Unit("g m-2"), WEEKLY]
     """Carbon lost from the leaf pool to disturbance, as a positive flux. For
     non-crop PFTs this transfers to litter; for crops it transfers to the
     removed pool (grams of carbon per square metre per week)."""
-    disturbance_stem_weekly: Annotated[xr.DataArray, "g m-2", WEEKLY]
+    disturbance_stem_weekly: Annotated[xr.DataArray, Unit("g m-2"), WEEKLY]
     """Carbon lost from the stem pool to disturbance, as a positive flux.
     Non-zero only for crops, where it transfers to the removed pool (grams of
     carbon per square metre per week)."""
-    disturbance_root_weekly: Annotated[xr.DataArray, "g m-2", WEEKLY]
+    disturbance_root_weekly: Annotated[xr.DataArray, Unit("g m-2"), WEEKLY]
     """Carbon lost from the root pool to disturbance, as a positive flux.
     Non-zero only for crops, where it transfers to litter (grams of carbon per
     square metre per week)."""
-    cue_weekly: Annotated[xr.DataArray, "1", WEEKLY]
+    cue_weekly: Annotated[xr.DataArray, Unit("1"), WEEKLY]
     """Carbon use efficiency: the fraction of GPP retained as biomass, in
     [0.2, 0.7] (dimensionless)."""
-    allocation_leaf_weekly: Annotated[xr.DataArray, "1", WEEKLY]
+    allocation_leaf_weekly: Annotated[xr.DataArray, Unit("1"), WEEKLY]
     """Fraction of NPP allocated to the leaf pool, in (0, 1). The three
     allocation fractions sum to 1 at every timestep (dimensionless)."""
-    allocation_stem_weekly: Annotated[xr.DataArray, "1", WEEKLY]
+    allocation_stem_weekly: Annotated[xr.DataArray, Unit("1"), WEEKLY]
     """Fraction of NPP allocated to the stem pool, in (0, 1). The three
     allocation fractions sum to 1 at every timestep (dimensionless)."""
-    allocation_root_weekly: Annotated[xr.DataArray, "1", WEEKLY]
+    allocation_root_weekly: Annotated[xr.DataArray, Unit("1"), WEEKLY]
     """Fraction of NPP allocated to the root pool, in (0, 1). The three
     allocation fractions sum to 1 at every timestep (dimensionless)."""
-    drought_modifier_weekly: Annotated[xr.DataArray, "1", WEEKLY]
+    drought_modifier_weekly: Annotated[xr.DataArray, Unit("1"), WEEKLY]
     """Combined drought stress scalar in [0, 1] (1.0 = no stress, 0.0 = maximum
     stress) (dimensionless)."""
-    lue_score_weekly: Annotated[xr.DataArray, "1", WEEKLY]
+    lue_score_weekly: Annotated[xr.DataArray, Unit("1"), WEEKLY]
     """Light use efficiency relative to its PFT-specific maximum, clipped to
     [0, 1] (dimensionless)."""
-    iwue_score_weekly: Annotated[xr.DataArray, "1", WEEKLY]
+    iwue_score_weekly: Annotated[xr.DataArray, Unit("1"), WEEKLY]
     """Intrinsic water use efficiency relative to its PFT-specific maximum,
     clipped to [0, 1] (dimensionless)."""
 
@@ -287,7 +289,12 @@ def _disturbances_daily(
     # apply_ufunc drops the `time` coord (a core dim) and orders the output as
     # (pixel, time); reattach the coord and restore the canonical (time, pixel).
     time_coord = temperature_daily.coords["time"]
-    return out.assign_coords(time=time_coord).transpose("time", "pixel")
+    # sgam's detector returns a bare 0/1 indicator.
+    return (
+        out.assign_coords(time=time_coord)
+        .transpose("time", "pixel")
+        .assign_attrs(units="1")
+    )
 
 
 class DisturbancesConfig(TypedDict):
@@ -307,7 +314,7 @@ def disturbances_config(
     """Collect the disturbance-detection settings from the pipeline config.
 
     Grouping the settings into one node keeps them out of
-    `disturbances_daily`'s data inputs. It does not namespace them: conduit
+    `disturbances_daily`'s data inputs. It does not namespace them: catena
     merges every module section's params into one flat driver config, so these
     are still configured as top-level keys of ``[sgam]``.
 
@@ -327,15 +334,14 @@ def disturbances_config(
     return DisturbancesConfig(growing_season_limit=growing_season_limit)
 
 
-@declare_units
-@declare_freq
+@enforce
 def disturbances_daily(
-    temperature_daily: Annotated[xr.DataArray, "degC", DAILY],
-    gpp_daily: Annotated[xr.DataArray, "g m-2 d-1", DAILY],
-    lai_daily: Annotated[xr.DataArray, "1", DAILY],
+    temperature_daily: Annotated[xr.DataArray, Unit("degC"), DAILY],
+    gpp_daily: Annotated[xr.DataArray, Unit("g m-2 d-1"), DAILY],
+    lai_daily: Annotated[xr.DataArray, Unit("1"), DAILY],
     pft_params: xr.Dataset,
     disturbances_config: DisturbancesConfig,
-) -> Annotated[xr.DataArray, "1", DAILY]:
+) -> Annotated[xr.DataArray, Unit("1"), DAILY]:
     """Detect daily disturbance events from anomalous declines in GPP and LAI.
 
     A disturbance is flagged on a day that is (a) within the growing season, i.e.
@@ -556,7 +562,9 @@ def _sgam(
     return cast(
         SgamOut,
         {
-            name: da.assign_coords(time=time_coord).transpose("time", "pixel")
+            name: da.assign_coords(time=time_coord)
+            .transpose("time", "pixel")
+            .assign_attrs(units=_SGAM_OUTPUT_UNITS[name])
             for name, da in zip(_SGAM_OUTPUT_NAMES, outputs, strict=True)
         },
     )
@@ -581,7 +589,7 @@ def sgam_config(
     """Collect the SGAM settings from the pipeline config.
 
     Grouping the settings into one node keeps them out of `sgam`'s data inputs.
-    It does not namespace them: conduit merges every module section's params
+    It does not namespace them: catena merges every module section's params
     into one flat driver config, so these are still configured as top-level keys
     of ``[sgam]``.
 
@@ -606,21 +614,20 @@ def sgam_config(
 
 
 @extract_fields()
-@declare_units
-@declare_freq
+@enforce
 def sgam(
     plant_type: xr.DataArray,
     pft_params: xr.Dataset,
-    temperature_weekly: Annotated[xr.DataArray, "degC", WEEKLY],
-    gpp_weekly: Annotated[xr.DataArray, "g m-2 d-1", WEEKLY],
-    volumetric_water_content_weekly: Annotated[xr.DataArray, "m3 m-3", WEEKLY],
-    vpd_weekly: Annotated[xr.DataArray, "Pa", WEEKLY],
-    lue_weekly: Annotated[xr.DataArray, "g MJ-1", WEEKLY],
-    iwue_weekly: Annotated[xr.DataArray, "umol mol-1", WEEKLY],
+    temperature_weekly: Annotated[xr.DataArray, Unit("degC"), WEEKLY],
+    gpp_weekly: Annotated[xr.DataArray, Unit("g m-2 d-1"), WEEKLY],
+    volumetric_water_content_weekly: Annotated[xr.DataArray, Unit("m3 m-3"), WEEKLY],
+    vpd_weekly: Annotated[xr.DataArray, Unit("Pa"), WEEKLY],
+    lue_weekly: Annotated[xr.DataArray, Unit("g MJ-1"), WEEKLY],
+    iwue_weekly: Annotated[xr.DataArray, Unit("umol mol-1"), WEEKLY],
     disturbances_weekly: xr.DataArray,
-    leaf_pool_init: Annotated[xr.DataArray, "g m-2"],
-    stem_pool_init: Annotated[xr.DataArray, "g m-2"],
-    root_pool_init: Annotated[xr.DataArray, "g m-2"],
+    leaf_pool_init: Annotated[xr.DataArray, Unit("g m-2")],
+    stem_pool_init: Annotated[xr.DataArray, Unit("g m-2")],
+    root_pool_init: Annotated[xr.DataArray, Unit("g m-2")],
     latitude: xr.DataArray,
     sgam_config: SgamConfig,
     litter_pool_init: xr.DataArray | None = None,

@@ -48,6 +48,7 @@ from pyrealm_cases import (
     MAX_SOIL_MOISTURE,
     N_PIXELS,
     PMODEL_METHODS,
+    declared_input_units,
     declared_units,
     pmodel_inputs,
     splash_inputs,
@@ -122,8 +123,6 @@ def declared_pmodel_inputs() -> dict[str, str]:
     The method-dependent inputs sit on the ``<axis>_inputs`` variants, not on
     `pmodel`. Two variants can declare the same input, and must agree on it.
     """
-    from xarray_annotated.units import units_from_signature
-
     from satterc.models import pmodel as pmodel_module
 
     nodes = [
@@ -135,7 +134,7 @@ def declared_pmodel_inputs() -> dict[str, str]:
     ]
     declared: dict[str, str] = {}
     for node in nodes:
-        for argument, unit in units_from_signature(node)[0].items():
+        for argument, unit in declared_input_units(node).items():
             assert declared.setdefault(argument, unit) == unit, (
                 f"{node.__name__} declares {argument!r} as {unit!r}, but another "
                 f"P-Model node declares it as {declared[argument]!r}."
@@ -161,8 +160,8 @@ SPLASH_INPUT_UNITS = [
     ("temperature_daily", "tc"),
     ("precipitation_daily", "pn"),
     ("max_soil_moisture", "kWm"),
-    # ("latitude", "lat") is absent on purpose. See `splash`'s signature and
-    # `test_latitude_units_are_blocked_upstream` below.
+    # ("latitude", "lat") is absent on purpose. See `satterc.latitude` and
+    # `test_latitude_check_uses_pyrealms_unit` below.
 ]
 
 # pyrealm's own two sources disagree here. The bounds table records
@@ -189,11 +188,9 @@ class TestUpstreamUnitMetadata:
 
     @pytest.mark.parametrize(("argument", "variable"), SPLASH_INPUT_UNITS)
     def test_splash_input_units(self, bounds, argument, variable):
-        from xarray_annotated.units import units_from_signature
-
         from satterc.models import splash as splash_module
 
-        declared_inputs, _ = units_from_signature(splash_module.splash)
+        declared_inputs = declared_input_units(splash_module.splash)
         declared = declared_inputs[argument]
         expected = normalise(bounds[variable].unit)
         assert declared == expected, (
@@ -599,25 +596,22 @@ class TestAnnotationsMatchGolden:
         )
 
 
-def test_latitude_units_are_blocked_upstream():
-    """`splash` cannot declare a unit for `latitude`, and pyrealm still wants degrees.
+def test_latitude_check_uses_pyrealms_unit():
+    """`splash` checks `latitude` in its body, against the unit pyrealm wants.
 
-    conduit synthesises `latitude` from the input CRS without a `units` attribute,
-    so a declaration here fails contract validation for every gridded pipeline.
-    This records both halves of that. The gap is real, and the unit satterc would
-    declare once conduit stamps the attribute is unchanged upstream.
+    The check stands in for a declaration until catena labels the latitude it
+    derives; see `satterc.latitude`. The undeclared parameter and the checked
+    unit are pinned together, so removing the workaround means editing both.
     """
-    from xarray_annotated.units import units_from_signature
-
+    from satterc.latitude import LATITUDE_UNITS
     from satterc.models import splash as splash_module
 
-    declared_inputs, _ = units_from_signature(splash_module.splash)
-    assert "latitude" not in declared_inputs, (
-        "conduit may now stamp units on the synthesised `latitude`. If so, "
-        'declare "degrees" in `splash` and restore the SPLASH_INPUT_UNITS entry.'
+    assert "latitude" not in declared_input_units(splash_module.splash), (
+        "`splash` now declares `latitude`, so remove `satterc.latitude` and "
+        "restore the SPLASH_INPUT_UNITS entry."
     )
     checker = pyrealm.core.bounds.BoundsChecker()
-    assert normalise(checker._data["lat"].unit) == "degrees"
+    assert normalise(checker._data["lat"].unit) == LATITUDE_UNITS
 
 
 def test_latitude_case_spans_hemispheres():

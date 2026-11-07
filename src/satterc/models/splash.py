@@ -18,24 +18,24 @@ from hamilton.function_modifiers import config, extract_fields
 from numpy.typing import NDArray
 from pandas import DatetimeIndex
 from xarray import DataArray
-from xarray_annotated.temporal import declare_freq
-from xarray_annotated.units import declare_units
+from xarray_annotated import Unit, enforce
 
+from ..latitude import check_latitude
 from ..temporal import DAILY, time_index
 
 
 class SplashOut(TypedDict):
     """Outputs of the `splash` node, at daily resolution."""
 
-    actual_evapotranspiration_daily: Annotated[DataArray, "mm d-1", DAILY]
+    actual_evapotranspiration_daily: Annotated[DataArray, Unit("mm d-1"), DAILY]
     """Actual evapotranspiration: the daily water loss to the atmosphere
     (millimetres per day)."""
-    soil_moisture_daily: Annotated[DataArray, "mm", DAILY]
+    soil_moisture_daily: Annotated[DataArray, Unit("mm"), DAILY]
     """Soil moisture content at the end of the day (millimetres)."""
-    runoff_daily: Annotated[DataArray, "mm", DAILY]
+    runoff_daily: Annotated[DataArray, Unit("mm"), DAILY]
     """Runoff: the soil-moisture overflow amount above capacity for the day
     (millimetres, an amount rather than a rate)."""
-    potential_evapotranspiration_daily: Annotated[DataArray, "mm d-1", DAILY]
+    potential_evapotranspiration_daily: Annotated[DataArray, Unit("mm d-1"), DAILY]
     """Potential evapotranspiration: the water that *would* be lost to the
     atmosphere given the available energy, if soil moisture were not limiting
     (millimetres per day).
@@ -45,29 +45,29 @@ class SplashOut(TypedDict):
     evapotranspiration follows from daytime net radiation and ``k_w = 0.26``. It
     is the demand term in an aridity index, which `satterc.models.pmodel` needs
     for ``method_kphio = "sandoval"``."""
-    equilibrium_evapotranspiration_daily: Annotated[DataArray, "mm d-1", DAILY]
+    equilibrium_evapotranspiration_daily: Annotated[DataArray, Unit("mm d-1"), DAILY]
     """Equilibrium evapotranspiration: the energy-limited loss from daytime net
     radiation, before the Priestley-Taylor scaling that gives potential
     evapotranspiration (millimetres per day)."""
-    condensation_daily: Annotated[DataArray, "mm d-1", DAILY]
+    condensation_daily: Annotated[DataArray, Unit("mm d-1"), DAILY]
     """Condensation, from nighttime net radiation (millimetres per day). With
     precipitation, this is the supply side of the daily water balance."""
-    extraterrestrial_radiation_daily: Annotated[DataArray, "J m-2 d-1", DAILY]
+    extraterrestrial_radiation_daily: Annotated[DataArray, Unit("J m-2 d-1"), DAILY]
     """Solar radiation arriving at the top of the atmosphere over the day."""
-    transmissivity_daily: Annotated[DataArray, "1", DAILY]
+    transmissivity_daily: Annotated[DataArray, Unit("1"), DAILY]
     """Bulk atmospheric transmissivity, from sunshine fraction and elevation."""
-    estimated_ppfd_daily: Annotated[DataArray, "mol m-2 d-1", DAILY]
+    estimated_ppfd_daily: Annotated[DataArray, Unit("mol m-2 d-1"), DAILY]
     """Photosynthetic photon flux density estimated from the radiation model.
 
     The units follow the calculation, which converts a daily radiation total.
     pyrealm's docstrings say micromoles per square metre per second, but its
     values are moles per square metre per day. This is a daily total, unlike the
     instantaneous rate `satterc.models.pmodel` takes as ``ppfd_weekly``."""
-    net_longwave_radiation_daily: Annotated[DataArray, "W m-2", DAILY]
+    net_longwave_radiation_daily: Annotated[DataArray, Unit("W m-2"), DAILY]
     """Net longwave radiation, as a rate that is constant over the day."""
-    daytime_net_radiation_daily: Annotated[DataArray, "J m-2 d-1", DAILY]
+    daytime_net_radiation_daily: Annotated[DataArray, Unit("J m-2 d-1"), DAILY]
     """Net radiation over the hours when it is positive."""
-    nighttime_net_radiation_daily: Annotated[DataArray, "J m-2 d-1", DAILY]
+    nighttime_net_radiation_daily: Annotated[DataArray, Unit("J m-2 d-1"), DAILY]
     """Net radiation over the hours when it is negative, so this is negative."""
 
 
@@ -92,6 +92,24 @@ _OUTPUT_FIELDS = (
     "runoff_daily",
     *_FLUX_ATTRIBUTES,
 )
+
+#: `SplashOut` field -> the unit pyrealm returns it in. pyrealm computes on bare
+#: numbers, so this is where the unit is stated; `tests/test_pyrealm_units.py`
+#: holds it to pyrealm's documented units.
+_OUTPUT_UNITS = {
+    "actual_evapotranspiration_daily": "mm d-1",
+    "soil_moisture_daily": "mm",
+    "runoff_daily": "mm",
+    "potential_evapotranspiration_daily": "mm d-1",
+    "equilibrium_evapotranspiration_daily": "mm d-1",
+    "condensation_daily": "mm d-1",
+    "extraterrestrial_radiation_daily": "J m-2 d-1",
+    "transmissivity_daily": "1",
+    "estimated_ppfd_daily": "mol m-2 d-1",
+    "net_longwave_radiation_daily": "W m-2",
+    "daytime_net_radiation_daily": "J m-2 d-1",
+    "nighttime_net_radiation_daily": "J m-2 d-1",
+}
 
 #: Elevations beyond these are not land surface, so are likely an undeclared fill value.
 _PLAUSIBLE_ELEVATION_M = (-500.0, 9000.0)
@@ -345,7 +363,9 @@ def _splash(
     return cast(
         SplashOut,
         {
-            name: out.assign_coords(time=time_coord).transpose("time", "pixel")
+            name: out.assign_coords(time=time_coord)
+            .transpose("time", "pixel")
+            .assign_attrs(units=_OUTPUT_UNITS[name])
             for name, out in zip(_OUTPUT_FIELDS, outputs, strict=True)
         },
     )
@@ -375,7 +395,7 @@ def splash_config(
     """Collect the SPLASH settings from the pipeline config.
 
     Grouping the settings into one node keeps them out of `splash`'s data
-    inputs. It does not namespace them: conduit merges every module section's
+    inputs. It does not namespace them: catena merges every module section's
     params into one flat driver config, so these are still configured as
     top-level keys of ``[splash]``.
 
@@ -424,9 +444,9 @@ def soil_moisture_init_inputs__equilibrate() -> dict[str, DataArray]:
 
 
 @config.when_in(soil_moisture_init_method=["prescribed"])
-@declare_units
+@enforce
 def soil_moisture_init_inputs__prescribed(
-    initial_soil_moisture: Annotated[DataArray, "mm"],
+    initial_soil_moisture: Annotated[DataArray, Unit("mm")],
 ) -> dict[str, DataArray]:
     """Supply the starting state, for ``soil_moisture_init_method = "prescribed"``.
 
@@ -440,23 +460,15 @@ def soil_moisture_init_inputs__prescribed(
 
 
 @extract_fields()
-@declare_units
-@declare_freq
+@enforce
 def splash(
-    sunshine_fraction_daily: Annotated[DataArray, "1", DAILY],
-    temperature_daily: Annotated[DataArray, "degC", DAILY],
-    precipitation_daily: Annotated[DataArray, "mm d-1", DAILY],
-    elevation: Annotated[DataArray, "m"],
-    # Deliberately undeclared. pyrealm wants degrees, but conduit computes
-    # `latitude` from the input CRS (`conduit.gridded.io.compute_lat_lon`) and
-    # builds the array without a `units` attribute, so under strict validation
-    # (`on_missing="error"`, as tests/test_contracts.py runs) declaring a unit
-    # here fails every gridded pipeline. Stamping that attribute is generic
-    # geospatial behaviour and belongs in conduit. Once it lands, declare
-    # "degrees" here and add ("latitude", "lat") back to SPLASH_INPUT_UNITS in
-    # tests/test_pyrealm_units.py.
+    sunshine_fraction_daily: Annotated[DataArray, Unit("1"), DAILY],
+    temperature_daily: Annotated[DataArray, Unit("degC"), DAILY],
+    precipitation_daily: Annotated[DataArray, Unit("mm d-1"), DAILY],
+    elevation: Annotated[DataArray, Unit("m")],
+    # Undeclared until NERC-CEH/catena#21; checked by `check_latitude` instead.
     latitude: DataArray,
-    max_soil_moisture: Annotated[DataArray, "mm"],
+    max_soil_moisture: Annotated[DataArray, Unit("mm")],
     soil_moisture_init_inputs: dict[str, DataArray],
     splash_config: SplashConfig,
 ) -> SplashOut:
@@ -477,7 +489,9 @@ def splash(
         Elevation of the site (metres). Values outside -500 to 9000 warn, as they
         suggest an undeclared fill value.
     latitude
-        Latitude of the site (degrees).
+        Latitude of the site (degrees). A labelled array must be in degrees; an
+        unlabelled one is taken to be the one catena derives from a gridded
+        input's CRS, which always is.
     max_soil_moisture
         Maximum soil moisture capacity (millimetres). Sets the runoff threshold and
         scales the rate at which the soil supplies water for evaporation.
@@ -511,7 +525,7 @@ def splash(
         temperature_daily=temperature_daily,
         precipitation_daily=precipitation_daily,
         elevation=elevation,
-        latitude=latitude,
+        latitude=check_latitude(latitude, "splash"),
         max_soil_moisture=max_soil_moisture,
         dates_daily=time_index(temperature_daily, "temperature_daily"),
         initial_soil_moisture=soil_moisture_init_inputs.get("initial_soil_moisture"),

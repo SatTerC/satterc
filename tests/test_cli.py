@@ -4,7 +4,7 @@ import shutil
 import tomllib
 
 import pytest
-from conduit import load_config
+from catena import load_config
 from typer.testing import CliRunner
 
 from satterc._version import __version__
@@ -165,7 +165,7 @@ class TestGraphCommand:
 
 
 class TestComposedApp:
-    """The pipeline commands are conduit's, mounted into satterc's app."""
+    """The pipeline commands are catena's, mounted into satterc's app."""
 
     @pytest.mark.parametrize(
         "command", ["run", "graph", "gridded", "setup", "data-gen"]
@@ -374,7 +374,7 @@ class TestModelSelectionFlag:
         with open(path, "rb") as f:
             data = tomllib.load(f)
         # A built-in model section carries no `_import_path` -- satterc
-        # registers the module with conduit -- so it is identified by name.
+        # registers the module with catena -- so it is identified by name.
         return [k for k in data if k in self.FOUR]
 
     @pytest.mark.parametrize(

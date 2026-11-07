@@ -16,14 +16,14 @@ import pandas as pd
 import pyrealm.pmodel
 import pytest
 import xarray as xr
-from conduit import build_driver
+from catena import build_driver
 from pyrealm.pmodel.arrhenius import ARRHENIUS_METHOD_REGISTRY
 from pyrealm.pmodel.jmax_limitation import JMAX_LIMITATION_CLASS_REGISTRY
 from pyrealm.pmodel.optimal_chi import OPTIMAL_CHI_CLASS_REGISTRY
 from pyrealm.pmodel.quantum_yield import QUANTUM_YIELD_CLASS_REGISTRY
-from xarray_annotated import unwrap_annotated
 
 from satterc.models.pmodel import _OUTPUT_ATTRIBUTES, pmodel_config
+from satterc.scaffold.config_gen import _unwrap_annotated
 
 MODULE = "satterc.models.pmodel"
 
@@ -105,7 +105,7 @@ def _required_inputs(dr) -> set[str]:
     return {
         v.name
         for v in dr.what_is_upstream_of("gpp_flux_weekly")
-        if v.is_external_input and unwrap_annotated(v.type) is xr.DataArray
+        if v.is_external_input and _unwrap_annotated(v.type) is xr.DataArray
     }
 
 

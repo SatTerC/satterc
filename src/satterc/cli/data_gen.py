@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import Annotated
 
 import typer
-from conduit import ParsedConfig, load_config
+from catena import ParsedConfig, load_config
 from typer import Abort
 
 from ..scaffold.data_gen import generate_synthetic_data

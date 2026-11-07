@@ -33,10 +33,18 @@ _POOL_BY_TYPE: dict[int, tuple[float, float, float]] = {
 }
 
 
+#: g m-2 per t ha-1: SGAM takes its pools in g m-2.
+_G_M2_PER_T_HA = 100.0
+
+
 def _pool(ctx: StaticCtx, index: int) -> NDArray[np.float64]:
-    """Look up one carbon pool from `_POOL_BY_TYPE` for each pixel's plant type."""
+    """Look up one carbon pool from `_POOL_BY_TYPE` for each pixel's plant type.
+
+    Returned in g m-2, the unit SGAM declares, rather than the table's t ha-1.
+    """
     plant_type = ctx.static("plant_type")
-    return np.array([_POOL_BY_TYPE[int(t)][index] for t in plant_type])
+    pools = np.array([_POOL_BY_TYPE[int(t)][index] for t in plant_type])
+    return pools * _G_M2_PER_T_HA
 
 
 latitude = Var(
@@ -134,21 +142,21 @@ as a node.
 """
 
 root_pool_init = Var(
-    "t ha-1",
+    "g m-2",
     "initial root carbon pool",
     lambda g: _pool(g, 0),
 )
 """Initial root carbon, looked up from the pixel's `plant_type`."""
 
 leaf_pool_init = Var(
-    "t ha-1",
+    "g m-2",
     "initial leaf carbon pool",
     lambda g: _pool(g, 1),
 )
 """Initial leaf carbon, looked up from the pixel's `plant_type`."""
 
 stem_pool_init = Var(
-    "t ha-1",
+    "g m-2",
     "initial stem carbon pool",
     lambda g: _pool(g, 2),
 )

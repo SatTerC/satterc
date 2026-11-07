@@ -112,7 +112,7 @@ class Grid:
     """The lat/lon grid and time axis the synthetic data is generated on.
 
     Pixels are the cartesian product of the latitude and longitude points,
-    flattened into conduit's ``pixel`` dimension in row-major order, so ``lat``
+    flattened into catena's ``pixel`` dimension in row-major order, so ``lat``
     and ``lon`` are per-pixel arrays rather than axes.
     """
 

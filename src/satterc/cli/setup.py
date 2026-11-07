@@ -5,7 +5,7 @@ from importlib import import_module
 from pathlib import Path
 
 import typer
-from conduit.config import Config
+from catena.config import Config
 
 from ..scaffold import (
     BuiltinModels,

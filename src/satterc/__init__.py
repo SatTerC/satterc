@@ -1,12 +1,12 @@
 """Satellite to Terrestrial Carbon.
 
 satterc supplies the carbon-cycle model modules — SPLASH, the P-model, SGAM and
-RothC — for pipelines built with [conduit](https://github.com/NERC-CEH/conduit).
-conduit owns the framework: config parsing, the DAG, contract validation, I/O and
-execution. Run a pipeline with `conduit.run("config.toml")`, or check one without
-computing with `conduit.dry_run`.
+RothC — for pipelines built with [catena](https://github.com/NERC-CEH/catena).
+catena owns the framework: config parsing, the DAG, contract validation, I/O and
+execution. Run a pipeline with `catena.run("config.toml")`, or check one without
+computing with `catena.dry_run`.
 
-satterc registers its four model modules with conduit, so a config addresses one
+satterc registers its four model modules with catena, so a config addresses one
 by section name alone::
 
     [rothc]

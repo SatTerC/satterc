@@ -28,12 +28,15 @@ import pyrealm.core.calendar
 import pyrealm.splash.splash
 import pytest
 import xarray as xr
+import xarray_annotated as xra
+from xarray_annotated.units import UnitError
 
 from satterc.models.splash import (
     _FLUX_ATTRIBUTES,
     _OUTPUT_FIELDS,
     _describe_pixels,
     _splash,
+    splash,
     splash_config,
 )
 
@@ -294,7 +297,7 @@ class TestPrescribedInitialState:
             _splash(**splash_inputs, initial_soil_moisture=initial)
 
     def _driver(self, **settings):
-        from conduit import build_driver
+        from catena import build_driver
 
         return build_driver(["satterc.models.splash"], settings)
 
@@ -532,7 +535,7 @@ class TestCachingIntact:
     """The cached splash node matches the uncached one (seam is internal to the node)."""
 
     def test_cached_run_matches_uncached(self, tmp_path, splash_inputs):
-        from conduit import CacheSpec, build_driver
+        from catena import CacheSpec, build_driver
 
         inputs = {
             k: v
@@ -561,3 +564,41 @@ class TestCachingIntact:
             uncached["soil_moisture_daily"].values,
         )
         assert (tmp_path / "cache").exists()
+
+
+class TestLatitudeCheck:
+    """`splash` checks a labelled latitude itself; see `satterc.latitude`."""
+
+    @staticmethod
+    def _labelled(splash_inputs, latitude_units: str) -> dict:
+        units = {
+            "sunshine_fraction_daily": "1",
+            "temperature_daily": "degC",
+            "precipitation_daily": "mm d-1",
+            "elevation": "m",
+            "max_soil_moisture": "mm",
+            "latitude": latitude_units,
+        }
+        return {
+            name: splash_inputs[name].assign_attrs(units=unit)
+            for name, unit in units.items()
+        }
+
+    def test_rejects_latitude_in_radians(self, splash_inputs):
+        inputs = self._labelled(splash_inputs, "radians")
+        with xra.enabled(True), pytest.raises(UnitError, match="latitude"):
+            splash(
+                **inputs,
+                soil_moisture_init_inputs={},
+                splash_config=splash_config(),
+            )
+
+    def test_accepts_latitude_in_degrees_north(self, splash_inputs):
+        inputs = self._labelled(splash_inputs, "degrees_north")
+        with xra.enabled(True):
+            out = splash(
+                **inputs,
+                soil_moisture_init_inputs={},
+                splash_config=splash_config(),
+            )
+        assert out["soil_moisture_daily"].attrs["units"] == "mm"

@@ -6,9 +6,10 @@ the inputs and outputs `satterc.scaffold.config_gen` infers for it — and graph
 that. The I/O paths in the generated config are never opened: building the
 graph reads the DAG's contracts, not the data.
 
-Going through the CLI rather than conduit's Python API is deliberate. The graph
-internals moved module between conduit 0.2.0 and main, whereas the command has
-stayed put, and `AGENTS.md` records `graph` as one of the commands conduit owns.
+Going through the CLI rather than catena's Python API is deliberate. The graph
+internals moved module between conduit 0.2.0 and catena 0.4.0, whereas the
+command has stayed put, and `AGENTS.md` records `graph` as one of the commands
+catena owns.
 
 Run through ``just graph <model>``; the SVG is committed, like the exported
 example notebooks.

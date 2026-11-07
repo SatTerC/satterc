@@ -5,13 +5,13 @@
 #     "matplotlib==3.10.9",
 #     "numpy==2.4.4",
 #     "satterc==0.8.0",
-#     "conduit",
+#     "ukceh-catena",
 #     "scipy==1.17.1",
 # ]
 #
 # [tool.uv.sources]
 # satterc = { path = ".." }
-# conduit = { git = "https://github.com/NERC-CEH/conduit", rev = "develop" }
+# ukceh-catena = { git = "https://github.com/NERC-CEH/catena", rev = "develop" }
 # ///
 
 import marimo
@@ -47,8 +47,8 @@ def _():
     import marimo as mo
     import matplotlib.pyplot as plt
     import numpy as np
-    from conduit import build_driver, load_inputs
-    from conduit.config import Config
+    from catena import build_driver, load_inputs
+    from catena.config import Config
     from scipy.optimize import minimize
 
     from satterc.scaffold.data_gen import generate_synthetic_data
@@ -131,7 +131,7 @@ def _(mo):
     [[node]]
     name = "aridity_index"
     inputs = ["potential_evapotranspiration_daily", "precipitation_daily"]
-    expression = "potential_evapotranspiration_daily.sum('time') / precipitation_daily.sum('time')"
+    expression = "(potential_evapotranspiration_daily.sum('time') / precipitation_daily.sum('time')).assign_attrs(units='1')"
     units = "1"  # ratio of two mm totals -> dimensionless
 
     # Both the P-model (as pyrealm's `theta`) and SGAM (against the PFT's
@@ -143,7 +143,7 @@ def _(mo):
     [[node]]
     name = "volumetric_water_content_weekly"
     inputs = ["soil_moisture_weekly", "max_soil_moisture"]
-    expression = "soil_moisture_weekly / max_soil_moisture * 0.45"
+    expression = "(soil_moisture_weekly / max_soil_moisture * 0.45).assign_attrs(units='m3 m-3')"
     units = "m3 m-3"
     freq = "7D"
 
@@ -153,7 +153,7 @@ def _(mo):
     [[node]]
     name = "gpp_weekly"
     inputs = ["gpp_flux_weekly"]
-    expression = "gpp_flux_weekly * 0.0864"
+    expression = "(gpp_flux_weekly * 0.0864).assign_attrs(units='g m-2 d-1')"
     units = "g m-2 d-1"
     freq = "7D"
 
@@ -161,7 +161,7 @@ def _(mo):
     [[node]]
     name = "lue_weekly"
     inputs = ["lue_photon_weekly"]
-    expression = "lue_photon_weekly * 4.57"
+    expression = "(lue_photon_weekly * 4.57).assign_attrs(units='g MJ-1')"
     units = "g MJ-1"
     freq = "7D"
 

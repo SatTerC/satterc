@@ -7,10 +7,10 @@ compatibility shims.
 
 ## Architecture / what lives where
 
-SatTerC is a thin domain package on top of [**conduit**](https://github.com/NERC-CEH/conduit), which owns the framework:
+SatTerC is a thin domain package on top of [**catena**](https://github.com/NERC-CEH/catena), which owns the framework:
 config parsing, the DAG, contract validation, I/O, caching, blocking, subsetting,
 the gridded/Zarr layer, and the `run` / `graph` / `gridded` CLI commands.
-conduit's **`main` branch is the source of truth** — read it (or the local
+catena's **`main` branch is the source of truth** — read it (or the local
 checkout, if present) rather than guessing at its API.
 
 ## Gotchas
@@ -41,7 +41,7 @@ checkout, if present) rather than guessing at its API.
   `Params`: `params` is already taken by per-pixel scientific parameters that
   are not pipeline config (`sgam.pft_params`, `rothc_py.RothCParams`).
   Descriptions and defaults go on that function, never on the TypedDict fields —
-  conduit reads the defaults off its keyword-only arguments. Every
+  catena reads the defaults off its keyword-only arguments. Every
   settings-bearing node gets its own container, not just the model node: rothc's
   per-PFT DPM/RPM ratios sit on `dpm_rpm_ratio_config` and sgam's growing-season
   gate on `disturbances_config`. `get_model_config` in `config_gen.py` scans
@@ -52,11 +52,11 @@ checkout, if present) rather than guessing at its API.
   docs build always renders them fresh. Add a line to `graph-all` for each new
   model.
 - Generic behaviour belongs upstream. If a change would be useful to a pipeline
-  that is not about carbon, it probably belongs in conduit, not here.
+  that is not about carbon, it probably belongs in catena, not here.
 
 ## Config schema
 
-The schema is conduit's; there is no satterc-specific config code.
+The schema is catena's; there is no satterc-specific config code.
 
 
 ## Block size is not numerically free

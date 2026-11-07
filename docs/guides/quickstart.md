@@ -71,14 +71,14 @@ vars = [
 ```
 
 A model is a section named after the model.
-SatTerC's models are ordinary conduit modules; SatTerC registers them with conduit, so a section resolves to a module by its name alone.
-A module conduit has no registration for needs `_import_path` to say where it lives.
+SatTerC's models are ordinary catena modules; SatTerC registers them with catena, so a section resolves to a module by its name alone.
+A module catena has no registration for needs `_import_path` to say where it lives.
 Node names are `{var}{suffix}`, and the suffix defaults to the section label, so
 `temperature` under `[inputs.daily]` becomes the node `temperature_daily`, which
 is what `splash`'s parameter is called. Static variables are consumed under bare
 names, so that section sets `suffix = ""`.
 
-See conduit's [configuration reference][conduit-config] for every section.
+See catena's [configuration reference][catena-config] for every section.
 
 ## Step 2: generate synthetic data
 
@@ -161,11 +161,11 @@ ds["soil_moisture"].plot()
 
 - Read about the [built-in models](../models/index.md) and how to compose them
 - Browse the [recipes](../recipes/my_first_pipeline.md) for interactive notebooks (run `just export-all` to generate)
-- Read conduit's [contracts][conduit-contracts] page for what the checks can and
+- Read catena's [contracts][catena-contracts] page for what the checks can and
   cannot catch
-- Read conduit's [scale-up guide][conduit-scale] for caching, blocking and
+- Read catena's [scale-up guide][catena-scale] for caching, blocking and
   parallel subset runs
 
-[conduit-config]: https://github.com/NERC-CEH/conduit/blob/develop/docs/reference/configuration.md
-[conduit-contracts]: https://github.com/NERC-CEH/conduit/blob/develop/docs/concepts/contracts.md
-[conduit-scale]: https://github.com/NERC-CEH/conduit/blob/develop/docs/guides/scale-up.md
+[catena-config]: https://github.com/NERC-CEH/catena/blob/develop/docs/reference/configuration.md
+[catena-contracts]: https://github.com/NERC-CEH/catena/blob/develop/docs/concepts/contracts.md
+[catena-scale]: https://github.com/NERC-CEH/catena/blob/develop/docs/guides/scale-up.md

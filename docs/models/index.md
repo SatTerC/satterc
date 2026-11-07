@@ -8,7 +8,7 @@ icon: lucide/package
 `satterc` currently comes with four models, which can be composed into a pipeline.
 Each model is called through a single Python function, which becomes a node in the DAG.
 
-SatTerC registers all four with conduit, so a config names one by its section alone.
+SatTerC registers all four with catena, so a config names one by its section alone.
 
 ```toml
 [splash]

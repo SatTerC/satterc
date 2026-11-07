@@ -10,8 +10,7 @@ from numpy.typing import NDArray
 from rothc_py import RothC, RothCParams, percent_modern_c
 from rothc_py.containers import InputData
 from xarray import DataArray
-from xarray_annotated.temporal import declare_freq
-from xarray_annotated.units import declare_units
+from xarray_annotated import Unit, enforce
 
 from ..temporal import MONTHLY, time_index
 
@@ -24,18 +23,18 @@ class RothCOut(TypedDict):
     total, and the last is the month's respiration flux.
     """
 
-    decomposable_plant_material_monthly: Annotated[DataArray, "t ha-1", MONTHLY]
+    decomposable_plant_material_monthly: Annotated[DataArray, Unit("t ha-1"), MONTHLY]
     """Decomposable plant material (DPM) pool (tonnes of carbon per hectare)."""
-    resistant_plant_material_monthly: Annotated[DataArray, "t ha-1", MONTHLY]
+    resistant_plant_material_monthly: Annotated[DataArray, Unit("t ha-1"), MONTHLY]
     """Resistant plant material (RPM) pool (tonnes of carbon per hectare)."""
-    microbial_biomass_monthly: Annotated[DataArray, "t ha-1", MONTHLY]
+    microbial_biomass_monthly: Annotated[DataArray, Unit("t ha-1"), MONTHLY]
     """Microbial biomass (BIO) pool (tonnes of carbon per hectare)."""
-    humified_organic_matter_monthly: Annotated[DataArray, "t ha-1", MONTHLY]
+    humified_organic_matter_monthly: Annotated[DataArray, Unit("t ha-1"), MONTHLY]
     """Humified organic matter (HUM) pool (tonnes of carbon per hectare)."""
-    soil_organic_carbon_monthly: Annotated[DataArray, "t ha-1", MONTHLY]
+    soil_organic_carbon_monthly: Annotated[DataArray, Unit("t ha-1"), MONTHLY]
     """Total soil organic carbon: the sum of the DPM, RPM, BIO, HUM and inert
     organic matter pools (tonnes of carbon per hectare)."""
-    heterotrophic_respiration_monthly: Annotated[DataArray, "t ha-1", MONTHLY]
+    heterotrophic_respiration_monthly: Annotated[DataArray, Unit("t ha-1"), MONTHLY]
     """Carbon released as CO2 by microbial decomposition during the month
     (tonnes of carbon per hectare)."""
 
@@ -50,14 +49,19 @@ _ROTHC_OUTPUT_KEYS: tuple[str, ...] = (
     "SOC_t_C_ha",
     "CO2_t_C_ha",
 )
-_ROTHC_OUTPUT_NAMES: tuple[str, ...] = (
-    "decomposable_plant_material_monthly",
-    "resistant_plant_material_monthly",
-    "microbial_biomass_monthly",
-    "humified_organic_matter_monthly",
-    "soil_organic_carbon_monthly",
-    "heterotrophic_respiration_monthly",
-)
+
+#: `RothCOut` field -> the unit rothc_py returns it in, matching
+#: `_ROTHC_OUTPUT_KEYS` position by position. rothc_py computes on bare numbers,
+#: so this is where the unit is stated.
+_ROTHC_OUTPUT_UNITS: dict[str, str] = {
+    "decomposable_plant_material_monthly": "t ha-1",
+    "resistant_plant_material_monthly": "t ha-1",
+    "microbial_biomass_monthly": "t ha-1",
+    "humified_organic_matter_monthly": "t ha-1",
+    "soil_organic_carbon_monthly": "t ha-1",
+    "heterotrophic_respiration_monthly": "t ha-1",
+}
+_ROTHC_OUTPUT_NAMES: tuple[str, ...] = tuple(_ROTHC_OUTPUT_UNITS)
 
 
 def _rothc_1px(
@@ -212,7 +216,9 @@ def _rothc(
     return cast(
         RothCOut,
         {
-            name: da.assign_coords(time=time_coord).transpose("time", "pixel")
+            name: da.assign_coords(time=time_coord)
+            .transpose("time", "pixel")
+            .assign_attrs(units=_ROTHC_OUTPUT_UNITS[name])
             for name, da in zip(_ROTHC_OUTPUT_NAMES, outputs, strict=True)
         },
     )
@@ -249,7 +255,7 @@ def rothc_config(
     """Collect the RothC settings from the pipeline config.
 
     Grouping the settings into one node keeps them out of `rothc`'s data inputs.
-    It does not namespace them: conduit merges every module section's params
+    It does not namespace them: catena merges every module section's params
     into one flat driver config, so these are still configured as top-level keys
     of ``[rothc]``.
 
@@ -297,19 +303,18 @@ def rothc_config(
 
 
 @extract_fields()
-@declare_units
-@declare_freq
+@enforce
 def rothc(
-    temperature_monthly: Annotated[DataArray, "degC", MONTHLY],
-    precipitation_monthly: Annotated[DataArray, "mm", MONTHLY],
-    potential_evapotranspiration_monthly: Annotated[DataArray, "mm", MONTHLY],
+    temperature_monthly: Annotated[DataArray, Unit("degC"), MONTHLY],
+    precipitation_monthly: Annotated[DataArray, Unit("mm"), MONTHLY],
+    potential_evapotranspiration_monthly: Annotated[DataArray, Unit("mm"), MONTHLY],
     plant_cover_monthly: Annotated[DataArray, MONTHLY],
     dpm_rpm_ratio_monthly: Annotated[DataArray, MONTHLY],
-    soil_carbon_input_monthly: Annotated[DataArray, "t ha-1", MONTHLY],
-    farmyard_manure_input_monthly: Annotated[DataArray, "t ha-1", MONTHLY],
-    clay_content: Annotated[DataArray, "percent"],
-    inert_organic_matter: Annotated[DataArray, "t ha-1"],
-    soil_depth: Annotated[DataArray, "cm"],
+    soil_carbon_input_monthly: Annotated[DataArray, Unit("t ha-1"), MONTHLY],
+    farmyard_manure_input_monthly: Annotated[DataArray, Unit("t ha-1"), MONTHLY],
+    clay_content: Annotated[DataArray, Unit("percent")],
+    inert_organic_matter: Annotated[DataArray, Unit("t ha-1")],
+    soil_depth: Annotated[DataArray, Unit("cm")],
     rothc_config: RothCConfig,
 ) -> RothCOut:
     """
@@ -379,7 +384,7 @@ def rothc(
 # so each takes ``temperature_monthly`` purely for its time coordinate.
 
 
-@declare_freq
+@enforce
 def plant_cover_monthly(
     plant_type: DataArray,
     latitude: DataArray,
@@ -458,7 +463,7 @@ def dpm_rpm_ratio_config(
     """Collect the per-PFT DPM/RPM ratios from the pipeline config.
 
     Grouping the settings into one node keeps them out of
-    `dpm_rpm_ratio_monthly`'s data inputs. It does not namespace them: conduit
+    `dpm_rpm_ratio_monthly`'s data inputs. It does not namespace them: catena
     merges every module section's params into one flat driver config, so these
     are still configured as top-level keys of ``[rothc]``.
 
@@ -488,7 +493,7 @@ def dpm_rpm_ratio_config(
     )
 
 
-@declare_freq
+@enforce
 def dpm_rpm_ratio_monthly(
     plant_type: DataArray,
     temperature_monthly: Annotated[DataArray, MONTHLY],
@@ -531,12 +536,11 @@ def dpm_rpm_ratio_monthly(
     )
 
 
-@declare_units
-@declare_freq
+@enforce
 def farmyard_manure_input_monthly(
     plant_type: DataArray,
     temperature_monthly: Annotated[DataArray, MONTHLY],
-) -> Annotated[DataArray, "t ha-1", MONTHLY]:
+) -> Annotated[DataArray, Unit("t ha-1"), MONTHLY]:
     """Return a zero-filled monthly farmyard manure carbon input.
 
     Parameters
@@ -555,9 +559,8 @@ def farmyard_manure_input_monthly(
         (time, pixel) (tonnes of carbon per hectare).
     """
     dates_monthly = time_index(temperature_monthly, "temperature_monthly")
-    # Built from ``plant_type`` only for its shape/coords; drop its inherited
-    # attrs so the zeros are stamped with this node's declared unit (``t ha-1``)
-    # rather than ``plant_type``'s "dimensionless".
+    # Built from ``plant_type`` only for its shape/coords, so replace its
+    # inherited attrs (``plant_type``'s "dimensionless") with this quantity's unit.
     zeros = xr.zeros_like(plant_type.expand_dims(time=dates_monthly), dtype=float)
     zeros.attrs.clear()
-    return zeros
+    return zeros.assign_attrs(units="t ha-1")

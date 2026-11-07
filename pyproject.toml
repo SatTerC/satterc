@@ -15,10 +15,10 @@ license-files = ["LICENSE"]
 classifiers = ["Development Status :: 2 - Pre-Alpha"]
 requires-python = ">=3.13"
 dependencies = [
-    "conduit[cli,geo,viz]",
+    "ukceh-catena[cli,geo,viz]",
     "numpy>=2.4.2",
     "xarray>=2026.2.0",
-    "xarray-annotated>=0.6.0",
+    "xarray-annotated>=0.8.0",
     "typer>=0.24.1",
     # pyrealm is capped below 3 in case their units change
     "pyrealm>=2.0.0,<3",
@@ -32,7 +32,7 @@ satterc = "satterc.cli:main"
 # Registering the model modules under conduit's entry-point group makes each one
 # addressable by a bare section name, so a config writes `[splash]` with no
 # `_import_path`. The section name and the model name are deliberately the same.
-[project.entry-points."conduit.modules"]
+[project.entry-points."catena.modules"]
 splash = "satterc.models.splash"
 pmodel = "satterc.models.pmodel"
 sgam = "satterc.models.sgam"
@@ -57,7 +57,7 @@ docs = [
     "marimo>=0.23.0",
     "marimo-md-export>=0.5.2",
     "mkdocstrings-python>=2.0.3",
-    "zensical>=0.0.24",
+    "zensical>=0.0.24,<0.0.74",
     "mkdocs-typer2[termynal]>=0.4.1",
 ]
 recipes = [
@@ -71,12 +71,12 @@ test = [
 
 [tool.uv]
 exclude-newer = "1 week"
-exclude-newer-package = { marimo-md-export = false , xarray-annotated = false , conduit = false , sgam = false , rothc-py = false }
+exclude-newer-package = { marimo-md-export = false , xarray-annotated = false , ukceh-catena = false , sgam = false , rothc-py = false }
 
 [tool.uv.sources]
 rothc-py = { git = "https://github.com/SatTerC/rothc_py.git" }
 sgam = { git = "https://github.com/SatTerC/sgam.git" }
-conduit = { git = "https://github.com/NERC-CEH/conduit" }
+ukceh-catena = { git = "https://github.com/NERC-CEH/catena" }
 
 [tool.pyright]
 venvPath = "."

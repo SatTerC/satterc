@@ -29,7 +29,7 @@ MONTHLY_DATES = pd.date_range("2020-01-01", periods=N_MONTHS, freq="ME")
 DAILY_DATES = pd.date_range("2020-01-01", periods=N_DAYS, freq="D")
 
 #: The RothC bridge nodes take a monthly DataArray purely for its time
-#: coordinate (conduit no longer supplies a `dates_monthly` node), so a bare
+#: coordinate (catena no longer supplies a `dates_monthly` node), so a bare
 #: time axis is all they need — the values and pixel dim are never read.
 MONTHLY_CLOCK = xr.DataArray(
     np.zeros(N_MONTHS), dims=["time"], coords={"time": MONTHLY_DATES}
@@ -428,7 +428,7 @@ class TestPmodelDriverExecution:
     """Covers the pmodel() public wrapper (line 120) via Hamilton driver execution."""
 
     def test_driver_executes_gpp(self):
-        from conduit import build_driver
+        from catena import build_driver
 
         # 364 days = exactly 52 weeks: ensures the daily→weekly resample produces
         # 52 time steps matching the provided weekly arrays.
@@ -473,7 +473,7 @@ class TestRothcDriverExecution:
     """Covers the rothc() public wrapper (line 157) via Hamilton driver execution."""
 
     def test_driver_executes_soc(self):
-        from conduit import build_driver
+        from catena import build_driver
 
         n_months = 24
         n_pixels = 1
