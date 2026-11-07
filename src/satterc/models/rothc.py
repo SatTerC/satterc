@@ -207,6 +207,7 @@ def _rothc(
         },
         vectorize=True,
         dask="parallelized",
+        keep_attrs=False,
         output_dtypes=[float] * 6,
     )
 

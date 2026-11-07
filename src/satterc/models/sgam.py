@@ -283,6 +283,7 @@ def _disturbances_daily(
         output_core_dims=[["time"]],
         kwargs={"growing_season_limit": growing_season_limit},
         dask="parallelized",
+        keep_attrs=False,
         output_dtypes=[float],
     )
 
@@ -553,6 +554,7 @@ def _sgam(
         },
         vectorize=True,
         dask="parallelized",
+        keep_attrs=False,
         output_dtypes=[float] * 24,
     )
 

@@ -194,8 +194,8 @@ def _run_pyrealm(
         dates=dates,
         kWm=capacity,
     )
-    # pyrealm 2.0.0 does not pass kWm on to its evaporative fluxes, which would leave
-    # the supply rate in AET using a capacity of 150 mm whatever is configured.
+    # BUG: pyrealm 2.0.0 does not pass kWm on to its evaporative fluxes, which would
+    # leave the supply rate in AET using a capacity of 150 mm whatever is configured.
     model.evap.kWm = model.kWm
 
     if initial_soil_moisture is None:
@@ -354,6 +354,7 @@ def _splash(
             "max_diff": soil_moisture_init_max_diff,
         },
         dask="parallelized",
+        keep_attrs=False,
         output_dtypes=[float] * n_outputs,
     )
 

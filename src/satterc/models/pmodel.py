@@ -206,6 +206,7 @@ def _pmodel(
         },
         output_core_dims=[[]] * n_outputs,
         dask="parallelized",
+        keep_attrs=False,
         output_dtypes=[float] * n_outputs,
     )
     return cast(
