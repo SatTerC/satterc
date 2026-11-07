@@ -218,7 +218,7 @@ class TestCachingIntact:
     """The cached sgam node matches the uncached one (seam is internal to the node)."""
 
     def test_cached_run_matches_uncached(self, tmp_path):
-        from conduit import CacheSpec, build_driver
+        from catena import CacheSpec, build_driver
 
         def _mda(base: np.ndarray) -> xr.DataArray:
             return xr.DataArray(

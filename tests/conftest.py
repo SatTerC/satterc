@@ -1,17 +1,18 @@
+import os
 from pathlib import Path
 
 import pytest
 import xarray as xr
-from conduit import build_driver, load_config, load_inputs
-from conduit.specs import AnnotationPolicySpec
+from catena import build_driver, load_config, load_inputs
 
 from satterc.scaffold.data_gen import generate_synthetic_data
 
 # The fixtures build DAGs and run models over deliberately small, synthetic
-# arrays. Contract validation is conduit's job and is exercised by conduit's own
+# arrays. Contract validation is catena's job and is exercised by catena's own
 # suite; here it would only add noise (and a two-timestep fixture cannot have an
-# inferable frequency at all), so the package-wide switch is off.
-AnnotationPolicySpec(enabled=False).apply()
+# inferable frequency at all), so xarray-annotated is switched off for the
+# process. `xarray_annotated.enabled(True)` overrides this where a test wants it.
+os.environ["XARRAY_ANNOTATED_ENABLED"] = "0"
 
 TEST_CONFIG_PATH = Path(__file__).parent / "test_config.toml"
 
@@ -79,14 +80,14 @@ def pipeline_config(synthetic_data_dir):
 
 @pytest.fixture(scope="session")
 def pipeline_inputs(pipeline_config):
-    """Load all inputs using conduit's load_inputs()."""
+    """Load all inputs using catena's load_inputs()."""
     return load_inputs(pipeline_config.input_specs)
 
 
 def driver_from_config(config, **kwargs):
     """Build a Hamilton driver from a `ParsedConfig`.
 
-    Everything conduit needs to resolve a module has to be forwarded: `base` is
+    Everything catena needs to resolve a module has to be forwarded: `base` is
     the directory a relative `.py` `_import_path` resolves against, and
     `registered_modules` names the sections that came from an entry-point
     registration rather than an `_import_path`. satterc's own sections are the

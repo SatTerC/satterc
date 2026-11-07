@@ -1,6 +1,6 @@
 """The temporal resolutions a satterc pipeline speaks in.
 
-conduit infers nothing from a node's name: an input's frequency is validated
+catena infers nothing from a node's name: an input's frequency is validated
 only where a consumer declares it. These are satterc's declarations — the pandas
 offsets behind its ``_daily`` / ``_weekly`` / ``_monthly`` node-name suffixes.
 `satterc.models` declares them as `Freq` contracts, `satterc.scaffold.config_gen`
@@ -13,8 +13,8 @@ weekly series is accepted whichever weekday it starts on.
 
 import pandas as pd
 import xarray as xr
-from conduit.io import sole_time_dim
-from xarray_annotated.temporal import Freq
+from catena.io import sole_time_dim
+from xarray_annotated import Freq
 
 #: Daily: one sample per day.
 DAILY = Freq("D")
@@ -25,7 +25,7 @@ WEEKLY = Freq("7D")
 #: Monthly: one sample per calendar month, month-end convention.
 MONTHLY = Freq("1ME")
 
-#: The offset behind each input-section label, keyed by the label conduit uses.
+#: The offset behind each input-section label, keyed by the label catena uses.
 BY_LABEL: dict[str, Freq] = {
     "daily": DAILY,
     "weekly": WEEKLY,
@@ -37,7 +37,7 @@ def offset(label: str) -> str:
     """Return the pandas offset alias for an input-section ``label``.
 
     `Freq` carries the offset for contract declaration; this is the same string
-    in the form `conduit.transforms.resample` and a ``[[resample]]`` entry want.
+    in the form `catena.transforms.resample` and a ``[[resample]]`` entry want.
     """
     try:
         return str(BY_LABEL[label].freq)

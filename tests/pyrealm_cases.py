@@ -6,11 +6,12 @@ with byte-identical inputs or the comparison means nothing, so the inputs are
 defined once, here, and use no RNG.
 """
 
-from typing import Any, get_args, get_type_hints
+from typing import Any, get_type_hints
 
 import numpy as np
 import pandas as pd
 import xarray as xr
+import xarray_annotated as xra
 from numpy.typing import NDArray
 
 # Shapes mirror the seam-test fixtures, which are known to converge. SPLASH gets
@@ -81,9 +82,8 @@ def pmodel_inputs() -> dict[str, Any]:
         "pressure_weekly": _weekly(np.full((N_WEEKS, N_PIXELS), 101325.0)),
         "fapar_weekly": field(0.5, 0.2),
         "ppfd_weekly": field(500.0, 150.0, amplitude=100.0),
-        "mean_growth_temperature": field(15.0, 5.0),
-        "aridity_index": field(1.0, 0.3),
-        "volumetric_water_content_weekly": field(0.3, 0.1),
+        # The golden case's methods take no extra inputs.
+        "extra_inputs": {},
         **PMODEL_METHODS,
     }
 
@@ -127,4 +127,18 @@ def summarize(da: xr.DataArray) -> dict[str, list[float]]:
 def declared_units(typed_dict: type) -> dict[str, str]:
     """The unit string each field of a model's output `TypedDict` declares."""
     hints = get_type_hints(typed_dict, include_extras=True)
-    return {name: get_args(hint)[1] for name, hint in hints.items()}
+    return {name: declared_unit(hint) for name, hint in hints.items()}
+
+
+def declared_unit(hint: object) -> str:
+    """The unit string a hint declares with a `Unit` marker."""
+    declared = xra.declaration_from_hint(hint)
+    assert declared is not None, f"{hint} declares nothing"
+    assert declared.unit is not None, f"{hint} declares no Unit"
+    return declared.unit.unit
+
+
+def declared_input_units(fn) -> dict[str, str]:
+    """The unit string each of ``fn``'s declared inputs carries, keyed by name."""
+    inputs, _ = xra.declarations_from_signature(fn)
+    return {name: d.unit.unit for name, d in inputs.items() if d.unit is not None}

@@ -1,10 +1,10 @@
-"""Carbon-cycle model modules for conduit pipelines.
+"""Carbon-cycle model modules for catena pipelines.
 
-Each module here is an ordinary conduit "bring your own module": a set of plain
+Each module here is an ordinary catena "bring your own module": a set of plain
 functions whose names are node names and whose parameter names are upstream node
 names, with units and frequency contracts declared on the signatures.
 
-satterc registers all four under conduit's ``conduit.modules`` entry-point group,
+satterc registers all four under catena's ``catena.modules`` entry-point group,
 so a config names one by its section alone and needs no ``_import_path``::
 
     [rothc]

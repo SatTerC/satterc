@@ -5,7 +5,7 @@ from importlib import import_module
 from pathlib import Path
 
 import typer
-from conduit.config import Config
+from catena.config import Config
 
 from ..scaffold import (
     BuiltinModels,
@@ -260,7 +260,7 @@ def setup(
         help="Use default values without interactive prompting.",
     ),
 ) -> None:
-    """Generate a configuration file for SatTerC."""
+    """Generate a configuration file for SatTerC (experimental)."""
     if defaults and models is None:
         raise typer.BadParameter("--defaults requires --models to be specified")
 

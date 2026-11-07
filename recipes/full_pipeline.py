@@ -4,12 +4,12 @@
 #     "marimo",
 #     "matplotlib==3.10.9",
 #     "satterc==0.8.0",
-#     "conduit",
+#     "ukceh-catena",
 # ]
 #
 # [tool.uv.sources]
 # satterc = { path = ".." }
-# conduit = { git = "https://github.com/NERC-CEH/conduit", rev = "develop" }
+# ukceh-catena = { git = "https://github.com/NERC-CEH/catena", rev = "develop" }
 # ///
 
 import marimo
@@ -27,7 +27,7 @@ def _(mo):
 
     The models are the easy part.
     None of the four knows the others exist, and none of them imports another.
-    Each declares its inputs by parameter name and its outputs by return value, and conduit matches those names when it builds the DAG.
+    Each declares its inputs by parameter name and its outputs by return value, and catena matches those names when it builds the DAG.
     So the pipeline is not really four models; it is four models plus the joins between them, and the joins are where the work is.
 
     This notebook takes its time over those joins.
@@ -45,10 +45,10 @@ def _():
 
     import marimo as mo  # required for Markdown etc.
     import matplotlib.pyplot as plt
-    from conduit import build_driver, run
-    from conduit.config import Config
-    from conduit.graph import _node_maps as node_maps
-    from conduit.graph import relabel_with_units
+    from catena import build_driver, run
+    from catena.config import Config
+    from catena.graph import _node_maps as node_maps
+    from catena.graph import relabel_with_units
 
     from satterc.scaffold.data_gen import generate_synthetic_data
 
@@ -98,6 +98,7 @@ def _(mo):
     Everything else in the file exists to connect them:
 
     - `[[node]]` defines a new node from an expression over existing ones, which is how a bridge between two models is written.
+      Nothing converts units between nodes, so an expression that changes a unit states the new one with `.assign_attrs(units=...)`, and the node's `units` key declares it.
     - `[[resample]]` changes the frequency of a variable, which is how a daily model feeds a weekly one.
     - `[inputs.*]` and `[outputs.*]` say what is read from and written to disk.
 
@@ -165,7 +166,7 @@ def _(mo):
     [[node]]
     name = "aridity_index"
     inputs = ["potential_evapotranspiration_daily", "precipitation_daily"]
-    expression = "potential_evapotranspiration_daily.sum('time') / precipitation_daily.sum('time')"
+    expression = "(potential_evapotranspiration_daily.sum('time') / precipitation_daily.sum('time')).assign_attrs(units='1')"
     units = "1"  # ratio of two mm totals -> dimensionless
 
     # Both the P-model (as pyrealm's `theta`) and SGAM (against the PFT's
@@ -177,7 +178,7 @@ def _(mo):
     [[node]]
     name = "volumetric_water_content_weekly"
     inputs = ["soil_moisture_weekly", "max_soil_moisture"]
-    expression = "soil_moisture_weekly / max_soil_moisture * 0.45"
+    expression = "(soil_moisture_weekly / max_soil_moisture * 0.45).assign_attrs(units='m3 m-3')"
     units = "m3 m-3"
     freq = "7D"
 
@@ -191,7 +192,7 @@ def _(mo):
     [[node]]
     name = "gpp_weekly"
     inputs = ["gpp_flux_weekly"]
-    expression = "gpp_flux_weekly * 0.0864"
+    expression = "(gpp_flux_weekly * 0.0864).assign_attrs(units='g m-2 d-1')"
     units = "g m-2 d-1"
     freq = "7D"
 
@@ -201,7 +202,7 @@ def _(mo):
     [[node]]
     name = "lue_weekly"
     inputs = ["lue_photon_weekly"]
-    expression = "lue_photon_weekly * 4.57"
+    expression = "(lue_photon_weekly * 4.57).assign_attrs(units='g MJ-1')"
     units = "g MJ-1"
     freq = "7D"
 
@@ -210,7 +211,7 @@ def _(mo):
     [[node]]
     name = "leaf_area_index_weekly"
     inputs = ["leaf_pool_weekly", "pft_params"]
-    expression = 'leaf_pool_weekly / pft_params["leaf_carbon_area"]'
+    expression = '(leaf_pool_weekly / pft_params["leaf_carbon_area"]).assign_attrs(units="m2 m-2")'
     units = "m2 m-2"  # leaf carbon per ground area / leaf carbon per leaf area
 
     # PET, not AET: RothC's water balance is rainfall minus evaporative *demand*.
@@ -218,12 +219,12 @@ def _(mo):
     # feeding it in double-counts the limitation and holds the soil too wet.
     # SPLASH PET is a daily rate (mm d-1); RothC wants a monthly total (mm).
     # Summing the daily rate over the month integrates it (daily Δt = 1 day, so
-    # Σ mm d-1 is numerically the monthly mm total); units = "mm" relabels the
-    # rate as the resulting total.
+    # Σ mm d-1 is numerically the monthly mm total), so the expression relabels
+    # the rate as the resulting total.
     [[node]]
     name = "potential_evapotranspiration_monthly"
     inputs = ["potential_evapotranspiration_daily"]
-    expression = "potential_evapotranspiration_daily.resample(time='1ME').sum()"
+    expression = "(potential_evapotranspiration_daily.resample(time='1ME').sum()).assign_attrs(units='mm')"
     units = "mm"
 
     # Precipitation is likewise a daily rate (mm d-1); aggregate to a monthly
@@ -233,7 +234,7 @@ def _(mo):
     [[node]]
     name = "precipitation_monthly"
     inputs = ["precipitation_daily"]
-    expression = "precipitation_daily.resample(time='1ME').sum()"
+    expression = "(precipitation_daily.resample(time='1ME').sum()).assign_attrs(units='mm')"
     units = "mm"
 
     # Carbon entering the soil each month = the litter produced that month. SGAM's
@@ -251,7 +252,7 @@ def _(mo):
     [[node]]
     name = "inert_organic_matter"
     inputs = ["organic_carbon_stocks"]
-    expression = "0.049 * organic_carbon_stocks**1.139"  # Falloon IOM (t ha-1)
+    expression = "(0.049 * organic_carbon_stocks**1.139).assign_attrs(units='t ha-1')"  # Falloon IOM
     units = "t ha-1"
 
     [[resample]]
@@ -320,7 +321,7 @@ def _(mo):
     ## Building the driver
 
     Parsing the config gives a `ParsedConfig`, and `build_driver` turns that into a Hamilton driver.
-    Building is also when conduit checks the whole graph's contracts, comparing the units, dimensions and temporal frequency each node declares against what its dependencies actually supply.
+    Building is also when catena checks the whole graph's contracts, comparing the units, dimensions and temporal frequency each node declares against what its dependencies actually supply.
     A mis-wired pipeline therefore fails here, in under a second, rather than part-way through a long run.
     That check is what makes the bridges below safe to get wrong: a missing unit conversion is a build error, not a quietly incorrect carbon budget.
 
@@ -344,9 +345,6 @@ def _(Path, generate_synthetic_data, parsed_config, tempfile):
     parsed_config.input_specs["weekly"].path = str(_tmpdir / "weekly.nc")
     parsed_config.input_specs["static"].path = str(_tmpdir / "static.nc")
 
-    # conduit will not create a missing output directory; it fails rather than
-    # guess. The config asks for `results/*.nc`, so make `results/` first.
-    (_tmpdir / "results").mkdir()
     for _label in ("daily", "weekly", "monthly"):
         parsed_config.output_specs[_label].path = str(
             _tmpdir / "results" / f"{_label}.nc"
@@ -516,7 +514,8 @@ def _(mo):
     The per-call `rankdir` overrides the shared style's without discarding the rest of it.
 
     Two more bridges appear here, and both are about aggregating a daily rate into a monthly total.
-    Summing a rate in mm d-1 over a month integrates it, because the daily timestep is one day, and `units = "mm"` relabels the result as the total it now is.
+    Summing a rate in mm d-1 over a month integrates it, because the daily timestep is one day, and the expression relabels the result as the total it now is with `.assign_attrs(units="mm")`.
+    `units = "mm"` then declares it, so the label is checked rather than trusted.
 
     The choice of *which* water flux to send RothC matters more than the arithmetic.
     It is potential evapotranspiration, not actual.

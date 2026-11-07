@@ -13,7 +13,12 @@ the model is element-wise), which keeps a future dask backend reachable.
    results. Skipped when dask is absent.
 3. Caching intact — the seam is internal to the node, so the cached pipeline still
    matches the uncached one.
+
+The first two run over method variants that between them pass every
+method-dependent input, climatological ones included, through the seam.
 """
+
+from typing import Any
 
 import numpy as np
 import pandas as pd
@@ -21,19 +26,43 @@ import pyrealm.pmodel
 import pytest
 import xarray as xr
 
-from satterc.models.pmodel import _pmodel
+from satterc.models.pmodel import _OUTPUT_ATTRIBUTES, _pmodel
 
 N_WEEKS = 52
 N_PIXELS = 3
 WEEKLY_DATES = pd.date_range("2020-01-01", periods=N_WEEKS, freq="7D")
 PIXELS = np.arange(N_PIXELS)
 
-METHODS = dict(
-    method_optchi="prentice14",
-    method_jmaxlim="wang17",
-    method_kphio="temperature",
-    method_arrhenius="simple",
-)
+# Each variant names its methods and the extra inputs, by pyrealm name, they need.
+VARIANTS = {
+    "defaults": (
+        dict(
+            method_optchi="prentice14",
+            method_jmaxlim="wang17",
+            method_kphio="temperature",
+            method_arrhenius="simple",
+        ),
+        (),
+    ),
+    "lavergne_sandoval_kattge_knorr": (
+        dict(
+            method_optchi="lavergne20_c3",
+            method_jmaxlim="smith19",
+            method_kphio="sandoval",
+            method_arrhenius="kattge_knorr",
+        ),
+        ("theta", "aridity_index", "mean_growth_temperature"),
+    ),
+    "rootzonestress": (
+        dict(
+            method_optchi="prentice14_rootzonestress",
+            method_jmaxlim="none",
+            method_kphio="fixed",
+            method_arrhenius="simple",
+        ),
+        ("rootzonestress",),
+    ),
+}
 
 
 def _temporal(base: np.ndarray) -> xr.DataArray:
@@ -45,9 +74,15 @@ def _temporal(base: np.ndarray) -> xr.DataArray:
     )
 
 
-@pytest.fixture(scope="module")
-def pmodel_inputs() -> dict:
+def _static(base: np.ndarray) -> xr.DataArray:
+    """A climatological (pixel-only) DataArray, with no time axis."""
+    return xr.DataArray(base, dims=["pixel"], coords={"pixel": PIXELS})
+
+
+@pytest.fixture(scope="module", params=list(VARIANTS))
+def pmodel_inputs(request) -> dict:
     """Heterogeneous multi-pixel inputs (distinct climate per pixel column)."""
+    methods, extra_names = VARIANTS[request.param]
     rng = np.random.default_rng(0)
 
     def _vary(center: float, spread: float) -> np.ndarray:
@@ -56,6 +91,12 @@ def pmodel_inputs() -> dict:
             center + offsets[None, :] + rng.normal(0.0, spread / 4, (N_WEEKS, N_PIXELS))
         )
 
+    extras = dict(
+        theta=_temporal(np.clip(_vary(0.3, 0.1), 0.0, 0.8)),
+        rootzonestress=_temporal(np.clip(_vary(0.7, 0.2), 0.0, 1.0)),
+        mean_growth_temperature=_static(np.linspace(10.0, 20.0, N_PIXELS)),
+        aridity_index=_static(np.linspace(0.3, 1.5, N_PIXELS)),
+    )
     return dict(
         temperature_weekly=_temporal(_vary(15.0, 5.0)),
         vpd_weekly=_temporal(np.abs(_vary(1000.0, 300.0))),
@@ -63,10 +104,8 @@ def pmodel_inputs() -> dict:
         pressure_weekly=_temporal(np.full((N_WEEKS, N_PIXELS), 101325.0)),
         fapar_weekly=_temporal(np.clip(_vary(0.5, 0.2), 0, 1)),
         ppfd_weekly=_temporal(np.abs(_vary(500.0, 150.0))),
-        mean_growth_temperature=_temporal(_vary(15.0, 5.0)),
-        aridity_index=_temporal(np.clip(_vary(0.5, 0.2), 0, 2)),
-        volumetric_water_content_weekly=_temporal(np.clip(_vary(0.3, 0.1), 0.0, 0.8)),
-        **METHODS,
+        extra_inputs={name: extras[name] for name in extra_names},
+        **methods,
     )
 
 
@@ -80,11 +119,15 @@ def _reference_loop(inputs: dict) -> dict[str, np.ndarray]:
     def col(name: str, i: int) -> np.ndarray:
         return inputs[name].values[:, i]
 
-    per_pixel: dict[str, list] = {
-        "gpp_flux_weekly": [],
-        "lue_photon_weekly": [],
-        "iwue_weekly": [],
+    # A climatological extra is repeated down the time axis, which is what
+    # pyrealm needs and what the seam does for it.
+    temperature = inputs["temperature_weekly"]
+    extras = {
+        name: da.broadcast_like(temperature).transpose("time", "pixel").values
+        for name, da in inputs["extra_inputs"].items()
     }
+
+    per_pixel: dict[str, list] = {name: [] for name in _OUTPUT_ATTRIBUTES}
     for i in range(N_PIXELS):
         env = pyrealm.pmodel.PModelEnvironment(
             tc=col("temperature_weekly", i),
@@ -93,9 +136,7 @@ def _reference_loop(inputs: dict) -> dict[str, np.ndarray]:
             patm=col("pressure_weekly", i),
             fapar=col("fapar_weekly", i),
             ppfd=col("ppfd_weekly", i),
-            theta=col("volumetric_water_content_weekly", i),
-            mean_growth_temperature=col("mean_growth_temperature", i),
-            aridity_index=col("aridity_index", i),
+            **{name: values[:, i] for name, values in extras.items()},
         )
         model = pyrealm.pmodel.PModel(
             env=env,
@@ -104,9 +145,8 @@ def _reference_loop(inputs: dict) -> dict[str, np.ndarray]:
             method_arrhenius=inputs["method_arrhenius"],
             method_jmaxlim=inputs["method_jmaxlim"],
         )
-        per_pixel["gpp_flux_weekly"].append(np.nan_to_num(model.gpp, nan=0.0))
-        per_pixel["lue_photon_weekly"].append(np.nan_to_num(model.lue, nan=0.0))
-        per_pixel["iwue_weekly"].append(np.nan_to_num(model.iwue, nan=0.0))
+        for name, attribute in _OUTPUT_ATTRIBUTES.items():
+            per_pixel[name].append(getattr(model, attribute))
 
     return {name: np.column_stack(cols) for name, cols in per_pixel.items()}
 
@@ -122,9 +162,7 @@ class TestRegression:
     def reference(self, pmodel_inputs) -> dict:
         return _reference_loop(pmodel_inputs)
 
-    @pytest.mark.parametrize(
-        "name", ["gpp_flux_weekly", "lue_photon_weekly", "iwue_weekly"]
-    )
+    @pytest.mark.parametrize("name", _OUTPUT_ATTRIBUTES)
     def test_matches_reference_loop(self, seam_result, reference, name):
         np.testing.assert_allclose(
             seam_result[name].transpose("time", "pixel").values, reference[name]
@@ -153,13 +191,17 @@ class TestStrategyCStaysOpen:
         pytest.importorskip("dask")
         eager = _pmodel(**pmodel_inputs)
 
-        chunked_inputs = dict(pmodel_inputs)
-        for key, val in pmodel_inputs.items():
+        def chunk(val: Any) -> Any:
+            if isinstance(val, dict):
+                return {key: chunk(v) for key, v in val.items()}
             if isinstance(val, xr.DataArray) and "pixel" in val.dims:
-                chunked_inputs[key] = val.chunk({"pixel": 1})
+                return val.chunk({"pixel": 1})
+            return val
+
+        chunked_inputs = {key: chunk(val) for key, val in pmodel_inputs.items()}
         chunked = _pmodel(**chunked_inputs)
 
-        for name in ["gpp_flux_weekly", "lue_photon_weekly", "iwue_weekly"]:
+        for name in _OUTPUT_ATTRIBUTES:
             out = chunked[name].compute().transpose("time", "pixel").values
             np.testing.assert_allclose(
                 out, eager[name].transpose("time", "pixel").values
@@ -170,7 +212,7 @@ class TestCachingIntact:
     """The cached pmodel node matches the uncached one (seam is internal to the node)."""
 
     def test_cached_run_matches_uncached(self, tmp_path):
-        from conduit import CacheSpec, build_driver
+        from catena import CacheSpec, build_driver
 
         def _mda(v: float) -> xr.DataArray:
             return xr.DataArray(
@@ -186,18 +228,13 @@ class TestCachingIntact:
             "pressure_weekly": _mda(101325.0),
             "fapar_weekly": _mda(0.5),
             "ppfd_weekly": _mda(500.0),
-            "aridity_index": _mda(0.5),
-            "volumetric_water_content_weekly": _mda(0.3),
         }
-        # mean_growth_temperature is itself a node (derived from daily
-        # temperature); override it directly so the cached test needs no upstream.
-        overrides = {"mean_growth_temperature": _mda(15.0)}
         spec = CacheSpec(path=str(tmp_path / "cache"))
 
         def run(cache):
             dr = build_driver(["satterc.models.pmodel"], {}, cache=cache)
             return dr.execute(  # type: ignore[reportArgumentType]
-                ["gpp_flux_weekly"], inputs=inputs, overrides=overrides
+                ["gpp_flux_weekly"], inputs=inputs
             )
 
         uncached = run(None)
@@ -208,3 +245,40 @@ class TestCachingIntact:
             cached["gpp_flux_weekly"].values, uncached["gpp_flux_weekly"].values
         )
         assert (tmp_path / "cache").exists()
+
+    def test_changing_an_extra_input_invalidates_the_cache(self, tmp_path):
+        """An extra input reaches `pmodel`'s cache key through its `<axis>_inputs` node."""
+        from catena import CacheSpec, build_driver
+
+        def _mda(v: float) -> xr.DataArray:
+            return xr.DataArray(
+                np.full((N_WEEKS, N_PIXELS), float(v)),
+                dims=["time", "pixel"],
+                coords={"time": WEEKLY_DATES, "pixel": PIXELS},
+            )
+
+        spec = CacheSpec(path=str(tmp_path / "cache"))
+
+        def run(theta: float) -> np.ndarray:
+            dr = build_driver(
+                ["satterc.models.pmodel"],
+                {"method_optchi": "lavergne20_c3"},
+                cache=spec,
+            )
+            result = dr.execute(  # type: ignore[reportArgumentType]
+                ["gpp_flux_weekly"],
+                inputs={
+                    "temperature_weekly": _mda(15.0),
+                    "vpd_weekly": _mda(1000.0),
+                    "co2_weekly": _mda(400.0),
+                    "pressure_weekly": _mda(101325.0),
+                    "fapar_weekly": _mda(0.5),
+                    "ppfd_weekly": _mda(500.0),
+                    "volumetric_water_content_weekly": _mda(theta),
+                },
+            )
+            return result["gpp_flux_weekly"].values
+
+        dry = run(0.1)
+        np.testing.assert_array_equal(run(0.1), dry)  # warm cache
+        assert not np.allclose(run(0.4), dry)

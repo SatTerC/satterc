@@ -2,22 +2,22 @@
 
 The model wrappers no longer receive a ``dates_*`` node; each reads its calendar
 off a time-bearing input instead, and declares the frequency it expects with a
-`xarray_annotated.temporal.Freq` marker. Those declarations are load-bearing in
-two places — conduit's build-time contract check, and the frequency clustering in
+`xarray_annotated.Freq` marker. Those declarations are load-bearing in
+two places — catena's build-time contract check, and the frequency clustering in
 ``satterc graph`` — so they need to be right, not merely present.
 
 The rest of the suite runs with validation switched off (see conftest), so every
-check here passes ``enabled=True`` explicitly — without it the policy context
-manager would leave the master switch off and the assertions would hold
-vacuously.
+check here runs inside ``xarray_annotated.enabled(True)`` — without it the
+assertions would hold vacuously.
 """
 
 import numpy as np
 import pandas as pd
 import pytest
 import xarray as xr
-from conduit import build_driver
-from xarray_annotated.temporal import FreqError, check_freq, policy
+import xarray_annotated as xra
+from catena import build_driver
+from xarray_annotated.temporal import FreqError, check_freq
 
 from satterc import temporal as _time
 from satterc.models import pmodel, rothc, sgam, splash
@@ -50,19 +50,19 @@ class TestDeclaredOffsets:
         ],
     )
     def test_marker_accepts_its_own_frequency(self, marker, dates):
-        with policy(enabled=True, on_mismatch="error"):
+        with xra.enabled(True):
             check_freq(_series(dates), marker, "series")
 
     def test_weekly_marker_is_unanchored(self):
         # A resample landing on a Wednesday is still weekly; pinning the phase
         # would reject a perfectly good pipeline.
         dates = pd.date_range("2020-01-01", periods=30, freq="W-WED")
-        with policy(enabled=True, on_mismatch="error"):
+        with xra.enabled(True):
             check_freq(_series(dates), _time.WEEKLY, "series")
 
     def test_daily_marker_rejects_weekly_data(self):
         dates = pd.date_range("2020-01-01", periods=30, freq="7D")
-        with policy(enabled=True, on_mismatch="error"), pytest.raises(FreqError):
+        with xra.enabled(True), pytest.raises(FreqError):
             check_freq(_series(dates), _time.DAILY, "series")
 
 
@@ -71,18 +71,18 @@ class TestModelContractsAgainstPipelineData:
 
     @pytest.mark.parametrize("name", sorted(MODULES))
     def test_build_driver_passes_contract_check(self, name, pipeline_config):
-        # build_driver runs conduit's whole-DAG contract check, which compares
+        # build_driver runs catena's whole-DAG contract check, which compares
         # every internal edge where both ends declare units, dims, dtype or freq.
         # A model declaring a frequency its own upstream node contradicts fails
         # here, before any compute.
-        with policy(enabled=True, on_mismatch="error"):
+        with xra.enabled(True):
             build_driver(
                 [f"satterc.models.{name}"],
                 pipeline_config.driver_config,
             )
 
     def test_all_models_together_pass_contract_check(self, pipeline_config):
-        with policy(enabled=True, on_mismatch="error"):
+        with xra.enabled(True):
             build_driver(
                 [f"satterc.models.{name}" for name in sorted(MODULES)],
                 pipeline_config.driver_config,

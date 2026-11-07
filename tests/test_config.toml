@@ -32,7 +32,7 @@ vars = [
 ]
 
 # Static variables are consumed under bare names, so this section opts out of
-# conduit's default `_<label>` node-name suffix.
+# catena's default `_<label>` node-name suffix.
 [inputs.static]
 path = "static.nc"
 suffix = ""

@@ -1,16 +1,17 @@
 # A complete four-model SatTerC pipeline: SPLASH water balance -> P-model
 # photosynthesis -> SGAM vegetation growth -> RothC soil carbon.
 #
-# The framework is conduit; every section below is conduit's. satterc registers
-# its four model modules with conduit, so `[sgam]` and friends need no
-# `_import_path`. See the conduit configuration reference for the full schema:
-# https://github.com/NERC-CEH/conduit/blob/develop/docs/reference/configuration.md
+# The framework is catena; every section below is catena's. satterc registers
+# its four model modules with catena, so `[sgam]` and friends need no
+# `_import_path`. See the catena configuration reference for the full schema:
+# https://github.com/NERC-CEH/catena/blob/develop/docs/reference/configuration.md
 #
 # This file is a user-facing reference. Nothing in satterc loads it.
 
 [sgam]
 
 [splash]
+soil_moisture_init_method = "equilibrate"
 soil_moisture_init_max_iter = 10
 soil_moisture_init_max_diff = 1.0
 
@@ -36,7 +37,7 @@ zero_threshold = 1e-08
 
 # Node names are `{var}{suffix}`, and the suffix defaults to `_<section label>` --
 # so `temperature` here becomes the node `temperature_daily`, which is what the
-# models' parameters are called. The labels themselves are inert: conduit infers
+# models' parameters are called. The labels themselves are inert: catena infers
 # no frequency from them. The models declare their expected frequencies as `Freq`
 # contracts instead (see satterc.models._time), so a weekly file wired into a
 # daily parameter is caught before anything runs.
@@ -81,6 +82,8 @@ vars = [
 # demand over supply, so above 1 is water-limited. Both accumulate over the whole
 # record, giving one value per pixel rather than a time series -- which is what
 # "climatological" means, and what the sandoval quantum-yield method expects.
+# Only that method consumes it: with the `method_kphio` above it goes unused,
+# and is here so that switching to sandoval needs no new node.
 #
 # PET, not AET: AET is what the soil actually gave up, so P/AET would be close to
 # 1 by construction wherever water limits evaporation, which is exactly the
@@ -92,12 +95,12 @@ inputs = ["potential_evapotranspiration_daily", "precipitation_daily"]
 expression = """(
     potential_evapotranspiration_daily.sum("time")
     / precipitation_daily.sum("time")
-)"""
+).assign_attrs(units="1")"""
 units = "1"  # ratio of two mm totals -> dimensionless
 
-# Both the P-model (as pyrealm's `theta`) and SGAM (against the PFT's
-# `wilting_point`/`field_capacity`) want volumetric water content (m3 m-3): the
-# fraction of soil volume that is water. SPLASH reports something different -- a
+# SGAM (against the PFT's `wilting_point`/`field_capacity`) wants volumetric water
+# content (m3 m-3): the fraction of soil volume that is water. So does the P-model
+# (as pyrealm's `theta`), but only with a `lavergne20` `method_optchi`. SPLASH reports something different -- a
 # depth of water, in mm, held in a bucket of capacity `max_soil_moisture`. So
 # soil_moisture / max_soil_moisture is relative saturation (0-1), and multiplying
 # by porosity turns that into a volume fraction.
@@ -110,7 +113,7 @@ units = "1"  # ratio of two mm totals -> dimensionless
 [[node]]
 name = "volumetric_water_content_weekly"
 inputs = ["soil_moisture_weekly", "max_soil_moisture"]
-expression = "soil_moisture_weekly / max_soil_moisture * 0.45"
+expression = "(soil_moisture_weekly / max_soil_moisture * 0.45).assign_attrs(units='m3 m-3')"
 units = "m3 m-3"
 freq = "7D"
 
@@ -124,7 +127,7 @@ freq = "7D"
 [[node]]
 name = "gpp_weekly"
 inputs = ["gpp_flux_weekly"]
-expression = "gpp_flux_weekly * 0.0864"
+expression = "(gpp_flux_weekly * 0.0864).assign_attrs(units='g m-2 d-1')"
 units = "g m-2 d-1"
 freq = "7D"
 
@@ -135,7 +138,7 @@ freq = "7D"
 [[node]]
 name = "lue_weekly"
 inputs = ["lue_photon_weekly"]
-expression = "lue_photon_weekly * 4.57"
+expression = "(lue_photon_weekly * 4.57).assign_attrs(units='g MJ-1')"
 units = "g MJ-1"
 freq = "7D"
 
@@ -144,7 +147,7 @@ freq = "7D"
 [[node]]
 name = "leaf_area_index_weekly"
 inputs = ["leaf_pool_weekly", "pft_params"]
-expression = 'leaf_pool_weekly / pft_params["leaf_carbon_area"]'
+expression = '(leaf_pool_weekly / pft_params["leaf_carbon_area"]).assign_attrs(units="m2 m-2")'
 units = "m2 m-2"  # leaf carbon per ground area / leaf carbon per leaf area
 freq = "7D"
 
@@ -155,12 +158,12 @@ freq = "7D"
 #
 # SPLASH PET is a daily rate (mm d-1); RothC wants a monthly total (mm).
 # Summing the daily rate over the month integrates it (daily Δt = 1 day, so
-# Σ mm d-1 is numerically the monthly mm total); units = "mm" relabels the
-# rate as the resulting total.
+# Σ mm d-1 is numerically the monthly mm total), so the expression relabels
+# the rate as the resulting total.
 [[node]]
 name = "potential_evapotranspiration_monthly"
 inputs = ["potential_evapotranspiration_daily"]
-expression = "potential_evapotranspiration_daily.resample(time='1ME').sum()"
+expression = "potential_evapotranspiration_daily.resample(time='1ME').sum().assign_attrs(units='mm')"
 units = "mm"
 freq = "1ME"
 
@@ -171,7 +174,7 @@ freq = "1ME"
 [[node]]
 name = "precipitation_monthly"
 inputs = ["precipitation_daily"]
-expression = "precipitation_daily.resample(time='1ME').sum()"
+expression = "precipitation_daily.resample(time='1ME').sum().assign_attrs(units='mm')"
 units = "mm"
 freq = "1ME"
 
@@ -191,7 +194,7 @@ freq = "1ME"
 [[node]]
 name = "inert_organic_matter"
 inputs = ["organic_carbon_stocks"]
-expression = "0.049 * organic_carbon_stocks**1.139"  # Falloon IOM (t ha-1)
+expression = "(0.049 * organic_carbon_stocks**1.139).assign_attrs(units='t ha-1')"  # Falloon IOM
 units = "t ha-1"
 
 # `from` and `to` are node-name suffixes, nothing more; `freq` is what actually

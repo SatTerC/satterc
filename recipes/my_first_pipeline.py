@@ -2,7 +2,7 @@
 # requires-python = ">=3.13"
 # dependencies = [
 #   "satterc==0.8.0",
-#   "conduit",
+#   "ukceh-catena",
 #   "marimo",
 #   "matplotlib==3.10.9",
 #   "xarray-annotated",
@@ -10,7 +10,7 @@
 #
 # [tool.uv.sources]
 # satterc = { path = ".." }
-# conduit = { git = "https://github.com/NERC-CEH/conduit" }
+# ukceh-catena = { git = "https://github.com/NERC-CEH/catena" }
 # ///
 
 import marimo
@@ -69,16 +69,11 @@ def _():
 
     import marimo as mo
     import matplotlib.pyplot as plt
-    from conduit import build_driver, run
-    from conduit.config import Config
-    from xarray_annotated.units import set_policy
+    from catena import build_driver, run
+    from catena.config import Config
 
     from satterc.scaffold.data_gen import generate_synthetic_data
 
-    # CSV and JSON files have nowhere to record a unit, so the inputs below
-    # arrive unlabelled and conduit warns once per input that it cannot check
-    # them. See "A note on units" below.
-    set_policy(on_missing="ignore")
     return (
         Config,
         Path,
@@ -98,15 +93,18 @@ def _(mo):
 
     A SatTerC pipeline is described by a configuration file written in
     [TOML](https://toml.io/en/) — a simple, human-readable format. The config schema
-    is [conduit](https://github.com/NERC-CEH/conduit)'s; SatTerC supplies the models.
+    is [catena](https://github.com/NERC-CEH/catena)'s; SatTerC supplies the models.
     Every section activates a pipeline component.
-    `[splash]` loads the SPLASH water-balance module, which SatTerC registers with conduit so the section name alone is enough to find it.
+    `[splash]` loads the SPLASH water-balance module, which SatTerC registers with catena so the section name alone is enough to find it.
     `[inputs.daily]` loads daily climate data from the given path, and `[outputs.daily]` saves the named variables to disk when the pipeline finishes.
 
     Node names are `{var}{suffix}`, with the suffix defaulting to the section label,
     so `temperature` under `[inputs.daily]` becomes the node `temperature_daily` —
     which is what SPLASH's parameter is called. Static variables are consumed under
-    bare names, so that section sets `suffix = "\"`.
+    bare names, so that section sets `suffix = ""`.
+
+    `latitude` appears in neither input section. The inputs are georeferenced, so
+    catena computes each pixel's latitude from their coordinate reference system.
     """)
     return
 
@@ -119,7 +117,7 @@ def _(mo):
     [splash]
 
     [inputs.daily]
-    path = "daily.csv"
+    path = "daily.nc"
     vars = [
       "precipitation",
       "sunshine_fraction",
@@ -127,16 +125,15 @@ def _(mo):
     ]
 
     [inputs.static]
-    path = "static.json"
+    path = "static.nc"
     suffix = ""
     vars = [
       "elevation",
-      "latitude",
       "max_soil_moisture",
     ]
 
     [outputs.daily]
-    path = "results/daily.csv"
+    path = "results/daily.nc"
     vars = [
       "actual_evapotranspiration",
       "soil_moisture",
@@ -155,7 +152,7 @@ def _(mo):
 
     TOML is only a serialisation format. `Config.loads` parses the string into an
     ordinary Python dictionary and everything downstream works from that, so the
-    dictionary below is what conduit actually sees.
+    dictionary below is what catena actually sees.
     """)
     return
 
@@ -191,31 +188,28 @@ def _(mo):
     mo.md(r"""
     ## Step 2: Generate synthetic input data
 
-    SatTerC reads input data from files — the format is detected automatically from
+    SatTerC reads input data from NetCDF or Zarr files, detecting the format from
     the file extension listed in the configuration. SatTerC's built-in synthetic
-    data generator supports NetCDF, Zarr, CSV, Parquet, and JSON output, making
-    it easy to produce realistic stand-in inputs in whatever format you need.
+    data generator writes either, so it is easy to produce realistic stand-in
+    inputs.
 
     Since we do not have real data to hand, we will use the generator to produce
-    single-site CSV and JSON inputs. The generated data covers one virtual site
-    over a two-year period.
+    NetCDF inputs. The generated data covers one virtual site over a two-year
+    period.
 
     > **If you have real data**, skip ahead to the *Using your own data* section at the bottom
     > of this notebook before running the pipeline.
 
     ### A note on units
 
-    Every model input in SatTerC declares the units it expects, and conduit
+    Every model input in SatTerC declares the units it expects, and catena
     checks the data against that declaration before the model sees it. The check
-    reads a `units` attribute on the array, which CSV and JSON have no way to
-    store: the generator labels `temperature` as `degC`, and the label is lost
-    the moment the column is written out.
+    reads a `units` attribute on the array: the generator labels `temperature` as
+    `degC`, and NetCDF keeps the label.
 
-    conduit warns once per unlabelled input by default. The import cell above
-    turns those warnings off with `set_policy(on_missing="ignore")`, which
-    affects only the unlabelled case — a label that contradicts the declaration
-    is still an error. Write the inputs to NetCDF or Zarr instead and the labels
-    survive the round trip, so the check does its job with nothing to configure.
+    A missing label is an error, and so is a different unit, even one that could
+    be converted: `degF` where `degC` is declared fails rather than being converted
+    for you. Convert your data before it enters the pipeline.
     """)
     return
 
@@ -229,12 +223,9 @@ def _(Config, Path, config_toml, generate_synthetic_data, tempfile):
 
     # Redirect every path in the config into a temporary directory: the inputs we
     # are about to generate, and the results the run will write.
-    parsed_config.input_specs["daily"].path = str(_tmpdir / "daily.csv")
-    parsed_config.input_specs["static"].path = str(_tmpdir / "static.json")
-    # conduit will not create a missing output directory; it fails rather than
-    # guess. The config asks for `results/daily.csv`, so make `results/` first.
-    (_tmpdir / "results").mkdir()
-    parsed_config.output_specs["daily"].path = str(_tmpdir / "results" / "daily.csv")
+    parsed_config.input_specs["daily"].path = str(_tmpdir / "daily.nc")
+    parsed_config.input_specs["static"].path = str(_tmpdir / "static.nc")
+    parsed_config.output_specs["daily"].path = str(_tmpdir / "results" / "daily.nc")
 
     # Generate synthetic data — this may take a few seconds
     generate_synthetic_data(config=parsed_config, grid=(1, 1), n_days=730, seed=42)
@@ -318,7 +309,8 @@ def _(mo):
 
 @app.cell
 def _(plt, report):
-    soil_moisture = report.outputs["daily"]["soil_moisture"].isel(pixel=0)
+    # Written outputs are back on the inputs' (y, x) grid; this one has one cell.
+    soil_moisture = report.outputs["daily"]["soil_moisture"].isel(y=0, x=0)
 
     fig, ax = plt.subplots(figsize=(10, 3))
     soil_moisture.plot(ax=ax)
@@ -358,24 +350,37 @@ def _(mo):
     mo.md(r"""
     ### 2. Prepare your data files
 
-    **Daily CSV** — one row per day, first column a parseable date:
+    Write each input section to a NetCDF file with xarray, with a `units`
+    attribute on every variable. For a single site with no coordinate reference
+    system, use a `pixel` dimension of length one, and supply `latitude` yourself:
 
-    ```csv
-    time,precipitation,sunshine_fraction,temperature
-    2020-01-01,3.2,0.45,8.1
-    2020-01-02,0.0,0.71,9.3
-    ...
+    ```python
+    import pandas as pd
+    import xarray as xr
+
+    time = pd.date_range("2020-01-01", periods=731, freq="D")
+    daily = xr.Dataset(
+        {
+            "precipitation": (("time", "pixel"), precip, {"units": "mm d-1"}),
+            "sunshine_fraction": (("time", "pixel"), sunshine, {"units": "1"}),
+            "temperature": (("time", "pixel"), temp, {"units": "degC"}),
+        },
+        coords={"time": time, "pixel": [0]},
+    )
+    daily.to_netcdf("daily.nc")
+
+    static = xr.Dataset(
+        {
+            "elevation": ("pixel", [150.0], {"units": "m"}),
+            "latitude": ("pixel", [51.5], {"units": "degrees_north"}),
+            "max_soil_moisture": ("pixel", [200.0], {"units": "mm"}),
+        },
+        coords={"pixel": [0]},
+    )
+    static.to_netcdf("static.nc")
     ```
 
-    **Static JSON** — a plain key → scalar mapping:
-
-    ```json
-    {
-      "elevation": 150.0,
-      "latitude": 51.5,
-      "max_soil_moisture": 200.0
-    }
-    ```
+    The model docs list the unit each input is declared in.
 
     ### 3. Edit the config file
 
@@ -385,7 +390,7 @@ def _(mo):
 
     ```toml
     [inputs.daily]
-    path = "/data/my-site/daily.csv"
+    path = "/data/my-site/daily.nc"
     vars = [
       "precipitation",
       "sunshine_fraction",
@@ -393,8 +398,8 @@ def _(mo):
     ]
 
     [inputs.static]
-    path = "/data/my-site/static.json"
-    suffix = "\"
+    path = "/data/my-site/static.nc"
+    suffix = ""
     vars = [
       "elevation",
       "latitude",
@@ -402,12 +407,15 @@ def _(mo):
     ]
     ```
 
+    `latitude` is listed here because these files have no coordinate reference
+    system for catena to compute it from.
+
     ### 4. Load the config from the file
 
     Replace the config and data-generation cells in this notebook with:
 
     ```python
-    from conduit import load_config
+    from catena import load_config
 
     parsed_config = load_config("my_pipeline.toml")
     ```
@@ -417,7 +425,7 @@ def _(mo):
     ### 5. Remove the data generation cell
 
     You no longer need to generate synthetic data — delete that cell.
-    The pipeline will load your real CSV and JSON files directly.
+    The pipeline will load your real files directly.
     """)
     return
 

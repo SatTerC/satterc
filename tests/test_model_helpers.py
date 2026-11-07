@@ -29,7 +29,7 @@ MONTHLY_DATES = pd.date_range("2020-01-01", periods=N_MONTHS, freq="ME")
 DAILY_DATES = pd.date_range("2020-01-01", periods=N_DAYS, freq="D")
 
 #: The RothC bridge nodes take a monthly DataArray purely for its time
-#: coordinate (conduit no longer supplies a `dates_monthly` node), so a bare
+#: coordinate (catena no longer supplies a `dates_monthly` node), so a bare
 #: time axis is all they need — the values and pixel dim are never read.
 MONTHLY_CLOCK = xr.DataArray(
     np.zeros(N_MONTHS), dims=["time"], coords={"time": MONTHLY_DATES}
@@ -335,9 +335,7 @@ class TestPmodelExecution:
             pressure_weekly=_da(np.full((n_weeks, n_pixels), 101325.0)),
             fapar_weekly=_da(np.full((n_weeks, n_pixels), 0.5)),
             ppfd_weekly=_da(np.full((n_weeks, n_pixels), 500.0)),
-            mean_growth_temperature=_da(np.full((n_weeks, n_pixels), 15.0)),
-            aridity_index=_da(np.full((n_weeks, n_pixels), 0.5)),
-            volumetric_water_content_weekly=_da(np.full((n_weeks, n_pixels), 0.3)),
+            extra_inputs={},
             method_optchi="prentice14",
             method_jmaxlim="wang17",
             method_kphio="temperature",
@@ -430,15 +428,13 @@ class TestPmodelDriverExecution:
     """Covers the pmodel() public wrapper (line 120) via Hamilton driver execution."""
 
     def test_driver_executes_gpp(self):
-        from conduit import build_driver
+        from catena import build_driver
 
         # 364 days = exactly 52 weeks: ensures the daily→weekly resample produces
         # 52 time steps matching the provided weekly arrays.
         n_weeks = 52
-        n_days = 364
         n_pixels = 1
         time_weekly = pd.date_range("2020-01-01", periods=n_weeks, freq="7D")
-        time_daily = pd.date_range("2020-01-01", periods=n_days, freq="D")
         pixel = np.arange(n_pixels)
 
         def _wda(v):
@@ -461,18 +457,11 @@ class TestPmodelDriverExecution:
             ["gpp_flux_weekly", "lue_photon_weekly", "iwue_weekly"],
             inputs={
                 "temperature_weekly": _wda(15.0),
-                "temperature_daily": xr.DataArray(
-                    np.full((n_days, n_pixels), 15.0),
-                    dims=["time", "pixel"],
-                    coords={"time": time_daily, "pixel": pixel},
-                ),
                 "vpd_weekly": _wda(1000.0),
                 "co2_weekly": _wda(400.0),
                 "pressure_weekly": _wda(101325.0),
                 "fapar_weekly": _wda(0.5),
                 "ppfd_weekly": _wda(500.0),
-                "aridity_index": _wda(0.5),
-                "volumetric_water_content_weekly": _wda(0.3),
             },
         )
         gpp = result["gpp_flux_weekly"]
@@ -484,7 +473,7 @@ class TestRothcDriverExecution:
     """Covers the rothc() public wrapper (line 157) via Hamilton driver execution."""
 
     def test_driver_executes_soc(self):
-        from conduit import build_driver
+        from catena import build_driver
 
         n_months = 24
         n_pixels = 1
@@ -691,9 +680,9 @@ class TestSplashExecution:
         assert isinstance(splash_result, dict)
 
     def test_output_keys(self, splash_result):
-        assert "actual_evapotranspiration_daily" in splash_result
-        assert "soil_moisture_daily" in splash_result
-        assert "runoff_daily" in splash_result
+        from satterc.models.splash import SplashOut
+
+        assert set(splash_result) == set(SplashOut.__annotations__)
 
     def test_aet_is_dataarray(self, splash_result):
         assert isinstance(
@@ -742,6 +731,7 @@ class TestSplashExecution:
             elevation=_static_da(np.array([50.0])),
             latitude=_static_da(np.array([51.5])),
             max_soil_moisture=_static_da(np.array([150.0])),
+            soil_moisture_init_inputs={},
             splash_config=splash_config(),
         )
         assert isinstance(result, dict)

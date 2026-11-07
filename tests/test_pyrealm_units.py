@@ -28,6 +28,7 @@ Four layers, each failing differently on purpose:
    agree, so the two halves of layer 2 cannot drift apart independently.
 """
 
+import dataclasses
 import json
 from pathlib import Path
 from typing import Any
@@ -39,21 +40,23 @@ import pyrealm.core.calendar
 import pyrealm.pmodel
 import pyrealm.splash.splash
 import pytest
+from pyrealm.constants import CoreConst
+from pyrealm.splash.evap import DailyEvapFluxes
+from pyrealm.splash.solar import DailySolarFluxes
 from pyrealm_cases import (
     LATITUDE,
     MAX_SOIL_MOISTURE,
     N_PIXELS,
     PMODEL_METHODS,
-    SPLASH_MAX_DIFF,
-    SPLASH_MAX_ITER,
+    declared_input_units,
     declared_units,
     pmodel_inputs,
     splash_inputs,
     summarize,
 )
 
-from satterc.models.pmodel import PModelOut, _pmodel
-from satterc.models.splash import SplashOut, _splash
+from satterc.models.pmodel import _OUTPUT_ATTRIBUTES, PModelOut, _pmodel
+from satterc.models.splash import _FLUX_ATTRIBUTES, SplashOut, _splash
 
 GOLDEN_PATH = Path(__file__).parent / "data" / "pyrealm_golden.json"
 
@@ -114,6 +117,31 @@ def bounds() -> dict:
     return data
 
 
+def declared_pmodel_inputs() -> dict[str, str]:
+    """Units declared for every P-Model input, across `pmodel` and its input nodes.
+
+    The method-dependent inputs sit on the ``<axis>_inputs`` variants, not on
+    `pmodel`. Two variants can declare the same input, and must agree on it.
+    """
+    from satterc.models import pmodel as pmodel_module
+
+    nodes = [
+        pmodel_module.pmodel,
+        pmodel_module.optchi_inputs__theta,
+        pmodel_module.optchi_inputs__rootzonestress,
+        pmodel_module.kphio_inputs__sandoval,
+        pmodel_module.arrhenius_inputs__kattge_knorr,
+    ]
+    declared: dict[str, str] = {}
+    for node in nodes:
+        for argument, unit in declared_input_units(node).items():
+            assert declared.setdefault(argument, unit) == unit, (
+                f"{node.__name__} declares {argument!r} as {unit!r}, but another "
+                f"P-Model node declares it as {declared[argument]!r}."
+            )
+    return declared
+
+
 # Each entry maps a satterc node argument to the pyrealm variable it becomes.
 PMODEL_INPUT_UNITS = [
     ("temperature_weekly", "tc"),
@@ -123,6 +151,7 @@ PMODEL_INPUT_UNITS = [
     ("fapar_weekly", "fapar"),
     ("ppfd_weekly", "ppfd"),
     ("volumetric_water_content_weekly", "theta"),
+    ("rootzonestress_weekly", "rootzonestress"),
     ("aridity_index", "aridity_index"),
 ]
 
@@ -131,8 +160,8 @@ SPLASH_INPUT_UNITS = [
     ("temperature_daily", "tc"),
     ("precipitation_daily", "pn"),
     ("max_soil_moisture", "kWm"),
-    # ("latitude", "lat") is absent on purpose. See `splash`'s signature and
-    # `test_latitude_units_are_blocked_upstream` below.
+    # ("latitude", "lat") is absent on purpose. See `satterc.latitude` and
+    # `test_latitude_check_uses_pyrealms_unit` below.
 ]
 
 # pyrealm's own two sources disagree here. The bounds table records
@@ -149,12 +178,7 @@ class TestUpstreamUnitMetadata:
 
     @pytest.mark.parametrize(("argument", "variable"), PMODEL_INPUT_UNITS)
     def test_pmodel_input_units(self, bounds, argument, variable):
-        from xarray_annotated.units import units_from_signature
-
-        from satterc.models import pmodel as pmodel_module
-
-        declared_inputs, _ = units_from_signature(pmodel_module.pmodel)
-        declared = declared_inputs[argument]
+        declared = declared_pmodel_inputs()[argument]
         expected = normalise(bounds[variable].unit)
         assert declared == expected, (
             f"pmodel declares {argument!r} as {declared!r}, but pyrealm "
@@ -164,11 +188,9 @@ class TestUpstreamUnitMetadata:
 
     @pytest.mark.parametrize(("argument", "variable"), SPLASH_INPUT_UNITS)
     def test_splash_input_units(self, bounds, argument, variable):
-        from xarray_annotated.units import units_from_signature
-
         from satterc.models import splash as splash_module
 
-        declared_inputs, _ = units_from_signature(splash_module.splash)
+        declared_inputs = declared_input_units(splash_module.splash)
         declared = declared_inputs[argument]
         expected = normalise(bounds[variable].unit)
         assert declared == expected, (
@@ -190,22 +212,16 @@ class TestUpstreamUnitMetadata:
             )
 
     def test_mean_growth_temperature_follows_the_docstring(self):
-        from xarray_annotated.units import units_from_signature
-
-        from satterc.models import pmodel as pmodel_module
-
-        declared_inputs, _ = units_from_signature(pmodel_module.pmodel)
-        declared = declared_inputs["mean_growth_temperature"]
+        declared = declared_pmodel_inputs()["mean_growth_temperature"]
         assert declared == BOUNDS_DISAGREES_WITH_DOCSTRING["mean_growth_temperature"][1]
 
-    @pytest.mark.parametrize(
-        ("field", "variable"),
-        [
-            ("gpp_flux_weekly", "gpp"),
-            ("lue_photon_weekly", "lue"),
-            ("iwue_weekly", "iwue"),
-        ],
-    )
+    def test_pmodel_returns_every_declared_output(self):
+        """An output pyrealm adds upstream fails here until the wrapper returns it."""
+        declared = {name for name, _ in pyrealm.pmodel.PModel._data_attributes}
+        assert set(_OUTPUT_ATTRIBUTES.values()) == declared
+        assert set(_OUTPUT_ATTRIBUTES) == set(declared_units(PModelOut))
+
+    @pytest.mark.parametrize(("field", "variable"), _OUTPUT_ATTRIBUTES.items())
     def test_pmodel_output_units(self, field, variable):
         """The check that catches an upstream output-unit change outright."""
         attributes = getattr(pyrealm.pmodel.PModel, "_data_attributes", None)
@@ -256,7 +272,7 @@ class TestUpstreamApiNames:
         parameters = inspect.signature(pyrealm.pmodel.PModelEnvironment).parameters
         explicit = {"tc", "vpd", "co2", "patm", "fapar", "ppfd"}
         assert explicit <= set(parameters)
-        # theta / mean_growth_temperature / aridity_index arrive via **kwargs,
+        # The method-dependent inputs arrive via **kwargs,
         # so the signature cannot vouch for them; the bounds table can.
         assert any(p.kind is inspect.Parameter.VAR_KEYWORD for p in parameters.values())
 
@@ -276,9 +292,37 @@ class TestUpstreamApiNames:
         parameters = inspect.signature(pyrealm.splash.splash.SplashModel).parameters
         assert {"lat", "elv", "sf", "tc", "pn", "dates", "kWm"} <= set(parameters)
 
-    def test_splash_exposes_pet(self, splash_raw):
-        model, _, _, _, _ = splash_raw
-        assert hasattr(model.evap, "pet_d")
+    @pytest.mark.parametrize(
+        ("prefix", "cls"), [("evap", DailyEvapFluxes), ("solar", DailySolarFluxes)]
+    )
+    def test_splash_fluxes_are_all_classified(self, prefix, cls):
+        """A flux pyrealm adds must be returned or named as an intermediate."""
+        computed = {f"{prefix}.{f.name}" for f in dataclasses.fields(cls) if not f.init}
+        returned = set(_FLUX_ATTRIBUTES.values())
+        assert computed == {
+            name for name in returned | SPLASH_INTERMEDIATES if name.startswith(prefix)
+        }
+
+
+#: pyrealm attributes `splash` deliberately does not return: orbital geometry, terms
+#: of the equations, and physical properties of air and water at each temperature.
+SPLASH_INTERMEDIATES = {
+    "solar.nu",
+    "solar.lambda_",
+    "solar.distance_factor",
+    "solar.declination",
+    "solar.ru",
+    "solar.rv",
+    "solar.rw",
+    "solar.sunset_hour_angle",
+    "solar.crossover_hour_angle",
+    "evap.sat",
+    "evap.lv",
+    "evap.pw",
+    "evap.psy",
+    "evap.econ",
+    "evap.rx",
+}
 
 
 @pytest.fixture(scope="module")
@@ -399,50 +443,49 @@ class TestPModelInvariants:
         np.testing.assert_allclose(doubled.gpp, 2.0 * base.gpp, rtol=1e-12)
 
 
-@pytest.fixture(scope="module")
-def splash_raw():
-    """pyrealm's SPLASH run directly, exposing the internals the balance needs."""
-    inputs = splash_inputs()
-    model = pyrealm.splash.splash.SplashModel(
-        lat=inputs["latitude"].values[None, :],
-        elv=inputs["elevation"].values[None, :],
-        sf=inputs["sunshine_fraction_daily"].values,
-        tc=inputs["temperature_daily"].values,
-        pn=inputs["precipitation_daily"].values,
-        dates=pyrealm.core.calendar.Calendar(inputs["dates_daily"].values),
-        kWm=inputs["max_soil_moisture"].values,
-    )
-    initial = model.estimate_initial_soil_moisture(
-        max_iter=SPLASH_MAX_ITER, max_diff=SPLASH_MAX_DIFF, verbose=False
-    )
-    aet, moisture, runoff = model.calculate_soil_moisture(initial)
-    return model, initial, aet, moisture, runoff
-
-
 class TestSplashInvariants:
     """SPLASH's outputs are a water budget, and the budget has to balance in mm."""
 
-    def test_daily_water_balance_closes(self, splash_raw):
+    def test_daily_water_balance_closes(self, splash_result):
         """dSM = P + condensation - AET - runoff, every day, every pixel.
 
         The strongest check here. It ties ``mm`` (soil moisture, runoff) to
         ``mm d-1`` (precipitation, AET) in a single identity, and breaks if
         runoff becomes a rate, if AET's interval changes, or if soil moisture
-        becomes a volumetric fraction.
+        becomes a volumetric fraction. It runs on the wrapper's outputs, which is
+        why condensation has to be one of them. The first day is left out because
+        its previous state is the spin-up result, which is not an output.
         """
-        model, initial, aet, moisture, runoff = splash_raw
-        previous = np.vstack([initial[None, :], moisture[:-1, :]])
-        change = moisture - previous
-        supply = model.pn + model.evap.cond - aet - runoff
+        change = (
+            splash_result["soil_moisture_daily"].values[1:]
+            - (splash_result["soil_moisture_daily"].values[:-1])
+        )
+        supply = (
+            splash_inputs()["precipitation_daily"].values[1:]
+            + splash_result["condensation_daily"].values[1:]
+            - splash_result["actual_evapotranspiration_daily"].values[1:]
+            - splash_result["runoff_daily"].values[1:]
+        )
         np.testing.assert_allclose(change, supply, atol=1e-9)
 
-    def test_annual_balance_closes(self, splash_raw):
-        """The same budget aggregated over the year, as an independent check."""
-        model, initial, aet, moisture, runoff = splash_raw
-        rainfall = model.pn.sum(axis=0) + model.evap.cond.sum(axis=0)
-        losses = aet.sum(axis=0) + runoff.sum(axis=0)
-        storage = moisture[-1, :] - initial
-        np.testing.assert_allclose(rainfall - losses, storage, atol=1e-6)
+    def test_condensation_is_a_material_part_of_the_balance(self, splash_result):
+        """The balance test above would prove little if condensation were tiny."""
+        assert splash_result["condensation_daily"].values.mean() > 0.1
+
+    def test_pet_is_scaled_equilibrium_evapotranspiration(self, splash_result):
+        np.testing.assert_allclose(
+            splash_result["potential_evapotranspiration_daily"].values,
+            (1.0 + CoreConst().k_w)
+            * splash_result["equilibrium_evapotranspiration_daily"].values,
+        )
+
+    def test_ppfd_is_a_daily_total_in_moles(self, splash_result):
+        """Tens of mol m-2 d-1. As a rate in umol m-2 s-1 it would be hundreds."""
+        assert 5.0 < float(splash_result["estimated_ppfd_daily"].max()) < 80.0
+
+    def test_nighttime_net_radiation_is_negative(self, splash_result):
+        assert float(splash_result["nighttime_net_radiation_daily"].max()) < 0.0
+        assert float(splash_result["daytime_net_radiation_daily"].min()) > 0.0
 
     def test_soil_moisture_is_a_depth_bounded_by_capacity(self, splash_result):
         """0 <= SM <= kWm pins soil moisture to mm, on capacity's own scale."""
@@ -467,17 +510,20 @@ class TestSplashInvariants:
         assert 0.1 < float(np.nanmax(pet)) < 15.0
 
     def test_elevation_is_metres(self):
-        """Elevation enters through atmospheric pressure, so PET must respond.
+        """Transmissivity scales as ``1 + f * z``, with ``f`` per metre.
 
-        Read as kilometres or feet, the same numbers would move PET by a
-        different amount. Ignored entirely, they would not move it at all.
+        Pins the scale, so elevation read as kilometres or feet fails, as well as
+        elevation being ignored.
         """
         inputs = splash_inputs()
         sea_level = _splash(**{**inputs, "elevation": inputs["elevation"] * 0.0})
         high = _splash(**{**inputs, "elevation": inputs["elevation"] * 0.0 + 3000.0})
-        low_pet = float(sea_level["potential_evapotranspiration_daily"].mean())
-        high_pet = float(high["potential_evapotranspiration_daily"].mean())
-        assert not np.isclose(low_pet, high_pet, rtol=1e-3)
+        _, _, per_metre = CoreConst().transmissivity_coef
+        np.testing.assert_allclose(
+            high["transmissivity_daily"].values
+            / sea_level["transmissivity_daily"].values,
+            1.0 + per_metre * 3000.0,
+        )
 
 
 class TestGoldenValues:
@@ -505,9 +551,7 @@ class TestGoldenValues:
                 f"and not a bug in satterc. {REGENERATE_HINT}"
             )
 
-    @pytest.mark.parametrize(
-        "field", ["gpp_flux_weekly", "lue_photon_weekly", "iwue_weekly"]
-    )
+    @pytest.mark.parametrize("field", _OUTPUT_ATTRIBUTES)
     @pytest.mark.parametrize("statistic", ["mean", "std", "min", "max"])
     def test_pmodel_outputs(self, golden, pmodel_result, field, statistic):
         expected = golden["pmodel"]["outputs"][field][statistic]
@@ -522,15 +566,7 @@ class TestGoldenValues:
             ),
         )
 
-    @pytest.mark.parametrize(
-        "field",
-        [
-            "actual_evapotranspiration_daily",
-            "soil_moisture_daily",
-            "runoff_daily",
-            "potential_evapotranspiration_daily",
-        ],
-    )
+    @pytest.mark.parametrize("field", SplashOut.__annotations__)
     @pytest.mark.parametrize("statistic", ["mean", "std", "min", "max"])
     def test_splash_outputs(self, golden, splash_result, field, statistic):
         expected = golden["splash"]["outputs"][field][statistic]
@@ -560,25 +596,22 @@ class TestAnnotationsMatchGolden:
         )
 
 
-def test_latitude_units_are_blocked_upstream():
-    """`splash` cannot declare a unit for `latitude`, and pyrealm still wants degrees.
+def test_latitude_check_uses_pyrealms_unit():
+    """`splash` checks `latitude` in its body, against the unit pyrealm wants.
 
-    conduit synthesises `latitude` from the input CRS without a `units` attribute,
-    so a declaration here fails contract validation for every gridded pipeline.
-    This records both halves of that. The gap is real, and the unit satterc would
-    declare once conduit stamps the attribute is unchanged upstream.
+    The check stands in for a declaration until catena labels the latitude it
+    derives; see `satterc.latitude`. The undeclared parameter and the checked
+    unit are pinned together, so removing the workaround means editing both.
     """
-    from xarray_annotated.units import units_from_signature
-
+    from satterc.latitude import LATITUDE_UNITS
     from satterc.models import splash as splash_module
 
-    declared_inputs, _ = units_from_signature(splash_module.splash)
-    assert "latitude" not in declared_inputs, (
-        "conduit may now stamp units on the synthesised `latitude`. If so, "
-        'declare "degrees" in `splash` and restore the SPLASH_INPUT_UNITS entry.'
+    assert "latitude" not in declared_input_units(splash_module.splash), (
+        "`splash` now declares `latitude`, so remove `satterc.latitude` and "
+        "restore the SPLASH_INPUT_UNITS entry."
     )
     checker = pyrealm.core.bounds.BoundsChecker()
-    assert normalise(checker._data["lat"].unit) == "degrees"
+    assert normalise(checker._data["lat"].unit) == LATITUDE_UNITS
 
 
 def test_latitude_case_spans_hemispheres():

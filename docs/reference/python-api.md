@@ -5,13 +5,13 @@ icon: lucide/square-function
 
 # Python API
 
-Building and running a pipeline is conduit's job, and satterc adds no wrapper around it.
-Everything `satterc run` does is available from Python through [conduit's API][conduit-api]:
+Building and running a pipeline is catena's job, and satterc adds no wrapper around it.
+Everything `satterc run` does is available from Python through [catena's API][catena-api]:
 
 ```python
-import conduit
+import catena
 
-report = conduit.run("config.toml")
+report = catena.run("config.toml")
 ```
 
 What satterc supplies is the modules that config points at, and the scaffolding for getting to a config in the first place.
@@ -19,7 +19,7 @@ What satterc supplies is the modules that config points at, and the scaffolding 
 ## Models
 
 A model module is a set of plain functions whose names are node names.
-Conduit imports the module named by a config section, so nothing here is normally called by hand, but the functions are ordinary and can be.
+Catena imports the module named by a config section, so nothing here is normally called by hand, but the functions are ordinary and can be.
 
 | Module | Model |
 | --- | --- |
@@ -60,4 +60,4 @@ These pages are the signatures.
 | --- | --- |
 | [`satterc.temporal`](modules/satterc.temporal.md) | The temporal resolutions a pipeline speaks in, and the pandas offsets behind them. |
 
-[conduit-api]: https://nerc-ceh.github.io/conduit/reference/python-api.html
+[catena-api]: https://nerc-ceh.github.io/catena/reference/python-api.html

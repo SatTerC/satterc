@@ -1,6 +1,6 @@
 # `satterc`
 
-Composable models of the terrestrial carbon and water cycles, for [conduit](https://github.com/NERC-CEH/conduit) pipelines.
+Composable models of the terrestrial carbon and water cycles, for [catena](https://github.com/NERC-CEH/catena) pipelines.
 
 > [!WARNING]
 > **Alpha status.** `satterc` is an early-stage project under active development. Things will change without warning.

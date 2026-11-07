@@ -10,7 +10,7 @@ icon: lucide/droplet
 
 SPLASH (Simple Process-led Algorithms for Simulating Habitats) is a water balance model that estimates soil moisture, actual evapotranspiration (AET) and surface water runoff for sites.[^davis2017]
 
-The model takes an initial estimate of soil moisture, then uses time series of precipitation, temperature and cloud cover to track how the daily water balance changes with incoming precipitation, condensation and AET. Soil moisture, temperature and downwelling solar radiation at the site all feed into AET and condensation, which is why the site's elevation and latitude are required inputs.
+The model takes an initial estimate of soil moisture, then uses time series of precipitation, temperature and sunshine fraction to track how the daily water balance changes with incoming precipitation, condensation and AET. Soil moisture, temperature and downwelling solar radiation at the site all feed into AET and condensation, which is why the site's elevation and latitude are required inputs.
 
 We wrap the [NumPy-based `pyrealm` implementation](https://github.com/ImperialCollegeLondon/pyrealm) of SPLASH.
 The [pyrealm SPLASH documentation](https://pyrealm.readthedocs.io/en/latest/users/splash.html) is the authoritative source for the model theory.
@@ -43,7 +43,15 @@ $$
 R_{[t]} = \max\left(W_{n[t]} - W_m,\; 0\right), \qquad W_{n[t]} \leftarrow \min\left(W_{n[t]}, W_m\right)
 $$
 
-The maximum soil moisture capacity defaults to 150 mm but can be set on a per-site basis.
+The capacity also limits how fast the soil can supply water for evaporation, with supply rate $S_w = S_c W_{n[t-1]} / W_m$, where $S_c$ is 1.05 mm·h⁻¹.
+$W_m$ comes from the required `max_soil_moisture` input, so it can vary per pixel.
+
+/// admonition | Results differ from pyrealm 2.0.0 called directly
+    type: note
+
+pyrealm 2.0.0 uses the configured capacity for runoff but a fixed 150 mm for the supply rate.
+This wrapper applies the configured capacity to both, as the equation above and Davis et al. (2017) specify, so its results differ from a direct pyrealm call wherever capacity is not 150 mm.
+///
 
 ### Initial soil moisture estimation
 
@@ -51,6 +59,30 @@ SPLASH estimates initial soil moisture by iterating over a full year of climate 
 An input period shorter than a year cannot equilibrate and fails.
 
 That tolerance is evaluated over the whole block, so results shift by ~1e-4 relative when the `[blocking]` block size or the `[subset]` range changes.
+
+If any valid pixel in a block has not converged within `soil_moisture_init_max_iter` iterations, the run stops with an error.
+
+To start from a measured state, or to continue an earlier run, set `soil_moisture_init_method = "prescribed"` and supply `initial_soil_moisture`.
+That skips the spin-up, so the year minimum and the dependence on block size no longer apply.
+
+### Missing values
+
+Each pixel's outcome comes from its own inputs, so it does not depend on the block size:
+
+| Pixel | Example | Outcome |
+|---|---|---|
+| Masked | All climate inputs NaN, or a NaN in `elevation`, `latitude`, `max_soil_moisture` or `initial_soil_moisture` | NaN outputs, with no error or warning |
+| Gap | Some climate values NaN, including one variable with no data while the others have some | The run stops with an error naming the pixels |
+| Model failure | Complete inputs, but pyrealm returns NaN | NaN outputs, with a warning naming the pixels |
+
+A gap stops the run because soil moisture carries over from one day to the next, so everything after it would be lost.
+Fill gaps in a `[[node]]` before SPLASH, or mask the pixel.
+
+A misconfigured input that makes every climate variable NaN is indistinguishable from a masked block, so that run finishes with NaN outputs and no error.
+
+Model failures come from pyrealm 2.0.0, whose AET calculation can return NaN at high latitudes.
+
+The input dates must also be consecutive days, and a missing date stops the run with an error, because pyrealm steps through days by position.
 
 ## Usage
 
@@ -69,6 +101,7 @@ For calibrating `max_soil_moisture` against observations, see the [soil moisture
 
 ```toml
 [splash]
+soil_moisture_init_method = "equilibrate"
 soil_moisture_init_max_iter = 10
 soil_moisture_init_max_diff = 1.0
 ```
@@ -84,8 +117,28 @@ soil_moisture_init_max_diff = 1.0
 
 ### Inputs
 
+#### Always required
+
 ::: satterc.models.splash.splash
     options:
+      show_root_heading: false
+      show_root_toc_entry: false
+      show_signature: false
+      show_docstring_description: false
+      show_docstring_returns: false
+      docstring_section_style: spacy
+      extra:
+        hide_parameters: [soil_moisture_init_inputs, splash_config]
+
+#### Initial state, for `prescribed` initialisation
+
+Required when `soil_moisture_init_method` is `prescribed`.
+
+::: satterc.models.splash.soil_moisture_init_inputs__prescribed
+    options:
+      show_root_full_path: false
+      separate_signature: false
+      heading_level: 4
       show_root_heading: false
       show_root_toc_entry: false
       show_signature: false

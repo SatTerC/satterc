@@ -13,10 +13,10 @@ from typing import Any
 
 import pint
 import xarray as xr
-from conduit.config import Config
+from catena.config import Config
 from hamilton import driver
 from hamilton.settings import ENABLE_POWER_USER_MODE
-from xarray_annotated import unwrap_annotated
+from xarray_annotated import declaration_from_hint
 
 from .. import models as model_modules
 from .. import temporal
@@ -60,19 +60,15 @@ def _analyze_model_module(
     # `@extract_fields` drops the `Annotated` metadata when it splits a model's
     # return TypedDict into one node per field. Read those from the TypedDict.
     for name, hint in _output_hints(module).items():
-        for meta in getattr(hint, "__metadata__", ()):
-            if isinstance(meta, str):
-                units.setdefault(name, meta)
-                break
+        if (unit := _declared_unit(hint)) is not None:
+            units.setdefault(name, unit)
 
     for v in all_vars:
-        for meta in getattr(v.type, "__metadata__", ()):
-            if isinstance(meta, str):
-                units.setdefault(v.name, meta)
-                break
-        # Signature-native unit declarations make some node types
-        # ``Annotated[DataArray, "<unit>"]``; unwrap so they still count as data.
-        v_type = unwrap_annotated(v.type)
+        if (unit := _declared_unit(v.type)) is not None:
+            units.setdefault(v.name, unit)
+        # A declared node's type is ``Annotated[DataArray, ...]``; unwrap it so it
+        # still counts as data.
+        v_type = _unwrap_annotated(v.type)
         if v.is_external_input:
             if v_type == xr.DataArray:
                 data_inputs.append(v.name)
@@ -83,6 +79,21 @@ def _analyze_model_module(
                 data_outputs.append(v.name)
 
     return data_inputs, non_data_inputs, data_outputs
+
+
+def _declared_unit(hint: Any) -> str | None:
+    """Return the unit a hint declares with a `Unit` marker, else ``None``."""
+    declared = declaration_from_hint(hint)
+    if declared is None or declared.unit is None:
+        return None
+    return declared.unit.unit
+
+
+def _unwrap_annotated(hint: Any) -> Any:
+    """Return the type inside an `Annotated` hint, else the hint itself."""
+    if typing.get_origin(hint) is typing.Annotated:
+        return typing.get_args(hint)[0]
+    return hint
 
 
 def _output_hints(module: ModuleType) -> dict[str, Any]:
@@ -149,7 +160,7 @@ def get_model_config(model_name: str) -> dict[str, Any]:
     settings-bearing node has more than one such container — RothC's per-PFT
     DPM/RPM ratios sit on `satterc.models.rothc.dpm_rpm_ratio_config`, not on
     the model node. Scanning the module finds all of them, and the result is
-    still one flat dict because conduit merges a section's keys into one flat
+    still one flat dict because catena merges a section's keys into one flat
     driver config regardless of which node consumes them.
     """
     builtin_models = get_builtin_models()
@@ -174,6 +185,7 @@ def get_model_config(model_name: str) -> dict[str, Any]:
                 for p in inspect.signature(func).parameters.values()
                 if p.kind == inspect.Parameter.KEYWORD_ONLY
                 and p.default is not inspect.Parameter.empty
+                and p.default is not None  # TOML has no null; unset means default
             }
         )
     return settings
@@ -325,6 +337,7 @@ def _infer_required_data(model_names: list[str]) -> dict[str, Any]:
                     "inputs": [source_name],
                     "expression": (
                         f"{source_name}.resample(time='{freq_offset}').sum()"
+                        f".assign_attrs(units='{units[target_name]}')"
                     ),
                     "units": units[target_name],
                     "freq": freq_offset,
@@ -355,7 +368,10 @@ def _infer_required_data(model_names: list[str]) -> dict[str, Any]:
             {
                 "name": target_name,
                 "inputs": [source_name],
-                "expression": f"{source_name} * {factor:.6g}",
+                "expression": (
+                    f"({source_name} * {factor:.6g})"
+                    f".assign_attrs(units='{target_units}')"
+                ),
                 "units": target_units,
                 "freq": temporal.offset(_label(freq)),
             }
@@ -474,13 +490,13 @@ def generate_config(
     config_data: dict[str, Any] = {}
 
     # One flat section per model, named after the model. satterc registers each
-    # model module under conduit's `conduit.modules` entry-point group (see
+    # model module under catena's `catena.modules` entry-point group (see
     # pyproject.toml), so the section name alone resolves it and no
     # `_import_path` is needed.
     for model in builtin_models:
         config_data[model] = dict(get_model_config(model))
 
-    # conduit names each input node `{var}{suffix}`, with the suffix defaulting to
+    # catena names each input node `{var}{suffix}`, with the suffix defaulting to
     # `_<section label>`. That is exactly satterc's convention for the temporal
     # sections, but static variables are consumed under bare names
     # (`elevation`, not `elevation_static`), so that section opts out of a suffix.
@@ -538,7 +554,7 @@ def generate_config(
     }
 
     for mod_path in custom_modules:
-        # A module conduit has no registration for still needs an explicit
+        # A module catena has no registration for still needs an explicit
         # `_import_path`, which makes the section label free-form. Use the
         # module's own last component so the config reads naturally.
         label = mod_path.rsplit(".", 1)[-1]

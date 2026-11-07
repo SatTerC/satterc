@@ -1,7 +1,15 @@
 """Tests for scaffold/config_gen.py."""
 
+import pytest
+from hamilton.settings import ENABLE_POWER_USER_MODE
+
+from satterc import models
 from satterc.scaffold import generate_config, get_model_config
-from satterc.scaffold.config_gen import _infer_required_data, _strip_suffix
+from satterc.scaffold.config_gen import (
+    _analyze_model_module,
+    _infer_required_data,
+    _strip_suffix,
+)
 
 PATH_DEFAULTS = {
     "inputs_daily": "inputs/daily.nc",
@@ -140,7 +148,7 @@ class TestGenerateConfigBuiltinModels:
             paths=PATH_DEFAULTS,
         )
         section = config._data["rothc"]
-        # satterc registers rothc with conduit, so the section resolves by name
+        # satterc registers rothc with catena, so the section resolves by name
         # alone and must carry no `_import_path`.
         assert "_import_path" not in section
         assert "n_years_spinup" in section
@@ -154,9 +162,13 @@ class TestGenerateConfigBuiltinModels:
         assert "pmodel" in config._data
         assert "_import_path" not in config._data["pmodel"]
 
+    def test_unset_settings_stay_out_of_the_config(self):
+        # TOML has no null, so a setting defaulting to None cannot be written.
+        assert "reference_kphio" not in get_model_config("pmodel")
+
     def test_static_input_section_opts_out_of_suffix(self):
         # Static variables are consumed under bare names, so the generated
-        # section must override conduit's default `_<label>` node-name suffix.
+        # section must override catena's default `_<label>` node-name suffix.
         config = generate_config(
             builtin_models=["rothc"],
             custom_modules=[],
@@ -227,3 +239,28 @@ class TestInferRequiredData:
         )
         assert "latitude" not in all_inputs
         assert "longitude" not in all_inputs
+
+
+class TestUnitDiscovery:
+    """`_analyze_model_module` reads every declared unit off a model.
+
+    It silently found none when xarray-annotated moved from bare-string units to
+    `Unit` markers, which changed the generated config without failing a test.
+    """
+
+    @pytest.mark.parametrize(
+        ("model", "node", "unit"),
+        [
+            ("splash", "temperature_daily", "degC"),
+            ("splash", "soil_moisture_daily", "mm"),
+            ("pmodel", "gpp_flux_weekly", "ug m-2 s-1"),
+            ("sgam", "leaf_pool_weekly", "g m-2"),
+            ("rothc", "soil_organic_carbon_monthly", "t ha-1"),
+        ],
+    )
+    def test_reads_input_and_output_units(self, model, node, unit):
+        units: dict[str, str] = {}
+        _analyze_model_module(
+            getattr(models, model), {ENABLE_POWER_USER_MODE: True}, units
+        )
+        assert units.get(node) == unit

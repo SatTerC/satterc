@@ -27,7 +27,7 @@ SatTerC is not on PyPI, so install it from GitHub.
     ```
 
 This installs the `satterc` package and the `satterc` CLI command into your environment, along with everything needed to run the built-in models.
-That is [conduit][conduit], which provides the config parser, the DAG, contract validation, I/O and the `run`, `graph` and `gridded` commands, plus its geospatial and visualisation support, and the model libraries `pyrealm`, `rothc-py` and `sgam`.
+That is [catena][catena], which provides the config parser, the DAG, contract validation, I/O and the `run`, `graph` and `gridded` commands, plus its geospatial and visualisation support, and the model libraries `pyrealm`, `rothc-py` and `sgam`.
 
 There are no extras to choose from.
 SatTerC is pre-alpha and used by a handful of people, so a single install that always works is worth more than a smaller one.
@@ -63,6 +63,6 @@ brew install graphviz
 satterc --version
 ```
 
-This prints the installed SatTerC version and, beneath it, the version of conduit it is running on.
+This prints the installed SatTerC version and, beneath it, the version of catena it is running on.
 
-[conduit]: https://github.com/NERC-CEH/conduit
+[catena]: https://github.com/NERC-CEH/catena

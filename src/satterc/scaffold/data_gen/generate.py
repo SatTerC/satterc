@@ -3,21 +3,20 @@
 Everything is generated at daily resolution — from the tables in
 `satterc.scaffold.data_gen.daily` / `.static` where the variable has an entry,
 and from a name-heuristic fallback otherwise — then aggregated to the coarser
-files with `conduit.transforms.resample`.
+files with `catena.transforms.resample`.
 
 Generation is driven by `satterc.scaffold.data_gen.spec.Resolver`, which
 memoises each variable and resolves dependencies between them on demand.
 """
 
-import json
 from os import PathLike
 from pathlib import Path
 
 import xarray as xr
-from conduit import IOSpec, ParsedConfig
-from conduit.formats import dataset_to_frame, format_for, write_frame, write_in_group
-from conduit.gridded.io import unstack_if_gridded
-from conduit.transforms import resample
+from catena import IOSpec, ParsedConfig
+from catena.formats import format_for
+from catena.gridded.io import unstack_if_gridded
+from catena.transforms import resample
 
 from ...temporal import offset
 from .daily import DAILY_VARS
@@ -35,7 +34,7 @@ from .static import STATIC_VARS
 def _spec_vars(label: str, spec: "IOSpec | None") -> list[str]:
     """Return the file variable names an input section asks for.
 
-    conduit lets ``vars`` be omitted (bind everything in the file) or given as a
+    catena lets ``vars`` be omitted (bind everything in the file) or given as a
     ``{node = file_var}`` mapping. Generation runs before the file exists, so the
     omitted form has nothing to enumerate and is rejected here; the mapping form
     is read for its file-side names, which are what gets written.
@@ -57,28 +56,14 @@ def _spec_vars(label: str, spec: "IOSpec | None") -> list[str]:
 def _save_dataset_with_crs(ds: xr.Dataset, path: str | PathLike) -> None:
     """Save a dataset in whichever format ``path``'s extension names.
 
-    Dispatch is conduit's — `conduit.formats` is the one table of supported
-    formats — with two additions. Tabular formats (CSV, Parquet) are flattened to
-    a time-indexed frame and cannot carry CRS; JSON is written here because
-    conduit reads it but does not write it, and a single-pixel static section is
-    the one case that wants it. NetCDF and Zarr get a CRS global attribute so
-    `conduit.io.load_inputs` takes its geospatial path on the way back in.
+    Dispatch is catena's: `catena.formats` is the one table of supported
+    formats, and raises for any other extension. The CRS global attribute makes
+    `catena.load_inputs` take its geospatial path on the way back in.
     """
     p = Path(path)
     fmt = format_for(p)
-
-    if fmt.key == "json":
-        data = {str(var): float(ds[var].values.flat[0]) for var in ds.data_vars}
-        with open(p, "w") as f:
-            json.dump(data, f, indent=2)
-        return
-
-    if fmt.group == "table":
-        write_frame(dataset_to_frame(ds), p)
-        return
-
     ds.attrs["crs"] = "EPSG:4326"
-    write_in_group(ds, p, "dataset")
+    fmt.write(ds, p)
 
 
 def generate_synthetic_data(
@@ -95,7 +80,7 @@ def generate_synthetic_data(
     Parameters
     ----------
     config : ParsedConfig
-        Parsed configuration from `conduit.load_config`. Input paths in
+        Parsed configuration from `catena.load_config`. Input paths in
         ``config.input_specs`` are used as the destinations for the generated
         files.
     grid : tuple[int, int]

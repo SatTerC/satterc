@@ -122,7 +122,7 @@ class TestGeneratedConfigShape:
     def test_a_bridged_variable_is_not_also_resampled(self, quickstart):
         """`gpp` is loaded daily *and* bridged weekly, so it can be derived twice.
 
-        If the generator emitted the daily-to-weekly resample as well, conduit
+        If the generator emitted the daily-to-weekly resample as well, catena
         would have two definitions of `gpp_weekly`, and the file-loaded one is
         the wrong answer.
         """
